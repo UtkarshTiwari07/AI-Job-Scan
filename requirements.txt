@@ -158,12 +158,12 @@ sympy==1.14.0
 tenacity==9.1.2
 threadpoolctl==3.6.0
 tiktoken==0.8.0
-tokenizers==0.22.2
+
 tomli==2.0.2
 tomli_w==1.1.0
 torch==2.10.0
 tqdm==4.67.1
-transformers==5.0.0
+
 typer==0.21.0
 typer-slim==0.21.1
 typing-inspection==0.4.2
