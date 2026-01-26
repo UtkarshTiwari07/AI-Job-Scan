@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Resume Generator | ATS-Optimized & Human-Verified</title>
+    <meta name="description"
+        content="Generate professional, ATS-friendly resumes that pass AI detection. Powered by multi-agent AI pipeline.">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Name Input Modal (shows on page load) -->
+    <div class="modal-overlay" id="nameModal">
+        <div class="modal-content glass-card">
+            <div class="modal-header">
+                <span class="modal-icon">👤</span>
+                <h2>Welcome to ResumeAI</h2>
+            </div>
+            <p class="modal-description">Please enter your name. This will be used for naming your downloaded resume file (e.g., <strong>John-Doe_Resume.pdf</strong>).</p>
+            <input type="text" id="userName" class="name-input" placeholder="Enter your full name" autocomplete="name">
+            <button class="modal-btn" id="saveNameBtn">Continue →</button>
+        </div>
+    </div>
+
+    <div class="app-container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <span class="logo-icon">📄</span>
+                <h1>Resume<span class="accent">AI</span></h1>
+            </div>
+            <p class="tagline">ATS-Optimized • Human-Verified • AI-Undetectable</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Input Section -->
+            <section class="input-section glass-card">
+                <h2>📥 Upload Your Resume</h2>
+
+                <!-- File Upload -->
+                <div class="upload-zone" id="uploadZone">
+                    <input type="file" id="resumeFile" accept=".pdf,.docx,.txt" hidden>
+                    <div class="upload-content">
+                        <span class="upload-icon">📁</span>
+                        <p>Drag & drop your resume or <span class="upload-link">browse</span></p>
+                        <span class="upload-formats">PDF, DOCX, or TXT</span>
+                    </div>
+                    <div class="file-selected" id="fileSelected" style="display: none;">
+                        <span class="file-icon">✅</span>
+                        <span class="file-name" id="fileName"></span>
+                        <button class="remove-file" id="removeFile">×</button>
+                    </div>
+                </div>
+
+                <!-- Or paste text -->
+                <div class="divider">
+                    <span>or paste your resume</span>
+                </div>
+
+                <textarea id="resumeText" class="textarea" placeholder="Paste your current resume text here...
+
+Example:
+John Doe | Software Engineer
+john@email.com | (555) 123-4567
+
+EXPERIENCE
+Senior Developer at Tech Corp (2020-Present)
+- Built scalable applications
+- Led team of 5 engineers
+
+SKILLS
+Python, JavaScript, AWS, Docker
+
+EDUCATION
+B.S. Computer Science" rows="8"></textarea>
+            </section>
+
+            <!-- Job Description Section -->
+            <section class="input-section glass-card">
+                <h2>🎯 Target Job Description</h2>
+                <textarea id="jobDescription" class="textarea" placeholder="Paste the job posting here...
+
+Example:
+We're looking for a Senior Software Engineer to join our team.
+
+Requirements:
+- 5+ years of experience in Python or JavaScript
+- Experience with cloud platforms (AWS, GCP, Azure)
+- Strong communication and leadership skills
+- Background in building scalable systems
+
+Nice to have:
+- Experience with machine learning
+- Knowledge of containerization (Docker, Kubernetes)" rows="8" required></textarea>
+            </section>
+
+            <!-- Instructions Section -->
+            <section class="input-section glass-card">
+                <h2>✨ Your Instructions</h2>
+                <textarea id="instructions" class="textarea small" placeholder="Any specific instructions? (Optional)
+
+Examples:
+- Focus on my leadership experience
+- Highlight cloud certifications
+- Emphasize Python skills over JavaScript
+- Make it more concise" rows="4"></textarea>
+            </section>
+
+            <!-- Generate Button -->
+            <button class="generate-btn" id="generateBtn">
+                <span class="btn-icon">🚀</span>
+                <span class="btn-text">Generate ATS-Optimized Resume</span>
+            </button>
+
+            <!-- Progress Section -->
+            <section class="progress-section glass-card" id="progressSection" style="display: none;">
+                <h2>⚙️ Generating Your Resume...</h2>
+                <div class="progress-steps">
+                    <div class="step" id="step1">
+                        <span class="step-icon">📝</span>
+                        <span class="step-text">Creating ATS-optimized resume</span>
+                        <span class="step-status"></span>
+                    </div>
+                    <div class="step" id="step2">
+                        <span class="step-icon">🔍</span>
+                        <span class="step-text">Analyzing for AI patterns</span>
+                        <span class="step-status"></span>
+                    </div>
+                    <div class="step" id="step3">
+                        <span class="step-icon">✍️</span>
+                        <span class="step-text">Humanizing content</span>
+                        <span class="step-status"></span>
+                    </div>
+                    <div class="step" id="step4">
+                        <span class="step-icon">✅</span>
+                        <span class="step-text">Final verification</span>
+                        <span class="step-status"></span>
+                    </div>
+                </div>
+                <div class="loading-bar">
+                    <div class="loading-progress" id="loadingProgress"></div>
+                </div>
+            </section>
+
+            <!-- Result Section -->
+            <section class="result-section glass-card" id="resultSection" style="display: none;">
+                <div class="result-header">
+                    <h2>🎉 Your Optimized Resume</h2>
+                    <div class="result-stats">
+                        <div class="stat">
+                            <span class="stat-value" id="aiScore">--</span>
+                            <span class="stat-label">AI Score</span>
+                        </div>
+                        <div class="stat">
+                            <span class="stat-value" id="iterations">--</span>
+                            <span class="stat-label">Iterations</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="result-content">
+                    <pre id="resumeOutput"></pre>
+                </div>
+
+                <div class="result-actions">
+                    <button class="action-btn primary" id="copyBtn">
+                        <span>📋</span> Copy to Clipboard
+                    </button>
+                    <button class="action-btn outline" id="regenerateBtn">
+                        <span>🔄</span> Regenerate
+                    </button>
+                </div>
+
+                <div class="download-section">
+                    <h3>📥 Download Your Resume</h3>
+                    <div class="download-buttons">
+                        <button class="download-btn" id="downloadPdf">
+                            <span class="download-icon">📄</span>
+                            <span class="download-format">PDF</span>
+                            <span class="download-desc">Print-ready</span>
+                        </button>
+                        <button class="download-btn" id="downloadDocx">
+                            <span class="download-icon">📝</span>
+                            <span class="download-format">DOCX</span>
+                            <span class="download-desc">Editable</span>
+                        </button>
+                        <button class="download-btn" id="downloadMd">
+                            <span class="download-icon">📑</span>
+                            <span class="download-format">Markdown</span>
+                            <span class="download-desc">Plain text</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section glass-card" id="errorSection" style="display: none;">
+                <h2>❌ Error</h2>
+                <p class="error-message" id="errorMessage"></p>
+                <button class="action-btn primary" id="retryBtn">Try Again</button>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>Built with ❤️ using CrewAI + Gemini API</p>
+            <p class="footer-note">Your data is processed locally and not stored.</p>
+        </footer>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+
+</html>
