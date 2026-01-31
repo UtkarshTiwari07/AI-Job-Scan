@@ -4,7 +4,11 @@ Flask Web Application - Resume Generator API and UI
 import os
 import uuid
 import json
+import threading
+import traceback
 from datetime import datetime
+from concurrent.futures import ThreadPoolExecutor
+
 from flask import Flask, render_template, request, jsonify, send_file
 from werkzeug.utils import secure_filename
 from dotenv import load_dotenv
@@ -31,10 +35,45 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # In-memory job storage (use Redis/DB in production)
 jobs = {}
 
+# Initialize ThreadPoolExecutor
+# M4 Air (16GB): 8 workers is a safe balance for memory vs speed.
+# With 2 Gunicorn workers, total concurrency = 16 jobs.
+# Extra jobs will queue in memory automatically.
+executor = ThreadPoolExecutor(max_workers=8)
+
 
 def allowed_file(filename):
     """Check if file extension is allowed."""
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+
+
+@app.route('/sitemap.xml')
+def sitemap():
+    """Generate sitemap.xml dynamically."""
+    base_url = "https://humanizeresumeai.com"
+    curr_date = datetime.now().strftime("%Y-%m-%d")
+    
+    xml = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url>
+    <loc>{base_url}/</loc>
+    <lastmod>{curr_date}</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>1.0</priority>
+  </url>
+</urlset>"""
+    return app.response_class(xml, mimetype='application/xml')
+
+
+@app.route('/robots.txt')
+def robots():
+    """Serve robots.txt."""
+    txt = """User-agent: *
+Allow: /
+Sitemap: https://humanizeresumeai.com/sitemap.xml
+"""
+    return app.response_class(txt, mimetype='text/plain')
 
 
 @app.route('/')
@@ -43,19 +82,59 @@ def index():
     return render_template('index.html')
 
 
+
+def process_resume_job(job_id, resume_text, job_description, instructions):
+    """
+    Background worker function for resume generation.
+    Run this in a separate thread/executor.
+    """
+    print(f"🧵 Starting background job {job_id}")
+    try:
+        # Update status to processing (already set, but good to confirm)
+        if job_id in jobs:
+            jobs[job_id]["status"] = "processing"
+            
+        # Initialize Crew
+        crew = ResumeCrew(max_iterations=2)  # Reduced iterations for speed
+        
+        # Run generation pipeline
+        result = crew.generate_resume(
+            original_resume=resume_text,
+            job_description=job_description,
+            user_instructions=instructions
+        )
+        
+        if job_id not in jobs:
+            print(f"❌ Job {job_id} not found immediately after generation")
+            return
+
+        # Export to all formats
+        export_paths = export_resume(
+            result["final_resume"], 
+            job_id, 
+            app.config['UPLOAD_FOLDER']
+        )
+        
+        # Update job with results
+        jobs[job_id]["status"] = "completed"
+        jobs[job_id]["result"] = result
+        jobs[job_id]["export_paths"] = export_paths
+        
+        print(f"✅ Job {job_id} completed successfully")
+        
+    except Exception as e:
+        print(f"❌ Job {job_id} failed: {e}")
+        traceback.print_exc()
+        if job_id in jobs:
+            jobs[job_id]["status"] = "failed"
+            jobs[job_id]["error"] = str(e)
+
+
 @app.route('/api/generate', methods=['POST'])
 def generate_resume():
     """
-    Main API endpoint for resume generation.
-    
-    Accepts:
-    - resume_file: Uploaded resume file (PDF, DOCX, TXT)
-    - resume_text: Raw resume text (alternative to file)
-    - job_description: Target job description
-    - instructions: User's custom instructions
-    
-    Returns:
-    - job_id: ID to track the generation status
+    Async API endpoint for resume generation.
+    Returns a job_id immediately. Client polls /api/status/<job_id>.
     """
     try:
         # Get resume content (from file or text)
@@ -80,6 +159,15 @@ def generate_resume():
             return jsonify({
                 "error": "Job description is required."
             }), 400
+            
+        # Verify Access Code
+        access_code = request.form.get('access_code', '').strip()
+        required_code = os.getenv("ACCESS_CODE", "UTKARSH2026")
+        
+        if access_code != required_code:
+            return jsonify({
+                "error": "Invalid Access Code. Please check the LinkedIn post for the correct code."
+            }), 403
         
         # Get user instructions
         instructions = request.form.get('instructions', '')
@@ -87,60 +175,28 @@ def generate_resume():
         # Generate job ID
         job_id = str(uuid.uuid4())[:8]
         
-        # Store job info
+        # Store initial job info
         jobs[job_id] = {
-            "status": "processing",
+            "status": "pending",
             "created_at": datetime.now().isoformat(),
-            "resume_text": resume_text,
-            "job_description": job_description,
-            "instructions": instructions,
+            "resume_text": resume_text[:100] + "...", # Store snippet only to save memory
+            "job_description": job_description[:100] + "...",
             "result": None,
-            "error": None,
-            "export_paths": None
+            "error": None
         }
         
-        # Run the pipeline (synchronous for simplicity)
-        # In production, use Celery or background tasks
-        try:
-            crew = ResumeCrew(max_iterations=5)
-            result = crew.generate_resume(
-                original_resume=resume_text,
-                job_description=job_description,
-                user_instructions=instructions
-            )
-            
-            jobs[job_id]["status"] = "completed"
-            jobs[job_id]["result"] = result
-            
-            # Export to all formats (PDF, DOCX, Markdown)
-            export_paths = export_resume(
-                result["final_resume"], 
-                job_id, 
-                UPLOAD_FOLDER
-            )
-            jobs[job_id]["export_paths"] = export_paths
-            
-            return jsonify({
-                "job_id": job_id,
-                "status": "completed",
-                "ai_score": result["ai_score"],
-                "iterations": result["iterations"],
-                "resume": result["final_resume"],
-                "downloads": {
-                    "markdown": f"/api/download/{job_id}/md",
-                    "docx": f"/api/download/{job_id}/docx",
-                    "pdf": f"/api/download/{job_id}/pdf"
-                }
-            })
-            
-        except Exception as e:
-            jobs[job_id]["status"] = "failed"
-            jobs[job_id]["error"] = str(e)
-            return jsonify({
-                "job_id": job_id,
-                "status": "failed",
-                "error": str(e)
-            }), 500
+        # Submit to ThreadPoolExecutor (Managed Queue)
+        executor.submit(
+            process_resume_job,
+            job_id, resume_text, job_description, instructions
+        )
+        
+        # Return immediately with job ID
+        return jsonify({
+            "job_id": job_id,
+            "status": "pending",
+            "message": "Resume generation started in background."
+        })
             
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -213,10 +269,12 @@ def download_resume(job_id, format='md'):
 def health_check():
     """Health check endpoint."""
     # Check if API key is configured
+    deepseek_key = os.getenv("DEEPSEEK_API_KEY", "")
     gemini_key = os.getenv("GEMINI_API_KEY", "")
     groq_key = os.getenv("GROQ_API_KEY", "")
     
     api_configured = (
+        (deepseek_key and deepseek_key != "your_deepseek_api_key_here") or
         (gemini_key and gemini_key != "your_gemini_api_key_here") or
         (groq_key and groq_key != "your_groq_api_key_here")
     )
@@ -233,8 +291,8 @@ if __name__ == '__main__':
     print("🚀 AI Resume Generator - Starting Server")
     print("="*60)
     print("\n📍 Open http://localhost:5000 in your browser")
-    print("\n⚠️  Make sure to set your GEMINI_API_KEY in .env file!")
-    print("   Get a free key at: https://aistudio.google.com/")
+    print("\n⚠️  Make sure to set your DEEPSEEK_API_KEY in .env file!")
+    print("   Get a key at: https://platform.deepseek.com/")
     print("\n" + "="*60 + "\n")
     
     app.run(debug=True, host='0.0.0.0', port=5000)
