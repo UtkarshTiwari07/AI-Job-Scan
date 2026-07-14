@@ -18,115 +18,34 @@ warnings.filterwarnings("ignore", message="urllib3 .* doesn't match a supported 
 
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
-from openai import OpenAI
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from jobscan_config import load_config
+import jobscan_llm
 
 # ══════════════════════════════════════════════════════════════════
 # CONFIG
 # ══════════════════════════════════════════════════════════════════
 
-DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
+cfg = load_config("remote")
+
 SERPER_API_KEY   = os.getenv("SERPER_API_KEY")
 SEEN_FP_FILE     = os.path.join(os.path.dirname(__file__), "seen_fp_remote.json")
-MAX_POSTING_AGE_DAYS = 3   # Serper uses qdr:w, Phase 3 enforces 3 days
+MAX_POSTING_AGE_DAYS = cfg.max_posting_age_days
 
-TARGET_SITES = [
-    "remoteok.com", "weworkremotely.com", "himalayas.app", "remotive.com",
-    "wellfound.com", "arc.dev", "contra.com", "braintrust.us", "torre.ai", "linkedin.com",
-]
-PORTAL_SITES = [
-    "site:boards.greenhouse.io", "site:jobs.lever.co", "site:jobs.ashbyhq.com",
-    "site:huggingface.co/jobs", "site:cohere.com/careers", "site:mistral.ai/careers",
-    "site:together.ai/careers", "site:modal.com/careers", "site:replicate.com/careers",
-    "site:anyscale.com/careers",
-]
-LINKEDIN_DIRECT_URLS = [
-    "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&f_WT=2&f_TPR=r259200&f_E=2",
-    "https://www.linkedin.com/jobs/search/?keywords=AI%20Agent%20Engineer&f_WT=2&f_TPR=r259200",
-    "https://www.linkedin.com/jobs/search/?keywords=voice%20AI%20engineer&f_WT=2&f_TPR=r259200",
-    "https://www.linkedin.com/jobs/search/?keywords=RAG%20engineer%20remote&f_WT=2&f_TPR=r259200",
-    "https://www.linkedin.com/jobs/search/?keywords=generative%20AI%20engineer%20worldwide&f_TPR=r259200&f_E=2",
-]
-WELLFOUND_DIRECT_URLS = [
-    "https://wellfound.com/jobs?q=LLM+engineer&remote=true",
-    "https://wellfound.com/jobs?q=AI+agent+engineer&remote=true",
-    "https://wellfound.com/jobs?q=voice+AI&remote=true",
-    "https://wellfound.com/jobs?q=RAG+engineer&remote=true",
-]
+QUERY_CLUSTERS = cfg.query_clusters
+DIRECT_URLS    = cfg.direct_urls
+SERPER_EXTRA   = cfg.serper_extra
 
-QUERY_CLUSTERS = [
-    {
-        "name": "A1 — Voice AI / LLM Remote [per-site]",
-        "terms": '("voice AI" OR "LLM engineer" OR "AI agent engineer") ("worldwide remote" OR "fully remote") -senior -lead',
-        "num": 20, "sites": TARGET_SITES, "broad": False,
-    },
-    {
-        "name": "A2 — RAG / LangChain / FastAPI Remote [per-site]",
-        "terms": '("RAG engineer" OR "LangChain" OR "CrewAI" OR "FastAPI" OR "LLM ops") ("fully remote" OR "worldwide") -senior -lead',
-        "num": 20, "sites": TARGET_SITES, "broad": False,
-    },
-    {
-        "name": "A3 — GenAI Entry-Level Remote [per-site]",
-        "terms": '"generative AI engineer" OR "AI engineer" ("fully remote" OR "worldwide") ("0-2 years" OR "entry level" OR "junior") -senior',
-        "num": 20, "sites": TARGET_SITES, "broad": False,
-    },
-    {
-        "name": "B1 — Voice AI Worldwide [broad]",
-        "terms": '"voice AI engineer" OR "conversational AI engineer" OR "LiveKit engineer" ("fully remote" OR "worldwide") -senior -lead',
-        "num": 20, "sites": ["_broad_"], "broad": True,
-    },
-    {
-        "name": "B2 — LLM / RAG Worldwide [broad]",
-        "terms": '"LLM engineer" OR "RAG engineer" OR "agentic AI engineer" ("fully remote" OR "worldwide" OR "async") ("junior" OR "entry" OR "0-2 years") -senior',
-        "num": 20, "sites": ["_broad_"], "broad": True,
-    },
-    {
-        "name": "B3 — Remote-First AI Startups [broad]",
-        "terms": '("remote-first startup" OR "async company" OR "distributed team") "AI engineer" OR "LLM platform" ("junior" OR "entry") -"data scientist" -"DevOps"',
-        "num": 20, "sites": ["_broad_"], "broad": True,
-    },
-    {
-        "name": "C1 — Greenhouse / Lever / Ashby Portals",
-        "terms": '"LLM" OR "RAG" OR "voice AI" OR "LangChain" ("fully remote" OR "remote") ("junior" OR "0-2 years" OR "entry")',
-        "num": 10, "sites": PORTAL_SITES, "broad": False, "sites_preformatted": True,
-    },
-    {
-        "name": "D1 — Python AI Backend Remote [broad]",
-        "terms": '("AI infrastructure engineer" OR "LLM platform engineer" OR "AI backend engineer") ("fully remote" OR "worldwide") ("junior" OR "entry" OR "0-3 years") -"data scientist" -"DevOps" -"SRE"',
-        "num": 20, "sites": ["_broad_"], "broad": True,
-    },
-]
+CANDIDATE_PROFILE = cfg.profile
 
-CANDIDATE_PROFILE = {
-    "name": "Utkarsh Tiwari",
-    "stack": "AI Engineer (1 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
-    "metrics": "Built production voice AI for 2,000+ concurrent calls. Reduced LLM cold-start 10.4x (3.9s→378ms). Trained LightGBM on 716K+ records. Reduced AI-content detection from 100%→30%.",
-}
-
-RECRUITER_PATTERN = re.compile(r"\b(recruit|staffing|placement agency|hr solutions|manpower)\b", re.IGNORECASE)
-TITLE_REJECT_PATTERNS = re.compile(
-    r"(medical writer|medical editor|biostatistic|clinical research|"
-    r"data analyst|business analyst|data modeler|data scientist|mlops|"
-    r"data engineer(?!.*ai)|computer vision|cv engineer|"
-    r"java\b|\.net\b|android\b|ios\b|devops(?!.*ai)|sysadmin|network engineer|"
-    r"blockchain|solidity|frontend developer|support consultant|technical support(?!.*ai))",
-    re.IGNORECASE,
-)
-EXPERIENCE_TITLE_REJECT = re.compile(r"\b(senior|lead|principal|manager|director|vp |head of|staff engineer)\b", re.IGNORECASE)
-EXPERIENCE_YEARS_REJECT = ["4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+"]
-REMOTE_PASS_TOKENS   = ["remote", "work from home", "wfh", "anywhere", "worldwide", "globally"]
-REMOTE_REJECT_TOKENS = ["on-site only", "onsite only", "must be in office", "must relocate"]
-GEO_LOCK_TOKENS = [
-    "united states only", "us only", "us-based", "us residents", "us citizens",
-    "must be in the us", "must be located in", "authorized to work in the us",
-    "right to work in the uk", "uk-based", "uk residents",
-    "canada only", "australia only", "eu only", "europe only",
-    "remote (us)", "remote (usa)", "remote (uk)", "remote (canada)",
-    "remote, united states", "remote, usa", "us permanent resident", "green card",
-]
-EDUCATION_REJECT_TOKENS = [
-    "master's degree required", "masters degree required", "m.s. required",
-    "msc required", "phd required", "ph.d", "doctorate required",
-]
+RECRUITER_PATTERN       = cfg.recruiter_re
+TITLE_REJECT_PATTERNS   = cfg.title_reject_re
+EXPERIENCE_TITLE_REJECT = cfg.seniority_reject_re
+EXPERIENCE_YEARS_REJECT = cfg.experience_years_reject
+REMOTE_PASS_TOKENS      = cfg.remote_pass_tokens
+REMOTE_REJECT_TOKENS    = cfg.remote_reject_tokens
+GEO_LOCK_TOKENS         = cfg.geo_lock_tokens
+EDUCATION_REJECT_TOKENS = cfg.education_reject_tokens
 
 # ══════════════════════════════════════════════════════════════════
 # CROSS-RUN DEDUP
@@ -166,7 +85,7 @@ def search_for_jobs() -> List[str]:
             print(f"     → [BROAD] {query[:110]}")
             try:
                 resp = requests.post(api_url, headers=headers,
-                    data=json.dumps({"q": query, "num": cluster["num"], "tbs": "qdr:w"}), timeout=15)
+                    data=json.dumps({"q": query, "num": cluster["num"], "tbs": "qdr:w", **SERPER_EXTRA}), timeout=15)
                 resp.raise_for_status()
                 found = 0
                 for r in resp.json().get("organic", []):
@@ -182,7 +101,7 @@ def search_for_jobs() -> List[str]:
                 print(f"     → {query[:120]}")
                 try:
                     resp = requests.post(api_url, headers=headers,
-                        data=json.dumps({"q": query, "num": cluster["num"], "tbs": "qdr:w"}), timeout=15)
+                        data=json.dumps({"q": query, "num": cluster["num"], "tbs": "qdr:w", **SERPER_EXTRA}), timeout=15)
                     resp.raise_for_status()
                     found = 0
                     for r in resp.json().get("organic", []):
@@ -192,7 +111,7 @@ def search_for_jobs() -> List[str]:
                     print(f"       ✓ {found} from {site.rsplit('/',1)[-1]}")
                 except Exception as e: print(f"     ⚠️ Serper error ({site}): {e}")
 
-    inject = LINKEDIN_DIRECT_URLS + WELLFOUND_DIRECT_URLS
+    inject = DIRECT_URLS
     print(f"\n  🔗 Injecting {len(inject)} direct URLs...")
     for url in inject:
         if url not in seen_urls: seen_urls.add(url); all_urls.append(url)
@@ -210,13 +129,7 @@ class ScrapedJob(BaseModel):
     job_type: str = ""; pay_text: str = ""; experience_text: str = ""
     description_snippet: str = ""
 
-SCRAPE_INSTRUCTION = """Extract EVERY job posting on this page. For each return:
-title, company, url (direct apply link), site (domain),
-posted_date (ISO or relative like '3 hours ago' — ALWAYS fill),
-location_text, is_remote (true/false), job_type,
-pay_text (salary or empty), experience_text (years/level — ALWAYS fill),
-description_snippet (first 400 chars — ALWAYS fill even if partial).
-Return [] if not a job listing."""
+SCRAPE_INSTRUCTION = cfg.scrape_instruction
 
 async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
     from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, LLMConfig
@@ -224,7 +137,7 @@ async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
     import logging; logging.getLogger("crawl4ai").setLevel(logging.ERROR)
     print(f"\n🕷️  PHASE 2 — Crawl4AI scraping {len(urls)} URLs...")
     strategy = LLMExtractionStrategy(
-        llm_config=LLMConfig(provider="deepseek/deepseek-chat", api_token=DEEPSEEK_API_KEY),
+        llm_config=LLMConfig(provider=jobscan_llm.get_model(), api_token=jobscan_llm.resolve_token()),
         schema=ScrapedJob.model_json_schema(), extraction_type="schema", instruction=SCRAPE_INSTRUCTION)
     run_cfg = CrawlerRunConfig(extraction_strategy=strategy, cache_mode=CacheMode.BYPASS, magic=True)
     all_jobs: List[dict] = []; seen_fp: Set[str] = set()
@@ -316,61 +229,65 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
 # PHASE 4 — DEEPSEEK V3
 # ══════════════════════════════════════════════════════════════════
 
-EVAL_SYSTEM = """You are {name}'s worldwide-remote job agent. Candidate is India-based.
-Stack: {stack}
-Metrics: {metrics}
+EVAL_SYSTEM = cfg.eval_system
 
-RULES:
-- Role MUST be 100% worldwide remote (reject if US/UK/EU residency required).
-- Any type (full-time/contract/freelance) is fine.
-- Reject: pure data science, MLOps-only, DevOps-only, Java/.NET, unrelated to AI/LLM.
-- Empty description_snippet but clear AI title → is_match=true, score=60, note "description unavailable".
-- 1 YOE but production-scale — don't reject purely due to YOE.
-
-For is_match=true: drafted_proposal (3 paras: achievement → stack fit → metric + CTA).
-For is_match=false: rejection_reason (1 sentence).
-{format_instructions}"""
-
-FORMAT_INSTRUCTIONS = 'Return ONLY valid JSON: {"evaluated_jobs":[{"is_match":true/false,"job_title":"string","company":"string","application_url":"string","match_score":0-100,"rejection_reason":"string or null","drafted_proposal":"string or null"}]}'
+FORMAT_INSTRUCTIONS = cfg.format_instructions
 
 def evaluate_and_draft(candidates: List[dict]) -> str:
-    if not candidates: return json.dumps({"evaluated_jobs": []}, indent=2)
-    print(f"\n🧠 PHASE 4 — DeepSeek V3 evaluating {len(candidates)} candidates...")
-    client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
-    system_prompt = EVAL_SYSTEM.format(name=CANDIDATE_PROFILE["name"], stack=CANDIDATE_PROFILE["stack"],
-        metrics=CANDIDATE_PROFILE["metrics"], format_instructions=FORMAT_INSTRUCTIONS)
+    if not candidates:
+        return json.dumps({"evaluated_jobs": []}, indent=2)
 
-    def call_ds(batch, bn, total):
-        print(f"  📦 Batch {bn}/{total}...")
+    model = jobscan_llm.get_model()
+    print(f"\n🧠 PHASE 4 — {model} evaluating {len(candidates)} candidates...")
+
+    system_prompt = EVAL_SYSTEM.format(
+        name=CANDIDATE_PROFILE.get("name", ""),
+        stack=CANDIDATE_PROFILE.get("stack", ""),
+        metrics=CANDIDATE_PROFILE.get("metrics", ""),
+        location=CANDIDATE_PROFILE.get("location", ""),
+        min_rate=CANDIDATE_PROFILE.get("min_rate", ""),
+        format_instructions=FORMAT_INSTRUCTIONS,
+    )
+
+    def call_llm(batch: List[dict], batch_num: int, total: int) -> List[dict]:
+        print(f"  📦 Batch {batch_num}/{total} ({len(batch)} jobs)...")
         text = ""
         try:
-            resp = client.chat.completions.create(model="deepseek-chat", max_tokens=14000,
-                messages=[{"role":"system","content":system_prompt},
-                          {"role":"user","content":f"Jobs:\n{json.dumps(batch, indent=2)}"}],
-                extra_body={"thinking":{"type":"enabled"}})
-            reasoning = getattr(resp.choices[0].message, "reasoning_content", None)
+            text, reasoning = jobscan_llm.chat_completion(
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": f"Jobs:\n{json.dumps(batch, indent=2)}"},
+                ],
+                max_tokens=14000,
+            )
             if reasoning:
                 lines = reasoning.strip().splitlines()
-                print(f"  💭 Thinking ({bn}, {len(lines)} lines):")
-                for l in lines[:20]: print(f"  {l}")
-                if len(lines)>20: print(f"  ...({len(lines)-20} more)")
-            text = resp.choices[0].message.content or ""
-            if "```json" in text: text=text.split("```json")[1].split("```")[0].strip()
-            elif "```" in text: text=text.split("```")[1].split("```")[0].strip()
-            return json.loads(text).get("evaluated_jobs",[])
+                print(f"  💭 Thinking (batch {batch_num}, {len(lines)} lines):")
+                for line in lines[:20]:
+                    print(f"  {line}")
+                if len(lines) > 20:
+                    print(f"  ... ({len(lines)-20} more)")
+            text = text or ""
+            if "```json" in text:
+                text = text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text:
+                text = text.split("```")[1].split("```")[0].strip()
+            return json.loads(text).get("evaluated_jobs", [])
         except Exception as e:
-            print(f"  ⚠️ Batch {bn} error: {e}")
-            if text: print("  Raw:", text[:400])
+            print(f"  ⚠️ Batch {batch_num} error: {e}")
+            if text:
+                print("  📄 Raw:", text[:400])
             return []
 
-    batches=[candidates[i:i+10] for i in range(0,len(candidates),10)]
-    all_eval: List[dict]=[]
-    for idx,batch in enumerate(batches,1):
-        results=call_ds(batch,idx,len(batches))
-        all_eval.extend(results)
-        hits=sum(1 for j in results if j.get("is_match"))
-        print(f"  ✅ {idx}/{len(batches)} — {hits}/{len(results)} matched, total: {len(all_eval)}")
-    return json.dumps({"evaluated_jobs":all_eval},indent=2)
+    batches = [candidates[i:i+10] for i in range(0, len(candidates), 10)]
+    all_evaluated: List[dict] = []
+    for idx, batch in enumerate(batches, 1):
+        results = call_llm(batch, idx, len(batches))
+        all_evaluated.extend(results)
+        hits = sum(1 for j in results if j.get("is_match"))
+        print(f"  ✅ Batch {idx}/{len(batches)} — {hits}/{len(results)} matched, total: {len(all_evaluated)}")
+
+    return json.dumps({"evaluated_jobs": all_evaluated}, indent=2)
 
 # ══════════════════════════════════════════════════════════════════
 # MOCK + MAIN

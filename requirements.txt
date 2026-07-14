@@ -1,0 +1,10 @@
+# Core pipeline
+crawl4ai>=0.4          # headless-browser scraping + LLM extraction (Phase 2)
+litellm>=1.40          # one interface to OpenAI/Anthropic/Gemini/DeepSeek/Groq/... (Phase 2 & 4)
+pydantic>=2            # scraped-job schema
+requests>=2.28         # Serper.dev search calls (Phase 1)
+python-dotenv>=1.0     # load .env
+PyYAML>=6.0            # read config/*.yaml
+
+# Optional — only needed to read a PDF résumé in `python job/init_profile.py resume.pdf`
+# pypdf>=4.0
