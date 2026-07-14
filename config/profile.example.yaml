@@ -1,0 +1,45 @@
+# ────────────────────────────────────────────────────────────────────
+# AI-Job-Scan — YOUR PROFILE
+# ────────────────────────────────────────────────────────────────────
+# Copy this file to  config/profile.yaml  and fill in your details, OR
+# generate it automatically:   python job/init_profile.py
+#
+# This profile feeds the per-job proposal/cover-letter the agent drafts,
+# and a couple of filters (salary floor, geo framing). The AI/ML search
+# tuning lives separately in config/{remote,freelance,india_mnc}.yaml.
+# ────────────────────────────────────────────────────────────────────
+
+# Your name — used to sign drafted proposals.
+name: "Your Name"
+
+# One-line headline. Prepended to `stack` when talking to the LLM.
+headline: "AI Engineer (2 YOE)"
+
+# Your core technical stack. Be specific — this is what the model matches
+# jobs against and weaves into every proposal.
+stack: "Python, PyTorch, RAG, LLMs (GPT-4 / Claude / Gemini), LangChain, CrewAI, FastAPI, Pinecone, vector databases, prompt engineering"
+
+# Quantified achievements. Numbers make proposals land — replace these
+# with your own real, verifiable wins.
+metrics: >-
+  Built a RAG assistant serving 10k+ monthly users; cut LLM response latency
+  ~3x with caching and streaming; fine-tuned an open LLM (LoRA) for domain Q&A;
+  shipped production FastAPI services backing AI features.
+
+# Where you are based / can work from. Used for geo framing in proposals
+# and worldwide-remote checks.
+location: "India"
+
+# Years of professional experience (integer). Informs seniority framing.
+experience_years: 2
+
+# Minimum acceptable hourly rate in USD (freelance mode pay floor).
+# Set to null to disable the pay filter.
+salary_min_usd_per_hour: 30
+
+# Roles you want to target. Used for reference / future tuning.
+target_roles:
+  - "LLM engineer"
+  - "RAG engineer"
+  - "AI agent engineer"
+  - "AI/ML engineer"
