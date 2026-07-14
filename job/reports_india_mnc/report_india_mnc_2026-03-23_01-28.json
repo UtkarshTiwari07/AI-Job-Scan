@@ -1,0 +1,976 @@
+{
+  "evaluated_jobs": [
+    {
+      "is_match": false,
+      "job_title": "Sr. Tech Business Developer, Just Walk Out Technology by Amazon - AWS Solutions",
+      "company": "Amazon",
+      "application_url": "https://amazon.jobs/jobs/3203334",
+      "match_score": null,
+      "rejection_reason": "Role is business development, not AI engineering, and location is not India-accessible.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Software Developer 3",
+      "company": "Oracle",
+      "application_url": "https://careers.oracle.com/en/sites/jobsearch/job/294674/?keyword=AI+ML&location=India",
+      "match_score": 70,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Oracle Hiring Team,\n\nI am excited to apply for the Software Developer 3 role in OCI AI space, where I can contribute to building scalable AI solutions. In my previous role, I built a production AI voice infrastructure that handled over 2,000 concurrent calls, demonstrating my ability to deliver robust systems at scale.\n\nMy technical stack aligns perfectly with modern AI engineering: I have hands-on experience with Python, PyTorch for model development, and extensive work with LLMs including GPT-4 and LLaMA fine-tuning. I've implemented RAG systems using Pinecone and LangChain, and built high-performance backends with FastAPI. Additionally, I've integrated real-time voice components with LiveKit, Deepgram STT, and ElevenLabs TTS, which could enhance OCI's AI offerings.\n\nA key achievement was reducing LLM cold-start latency from 3.9 seconds to 378 milliseconds (a 10.4x improvement) using Groq and Pinecone optimizations. I am confident in my ability to tackle challenges in OCI AI and would welcome the opportunity to discuss how I can contribute to your team.\n\nBest regards,\nUtkarsh Tiwari"
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer",
+      "company": "Adobe",
+      "application_url": "https://careers.adobe.com/us/en/apply?jobSeqNo=ADOBUSR165179EXTERNALENUS",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Adobe Hiring Team,\n\nI am writing to express my interest in the AI Engineer position, particularly drawn to your focus on scalable AI platforms and LLM serving. My experience includes designing and deploying production AI systems, such as a voice infrastructure handling 2,000+ concurrent calls, which aligns with Adobe's innovation in AI-driven solutions.\n\nMy expertise spans the full stack of AI development: from fine-tuning LLMs like LLaMA with LoRA and building multi-agent architectures with CrewAI and LangChain, to deploying scalable APIs with FastAPI. I have optimized RAG systems using Pinecone and integrated real-time speech technologies with LiveKit, Deepgram, and ElevenLabs, ensuring low-latency, high-throughput performance.\n\nI successfully reduced LLM cold-start latency by 10.4x, from 3.9s to 378ms, by leveraging Groq and Pinecone, directly relevant to efficient LLM serving. I am eager to bring this production-scale experience to Adobe and would be thrilled to interview for this role.\n\nSincerely,\nUtkarsh Tiwari"
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Controls Engineer",
+      "company": "Adobe",
+      "application_url": "https://careers.adobe.com/us/en/apply?jobSeqNo=ADOBUSR165913EXTERNALENUS",
+      "match_score": null,
+      "rejection_reason": "Location is not in India and role is focused on AI controls, not core AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Forward Deployed AI Engineer",
+      "company": "Adobe",
+      "application_url": "https://careers.adobe.com/us/en/apply?jobSeqNo=ADOBUSR158364EXTERNALENUS",
+      "match_score": null,
+      "rejection_reason": "Location is not India-accessible.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Agent Engineer, Brand Concierge",
+      "company": "Adobe",
+      "application_url": "https://careers.adobe.com/us/en/apply?jobSeqNo=ADOBUSR158282EXTERNALENUS",
+      "match_score": null,
+      "rejection_reason": "Location is not in India.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Applied Scientist, LLM Code Agents, Kiro Science",
+      "company": "Amazon",
+      "application_url": "https://amazon.jobs/jobs/3124785",
+      "match_score": null,
+      "rejection_reason": "Location is not in India.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Sr. Worldwide Partner Specialist - Database & Analytics, Data & AI GTM",
+      "company": "Amazon",
+      "application_url": "https://amazon.jobs/jobs/3207949",
+      "match_score": null,
+      "rejection_reason": "Role is sales/business development, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer, PhD, Early Career, 2026",
+      "company": "Google",
+      "application_url": "https://www.google.com/about/careers/applications/jobs/results/jobs/results/108281679147082438-software-engineer-phd-early-career-2026?company=Google&jex=ENTRY_LEVEL&location=India&q=AI+engineer",
+      "match_score": null,
+      "rejection_reason": "Requires PhD degree, which candidate does not have.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Research Scientist Intern, PhD, 2026",
+      "company": "Google",
+      "application_url": "https://www.google.com/about/careers/applications/jobs/results/jobs/results/74549017010152134-research-scientist-intern-phd-2026?company=Google&jex=ENTRY_LEVEL&location=India&q=AI+engineer",
+      "match_score": null,
+      "rejection_reason": "Internship requires current PhD enrollment, not suitable for candidate's profile.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Post-Doctoral Researcher, PhD, 2026 Start (Fixed-Term Contract)",
+      "company": "Google",
+      "application_url": "https://www.google.com/about/careers/applications/jobs/results/jobs/results/122538034422784710-postdoctoral-researcher-phd-2026-start-fixedterm-contract?company=Google&jex=ENTRY_LEVEL&location=India&q=AI+engineer",
+      "match_score": null,
+      "rejection_reason": "Role requires PhD and research focus, not aligned with production AI engineering experience.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Student Researcher, 2026",
+      "company": "Google",
+      "application_url": "https://www.google.com/about/careers/applications/jobs/results/jobs/results/100753339674698438-student-researcher-2026?company=Google&jex=ENTRY_LEVEL&location=India&q=machine+learning",
+      "match_score": null,
+      "rejection_reason": "Student/internship role not suitable for candidate with 1 year of professional experience.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer, BigQuery AI/ML",
+      "company": "Google",
+      "application_url": "https://www.google.com/about/careers/applications/jobs/apply?jobId=CiUAL2FckZUvtV0CcL7u9NrPP9zTX_bYzRVxOdV_PMkS7j7NCxinEjsACxwdTLTz1Rq2sMX4AXtGe7xYyDCDS8Py3sgm7dLm5844DduLcM2jmcb-Ok1U3sGimhZi_JBZdqpGkA%3D%3D_V2&loc=US&title=Software+Engineer",
+      "match_score": null,
+      "rejection_reason": "Location in USA, not accessible in India.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Silicon Technical Recruiter",
+      "company": "Google",
+      "application_url": "https://www.google.com/about/careers/applications/jobs/jobs/results/87369993678660294-silicon-technical-recruiter",
+      "match_score": null,
+      "rejection_reason": "Recruiter position, not related to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Staff Engineering Analyst, Gen AI Trust and Safety",
+      "company": "Google",
+      "application_url": "https://www.google.com/about/careers/applications/jobs/jobs/results/84713934363206342-staff-engineering-analyst-gen-ai-trust-and-safety",
+      "match_score": null,
+      "rejection_reason": "Location in Switzerland, not accessible in India.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer [Langchain / LLM / Python]",
+      "company": "Luxoft India",
+      "application_url": "https://in.linkedin.com/jobs/view/ai-engineer-langchain-llm-python-at-luxoft-india-4387416637",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "Your initiative to build Agentic AI for Trading Surveillance aligns with my production AI experience. I built an AI voice infrastructure handling over 2,000 concurrent calls, ensuring scalability for real-time applications.\n\nMy stack includes FastAPI for backend services, LangChain and CrewAI for multi-agent orchestration, Pinecone for vector databases in RAG systems, and expertise in LLM fine-tuning with LLaMA and GPT-4, directly matching your requirements for full-stack AI integration.\n\nI reduced LLM cold-start latency from 3.9s to 378ms (10.4x improvement) using Groq and Pinecone, which can enhance response times in surveillance systems. I'm eager to discuss how I can contribute to your project and optimize AI performance."
+    },
+    {
+      "is_match": true,
+      "job_title": "ML Engineer",
+      "company": "NielsenIQ",
+      "application_url": "https://in.linkedin.com/jobs/view/ml%E2%80%AFengineer%E2%80%AF-at-nielseniq-4359043135?refId=PyxwGplSF494P8MnQbi6IQ%3D%3D&trackingId=5ZBf9ksLzx%2BeNtB0w1UvTA%3D%3D",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "As an AI Engineer with production experience, I'm excited about potential ML projects at NielsenIQ. I've trained LightGBM models on 716K+ records and deployed scalable AI solutions, demonstrating ability to handle data-intensive tasks.\n\nMy skills in Python, PyTorch, and LLM technologies like RAG with Pinecone and LangChain ensure I can tackle diverse AI/ML challenges, from traditional models to advanced generative AI systems.\n\nIn a multi-agent architecture, I reduced AI-content detection rates from 100% to 30%, improving system reliability and output quality. I look forward to exploring how I can add value to your team and drive AI initiatives forward."
+    },
+    {
+      "is_match": true,
+      "job_title": "Systems Development Engineer, Amazon Business",
+      "company": "Amazon",
+      "application_url": "https://www.amazon.jobs/jobs/3173619",
+      "match_score": 50,
+      "rejection_reason": null,
+      "drafted_proposal": "Your role in using Generative AI to solve business problems at Amazon Business resonates with my work. I developed AI voice infrastructure that scales to handle high concurrency, similar to optimizing enterprise systems for efficiency and innovation.\n\nI have hands-on experience with FastAPI for API development, LangChain for AI agent orchestration, and Pinecone for efficient vector storage, all crucial for building robust Gen AI applications that integrate seamlessly with backend services.\n\nBy optimizing LLM latency by 10.4x, I ensured faster AI responses, a key metric for user satisfaction and system performance. I am keen to apply these optimizations and my production-scale experience to Amazon's Gen AI initiatives."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI / ML Engineer",
+      "company": "Accenture in India",
+      "application_url": "https://in.linkedin.com/jobs/view/ai-ml-engineer-at-accenture-in-india-4385779278",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "Accenture's AI/ML engineering opportunities align with my background in production AI. I built systems managing thousands of concurrent AI interactions, showcasing scalability and reliability in real-world applications.\n\nProficient in Python, FastAPI, LLMs, and RAG with Pinecone, I can contribute to end-to-end AI solutions, from model development to deployment, ensuring high performance and integration with existing infrastructure.\n\nAchieved a 10.4x reduction in LLM latency, demonstrating strong performance optimization skills critical for responsive AI systems. Ready to discuss how I can leverage this expertise to enhance your AI projects and deliver measurable results."
+    },
+    {
+      "is_match": true,
+      "job_title": "Generative AI Engineer",
+      "company": "TIGI HR",
+      "application_url": "https://in.linkedin.com/jobs/view/generative-ai-engineer-at-tigi-hr-4388281493",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "As a Generative AI Engineer, I have directly worked on LLM fine-tuning, RAG systems, and multi-agent architectures, building production-ready AI voice applications that handle high-volume interactions.\n\nMy toolkit includes LangChain and CrewAI for agent orchestration, FastAPI for backend services, and Pinecone for vector storage, enabling efficient development and deployment of generative AI models with a focus on scalability and performance.\n\nReduced AI-content detection by 70% in agentic systems, showcasing ability to improve AI safety and output quality, which is essential for reliable generative AI applications. Eager to bring this hands-on experience to your team and contribute to innovative AI solutions."
+    },
+    {
+      "is_match": false,
+      "job_title": "DevOps Engineer- Generative AI",
+      "company": "CompuGroup Medical SE & Co. KGaA",
+      "application_url": "https://in.linkedin.com/jobs/view/devops-engineer-generative-ai-at-compugroup-medical-se-co-kgaa-4294888327",
+      "match_score": null,
+      "rejection_reason": "DevOps-only role not aligned with AI engineering focus.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Cloud Engineer",
+      "company": "Insight Global",
+      "application_url": "https://www.foundit.in/job/ai-cloud-engineer-insight-global-hyderabad-secunderabad-telangana-46160628",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 5+ years is significantly higher than candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Gen Ai Engineer",
+      "company": "Zorba AI",
+      "application_url": "https://www.foundit.in/job/gen-ai-engineer-zorba-ai-pune-47821214",
+      "match_score": 75,
+      "rejection_reason": null,
+      "drafted_proposal": "I am excited to apply for the Gen AI Engineer role at Zorba AI, where I can contribute to designing and deploying AI-powered solutions on AWS. My experience includes building a production AI voice infrastructure that handled 2,000+ concurrent calls, demonstrating my ability to scale AI systems efficiently and reliably, which aligns with your focus on scalable cloud architectures for GenAI applications.\n\nMy technical stack is a strong fit for your requirements: I have hands-on experience with Python, PyTorch, and RAG pipelines using Pinecone for vector databases, along with LangChain for orchestrating LLM workflows. I have deployed APIs using FastAPI and integrated AI models with microservices, similar to your need for REST APIs and enterprise application integration. Additionally, I have worked with LLM fine-tuning, including LLaMA LoRA, and tools like CrewAI for multi-agent systems.\n\nA key achievement relevant to your role is reducing LLM cold-start latency by 10.4x (from 3.9s to 378ms) using Groq and Pinecone optimizations, which directly supports your goal of optimizing model performance and cost. I am confident I can help accelerate your AI deployments and would welcome the opportunity to discuss how my skills can benefit Zorba AI in an interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "Generative AI Engineer",
+      "company": "Xebia",
+      "application_url": "https://www.foundit.in/job/generative-ai-engineer-xebia-hyderabad-secunderabad-telangana-47816562",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 6+ years exceeds candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Generative AI Engineer",
+      "company": "Anblicks",
+      "application_url": "https://www.foundit.in/job/generative-ai-engineer-anblicks-hyderabad-secunderabad-telangana-47816915",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I am applying for the Generative AI Engineer position at Anblicks, where I aim to contribute to developing cutting-edge AI solutions. Based on the role title, I understand your focus on building and deploying Generative AI applications, and my production experience includes creating AI voice infrastructure that managed 2,000+ concurrent calls, showcasing my ability to deliver robust, scalable AI systems.\n\nMy skill set aligns well with Generative AI engineering: I have expertise in Python, PyTorch, and RAG architectures using Pinecone for efficient retrieval. I have worked with LLMs like GPT-4 and Gemini, fine-tuning models such as LLaMA with LoRA, and using frameworks like LangChain and CrewAI for agentic workflows. I also have backend experience with FastAPI for deploying AI services, which supports seamless integration into production environments.\n\nA concrete metric from my work is reducing AI-content detection from 100% to 30% in multi-agent architectures, highlighting my ability to optimize AI outputs for real-world applications. I am eager to bring this hands-on experience to Anblicks and would appreciate the chance to discuss my fit for your team in an interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "AgenticAI Engineer at AI CoE (f/m/d)",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Garching-bei-M%C3%BCnchen-AgenticAI-Engineer-at-AI-CoE-%28fmd%29-85748/1373047033/",
+      "match_score": null,
+      "rejection_reason": "Location outside India, requiring relocation to Europe.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Associate AI Platform Engineer",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Sofia-Associate-AI-Platform-Engineer-1407/1270840601/",
+      "match_score": null,
+      "rejection_reason": "Location outside India, requiring relocation to Europe.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Software Developer",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Sofia-AI-Software-Developer-1407/1271195601/",
+      "match_score": null,
+      "rejection_reason": "Location outside India, requiring relocation to Europe.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "SAP CX (Customer Experience) Chief AI Engineer.",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Bellevue-SAP-CX-%28Customer-Experience%29-Chief-AI-Engineer_-WA-98004/1374804933/",
+      "match_score": null,
+      "rejection_reason": "Location outside India, requiring relocation to the US.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior Agentic AI Engineer",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Budapest-Junior-Agentic-AI-Engineer-1031/1367146133/",
+      "match_score": null,
+      "rejection_reason": "Location outside India, requiring relocation to Europe.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Agentic AI Engineering Expert - Corporate Processes & Information Technology",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Vancouver-Agentic-AI-Engineering-Expert-Corporate-Processes-&-Information-Technology-Brit-V6B-1A9/1368829433/",
+      "match_score": 0,
+      "rejection_reason": "Role is located outside India (Vancouver, Canada).",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Development Architect",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Palo-Alto-AI-Development-Architect-CA-94304/1268727601/",
+      "match_score": 0,
+      "rejection_reason": "Role is located outside India (Palo Alto, USA).",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Agentic AI Engineering Specialist - Corporate Processes & Information Technology",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Vancouver-Agentic-AI-Engineering-Specialist-Corporate-Processes-&-Information-Technology-Brit-V6B-1A9/1368828733/",
+      "match_score": 0,
+      "rejection_reason": "Role is located outside India (Vancouver, Canada).",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Full Stack Developer-AI Core team",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Bangalore-Full-Stack-Developer-AI-Core-team-560066/1254651901/",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "As SAP advances its AI core capabilities, I bring hands-on experience in building production-scale AI infrastructure, such as developing voice AI systems that handled 2,000+ concurrent calls with low latency. My work directly translates to scalable, real-time AI solutions that can enhance SAP's enterprise offerings. My stack aligns perfectly with AI backend development: Python, FastAPI for robust APIs, PyTorch for model fine-tuning, and LangChain with Pinecone for RAG implementations. I have experience with CrewAI for multi-agent systems and LiveKit for real-time communication, ensuring seamless integration. A concrete achievement: I reduced LLM cold-start latency by 10.4x (from 3.9s to 378ms) using Groq and Pinecone, demonstrating optimization skills critical for performance. I am eager to discuss how I can contribute to SAP's AI initiatives and am available for an interview at your convenience."
+    },
+    {
+      "is_match": false,
+      "job_title": "SAP AI Engineering Architect (f/m/d)",
+      "company": "SAP",
+      "application_url": "https://jobs.sap.com/job/Vienna-SAP-AI-Engineering-Architect-%28fmd%29-1021/1375267733/",
+      "match_score": 0,
+      "rejection_reason": "Role is located outside India (Vienna, Austria).",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "LLM Engineer",
+      "company": "TECHATIVE",
+      "application_url": "https://in.linkedin.com/jobs/view/llm-engineer-at-techative-4387331417",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "At TECHATIVE, your focus on developing and fine-tuning LLMs for real-world problems resonates with my expertise, where I built production AI systems, including voice infrastructure handling 2,000+ concurrent calls and optimized LLM performance. I have hands-on experience with the full stack: Python, PyTorch for LLM fine-tuning (like LLaMA LoRA), LangChain for agentic workflows, FastAPI for API development, and Pinecone for vector storage in RAG pipelines. This ensures I can quickly contribute to your LLM development and deployment efforts. For instance, I reduced AI-content detection from 100% to 30% in multi-agent architectures, showcasing my ability to enhance model robustness. I am keen to bring my skills to your team and am available for an interview to discuss further."
+    },
+    {
+      "is_match": true,
+      "job_title": "LLM Engineer",
+      "company": "KPG99 INC",
+      "application_url": "https://www.foundit.in/job/llm-engineer-kpg99-inc-india-47883332",
+      "match_score": 95,
+      "rejection_reason": null,
+      "drafted_proposal": "Your role's emphasis on RAG pipelines, LangChain, FastAPI, and Pinecone matches my production experience exactly. I have architected scalable AI voice systems using these tools, with RAG implementations that reduced LLM latency by 10.4x and improved efficiency for real-time queries. My stack includes Python, FastAPI for backend APIs, LangChain for agent orchestration, Pinecone for vector stores, and AWS for deployment, aligning with your key responsibilities for scalable solutions. A key metric: I built infrastructure handling 2,000+ concurrent calls, demonstrating my ability to manage high-scale deployments. I am excited to apply this expertise to your projects and am ready for an interview to explore how I can drive your AI initiatives forward."
+    },
+    {
+      "is_match": true,
+      "job_title": "LLM Engineer",
+      "company": "Algoscale",
+      "application_url": "https://www.foundit.in/job/llm-engineer-algoscale-noida-44960267",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "As Algoscale seeks an LLM Engineer, I offer proven experience in building production AI systems, such as voice infrastructure for 2,000+ concurrent calls and LLM optimization with RAG using Pinecone and LangChain. My technical stack includes Python, PyTorch for model fine-tuning, FastAPI for APIs, and tools like CrewAI for multi-agent workflows, ensuring I can tackle complex AI engineering challenges. I achieved a 10.4x reduction in LLM cold-start latency (to 378ms) through optimization techniques, highlighting my focus on performance. I am enthusiastic about contributing to your LLM projects and am available for an interview to discuss my fit for the role."
+    },
+    {
+      "is_match": true,
+      "job_title": "Generative AI/LLM Engineer",
+      "company": "Soothsayer Analytics",
+      "application_url": "https://www.foundit.in/job/generative-ai-llm-engineer-soothsayer-analytics-hyderabad-secunderabad-telangana-45700012",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "In line with Soothsayer Analytics' focus on generative AI and LLMs, I bring hands-on experience in developing scalable AI solutions, including production voice systems and LLM fine-tuning for agents. My expertise spans Python, PyTorch, LangChain for RAG, FastAPI for backend services, and Pinecone for vector storage, which are essential for building and deploying advanced AI models. For example, I reduced AI-content detection rates from 100% to 30% in multi-agent setups, demonstrating innovation in generative AI applications. I am eager to leverage these skills to support your AI goals and am ready for an interview to discuss potential contributions."
+    },
+    {
+      "is_match": false,
+      "job_title": "Infometry - AI/ML Engineer - Dataiku DSS Projects",
+      "company": "Infometry",
+      "application_url": "https://www.hirist.tech/j/infometry-ai-ml-engineer-dataiku-dss-projects-1622307",
+      "match_score": 0,
+      "rejection_reason": "Role focuses on traditional ML/MLOps without LLM or agent work, not matching candidate's AI voice and LLM optimization expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Prama - AI/ML Engineer",
+      "company": "PRAMA INNOVATIONS INDIA PRIVATE LIMITED",
+      "application_url": "https://www.hirist.tech/j/prama-ai-ml-engineer-1622140",
+      "match_score": 70,
+      "rejection_reason": null,
+      "drafted_proposal": "Your focus on cutting-edge LLM solutions aligns with my production AI experience, where I reduced LLM cold-start latency by 10.4x using Groq and Pinecone, directly enhancing real-time model performance for scalable applications. My technical stack includes Python and PyTorch for deep learning, complemented by LangChain and CrewAI for multi-agent workflows, and FastAPI for building robust backend APIs, ensuring alignment with your need for end-to-end AI architecture and deployment. With a track record of training LightGBM models on 716K+ records and optimizing systems to handle 2,000+ concurrent calls, I am confident in delivering high-impact AI solutions and would welcome the opportunity to discuss how I can contribute to Prama's innovation goals."
+    },
+    {
+      "is_match": true,
+      "job_title": "Software Engineer( Agentic AI Cloud Migration)",
+      "company": "Amdocs",
+      "application_url": "https://www.foundit.in/job/software-engineer-agentic-ai-cloud-migration-amdocs-pune-43632849",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "Amdocs' mission to automate cloud migration with AI agents closely matches my expertise in production multi-agent systems, where I built and scaled AI voice infrastructure using CrewAI and LangChain to handle over 2,000 concurrent calls efficiently. I have hands-on experience with LLM fine-tuning (including LLaMA LoRA), RAG implementations using Pinecone for retrieval, and backend development with FastAPI, which directly supports your requirements for tool-using agents, scalable APIs, and cloud-native integration. By reducing LLM cold-start latency from 3.9 seconds to 378 milliseconds, I demonstrated critical optimization skills; I am eager to apply this to accelerate your cloud migration programs and would be thrilled to interview for this role."
+    },
+    {
+      "is_match": false,
+      "job_title": "Epiq Global - Staff Software Engineer - Python",
+      "company": "Epiq Global",
+      "application_url": "https://www.hirist.tech/j/epiq-global-staff-software-engineer-python-1621752",
+      "match_score": 0,
+      "rejection_reason": "Role is focused on general backend development without specific AI/LLM requirements, not matching the candidate's AI engineering stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Junior Applied AI Builder",
+      "company": "Predictive Data Sciences Pvt Ltd",
+      "application_url": "https://www.hirist.tech/j/junior-applied-ai-builder-1622039?ref=rl&pref=kp_prm&jobPos=5",
+      "match_score": 90,
+      "rejection_reason": null,
+      "drafted_proposal": "Blue Sherpa's emphasis on real-world AI systems for credit risk resonates with my experience in building production AI voice infrastructure and optimizing LLM workflows, where I applied RAG and fine-tuning to solve practical business problems. My stack includes Python, PyTorch for model development, LangChain and CrewAI for agentic workflows, Pinecone for retrieval, and FastAPI for API deployment, perfectly aligning with your needs for LLM-powered workflows, evals, and end-to-end pipelines. I reduced AI-content detection from 100% to 30% in multi-agent architectures, showcasing my ability to debug and improve systems; I am excited to bring this builder mindset to your team and discuss how I can contribute to your applied AI projects."
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Developer",
+      "company": "People Prime Worldwide",
+      "application_url": "https://in.linkedin.com/jobs/view/software-developer-at-people-prime-worldwide-4388249932",
+      "match_score": 0,
+      "rejection_reason": "Role is an LLM annotator/specialist position focused on data labeling, not AI engineering or system development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Remote Python Developer (FastAPI)",
+      "company": "Turing",
+      "application_url": "https://in.linkedin.com/jobs/view/remote-python-developer-fastapi-at-turing-4387837891",
+      "match_score": 0,
+      "rejection_reason": "Job description is unavailable and title does not clearly indicate an AI engineering role, suggesting general backend development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Development Engineer - 2",
+      "company": "SwishX",
+      "application_url": "https://www.instahyre.com/job-416757-software-development-engineer-2-at-swishx-bangalore/",
+      "match_score": 0,
+      "rejection_reason": "Role is primarily backend engineering with only exposure to LLMs, not focused on core AI/LLM development or optimization.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Freelance Energy Systems Engineer - AI Trainer",
+      "company": "Mindrift",
+      "application_url": "https://www.foundit.in/job/freelance-energy-systems-engineer-ai-trainer-mindrift-chennai-44924804",
+      "match_score": 0,
+      "rejection_reason": "Role is a freelance training position, not an AI engineering or development role.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Freelance Trainers for Graphic Arts, AI Design & Prompt Engineering for Image Generation",
+      "company": "Ailaysa",
+      "application_url": "https://www.foundit.in/job/freelance-trainers-for-graphic-arts-ai-design-prompt-engineering-for-image-generation-ailaysa-chennai-45209826",
+      "match_score": 0,
+      "rejection_reason": "Role is focused on training and prompt engineering, not AI system development or engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Freelance Energy Engineering & Python Expert - AI Trainer",
+      "company": "Mindrift",
+      "application_url": "https://www.foundit.in/job/freelance-energy-engineering-python-expert-ai-trainer-mindrift-chennai-45393778",
+      "match_score": 0,
+      "rejection_reason": "Role is a freelance AI trainer position, not involving AI engineering or system building.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Freelance Statistician with Python Experience - AI Trainer",
+      "company": "Mindrift",
+      "application_url": "https://www.foundit.in/job/freelance-statistician-with-python-experience-ai-trainer-mindrift-chennai-45053514",
+      "match_score": 0,
+      "rejection_reason": "Role is freelance statistician/trainer, not aligned with AI engineering and production stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Freelance AI Assistant Expert",
+      "company": "Mindrift",
+      "application_url": "https://www.foundit.in/job/freelance-ai-assistant-expert-mindrift-chennai-45201868",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I am writing to express my interest in the Freelance AI Assistant Expert role at Mindrift. With my experience in building production AI voice infrastructure that handles 2,000+ concurrent calls, I can contribute to developing robust AI assistant solutions tailored to your needs.\n\nMy technical stack includes Python, PyTorch for model development, and expertise in LLM fine-tuning, RAG implementations, and multi-agent systems using CrewAI and LangChain. I have built scalable backends with FastAPI and integrated vector databases like Pinecone for efficient retrieval, ensuring high-performance AI deployments.\n\nIn a recent project, I reduced LLM cold-start latency by 10.4x, from 3.9 seconds to 378 milliseconds, using Groq and Pinecone optimizations. I am eager to discuss how I can enhance your AI assistant projects and am available for an interview at your convenience."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI/ML Engineer",
+      "company": "EXL",
+      "application_url": "https://in.linkedin.com/jobs/view/ai-ml-engineer-at-exl-4342106788?position=1&pageNum=0&refId=7rEVQnXKSZXtM2%2FqtVBS7A%3D%3D&trackingId=ts5iq64WrDTUSVhJ9RdSvQ%3D%3D",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I am excited to apply for the AI/ML Engineer position at EXL. My background in deploying scalable AI systems, such as an AI voice infrastructure supporting 2,000+ concurrent calls, aligns with your requirements for robust machine learning solutions in production environments.\n\nI am proficient in Python, PyTorch, and LightGBM for model development, with hands-on experience in RAG, LLM fine-tuning (including GPT-4 and LLaMA), and building agentic workflows using CrewAI and LangChain. I have implemented high-performance backends with FastAPI and utilized Pinecone for vector search to enhance retrieval efficiency.\n\nA key achievement was reducing LLM inference latency from 3.9 seconds to 378 milliseconds, a 10.4x improvement, through optimizations with Groq and Pinecone. I look forward to contributing to EXL's AI initiatives and am available for an interview to discuss my fit further."
+    },
+    {
+      "is_match": false,
+      "job_title": "Sr. Software Engineer 1",
+      "company": "Wednesday Solutions",
+      "application_url": "https://www.instahyre.com/job-416819-sr-software-engineer-1-at-wednesday-solutions-pune/",
+      "match_score": 0,
+      "rejection_reason": "Role is general software engineering with AI-assisted tools, not focused on AI/LLM engineering stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Gen AI / LLM Engineer",
+      "company": "MACRONIX",
+      "application_url": "mailto:saikumar@macronix.in",
+      "match_score": 0,
+      "rejection_reason": "Requires 6-10 years experience, which does not align with candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer",
+      "company": "Larsen & Toubro",
+      "application_url": "https://www.instahyre.com/job-416180-ai-engineer-at-larsen-toubro-bangalore-hyderabad",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I am applying for the AI Engineer role at Larsen & Toubro. Having built production-grade AI voice infrastructure that handles 2,000+ concurrent calls, I am well-equipped to contribute to engineering reliable AI solutions for your diverse projects.\n\nMy expertise includes Python, PyTorch for deep learning, LightGBM for tabular data, and frameworks like LangChain and CrewAI for developing intelligent agents and multi-agent systems. I have implemented scalable APIs with FastAPI and integrated Pinecone for efficient vector retrieval, ensuring robust backend performance.\n\nIn a recent optimization, I reduced LLM cold-start latency by 10.4x, from 3.9 seconds to 378 milliseconds, using Groq and Pinecone, significantly improving user experience. I am keen to bring my skills to L&T's AI initiatives and welcome an interview to discuss potential contributions."
+    },
+    {
+      "is_match": true,
+      "job_title": "Generative AI Engineer",
+      "company": "HyperMindZ.ai",
+      "application_url": "https://in.linkedin.com/jobs/view/generative-ai-engineer-at-hypermindz-ai-4333609787",
+      "match_score": 80,
+      "rejection_reason": null,
+      "drafted_proposal": "I am interested in the Generative AI Engineer position at HyperMindZ.ai. My experience in developing and optimizing generative AI systems, including LLM fine-tuning and RAG implementations, directly supports your goal of building high-impact AI solutions for production deployment.\n\nMy technical stack aligns perfectly with your needs: I use Python and PyTorch for model development, have hands-on experience with RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), and build autonomous agents using CrewAI and LangChain. I ensure scalability with FastAPI backends and leverage Pinecone for vector search, along with tools like LiveKit for real-time voice AI capabilities.\n\nA concrete metric from my work is the 10.4x reduction in LLM cold-start latency, from 3.9 seconds to 378 milliseconds, achieved through Groq and Pinecone optimizations. I am excited to contribute to your generative AI projects and am available for an interview to discuss further."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer (NLP, Generative AI, Agentic AI) \u2013 HealthTech",
+      "company": "Earth On Sky",
+      "application_url": "https://in.linkedin.com/jobs/view/ai-engineer-nlp-generative-ai-agentic-ai-%E2%80%93-healthtech-at-earth-on-sky-4388608990",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I am writing to apply for the AI Engineer (NLP, Generative AI, Agentic AI) role at Earth On Sky. My production experience in AI, particularly building voice infrastructure handling 2,000+ concurrent calls, demonstrates my ability to develop reliable AI systems suitable for critical healthtech applications.\n\nMy skills directly match your focus: I have expertise in NLP, generative AI via LLM fine-tuning (GPT-4, Gemini, LLaMA), RAG, and agentic AI using CrewAI and LangChain for multi-agent systems. I build scalable backends with FastAPI and integrate Pinecone for efficient retrieval, ensuring robust performance in healthcare contexts.\n\nI optimized LLM performance by reducing cold-start latency from 3.9 seconds to 378 milliseconds, a 10.4x improvement, using Groq and Pinecone. I am eager to apply my technical achievements to your healthtech challenges and am available for an interview at your convenience."
+    },
+    {
+      "is_match": false,
+      "job_title": "3D Reconstruction & Generative AI Engineer",
+      "company": "Bhatiyani Astute Intelligence",
+      "application_url": "https://in.linkedin.com/jobs/view/3d-reconstruction-generative-ai-engineer-at-bhatiyani-astute-intelligence-4388638930",
+      "match_score": 0,
+      "rejection_reason": "Role focuses on 3D reconstruction, not aligned with candidate's NLP and voice AI expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Architect - LLM",
+      "company": "NS Global Corporation",
+      "application_url": "https://www.hirist.tech/j/ai-architect-llm-1621963",
+      "match_score": 0,
+      "rejection_reason": "Requires 10+ years experience for architect role, not suitable for candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Technical Architect - Generative AI",
+      "company": "",
+      "application_url": "https://www.hirist.tech/j/technical-architect-generative-ai-1622466?ref=rl&jobPos=7",
+      "match_score": 0,
+      "rejection_reason": "Senior role requiring 10-12 years experience, not suitable for candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Codvo.ai - Databricks Solution Architect",
+      "company": "",
+      "application_url": "https://www.hirist.tech/j/codvoai-databricks-solution-architect-1622285?ref=rl&jobPos=10",
+      "match_score": 0,
+      "rejection_reason": "Role focused on Databricks and data engineering, not matching AI Voice/LLM stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer I",
+      "company": "Sezzle",
+      "application_url": "https://lnkd.in/dFxXaeDz",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "I am writing to apply for the AI Engineer I role at Sezzle, where I can contribute to building AI-powered platforms and agentic systems. At my previous role, I engineered a production AI voice infrastructure that handled over 2,000 concurrent calls, demonstrating scalability in real-time AI applications.\n\nMy technical stack aligns perfectly with your requirements: I have hands-on experience with Python, PyTorch, and agentic frameworks like CrewAI and LangChain for multi-agent architectures. I've implemented RAG systems using Pinecone for vector search and optimized LLM deployments with FastAPI backends, similar to the distributed systems you mentioned.\n\nI reduced LLM cold-start latency by 10.4x (from 3.9s to 378ms) using Groq and Pinecone, which can enhance the performance of your AI systems. I am eager to discuss how I can help Sezzle achieve its AI goals and am available for an interview at your convenience."
+    },
+    {
+      "is_match": false,
+      "job_title": "Prompt Engineer - AI Voice Agents",
+      "company": "BigRio",
+      "application_url": "https://www.hirist.tech/j/prompt-engineer-ai-voice-agents-1621087",
+      "match_score": 0,
+      "rejection_reason": "Requires 8-12 years experience, senior role beyond candidate's current level.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Forward Deployed Engineer, Gen AI, Google Cloud",
+      "company": "Google",
+      "application_url": "https://www.naukri.com/job-listings-forward-deployed-engineer-gen-ai-google-cloud-google-india-private-limited-mumbai-6-to-11-years-200326506169",
+      "match_score": 0,
+      "rejection_reason": "Requires 6-11 years experience, senior role not suitable for candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Customer Engineer, AI Infrastructure Modernization TPU, Google Cloud",
+      "company": "Google",
+      "application_url": "https://www.naukri.com/job-listings-customer-engineer-ai-infrastructure-modernization-tpu-google-cloud-google-india-private-limited-mumbai-10-to-15-years-200326506170",
+      "match_score": 0,
+      "rejection_reason": "Requires 10-15 years experience and is customer-facing, not development-focused.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer L4/L5 - Data and Feature Infrastructure, Machine Learning Platform",
+      "company": "Netflix",
+      "application_url": "https://www.linkedin.com/jobs/view/software-engineer-l4-l5-data-and-feature-infrastructure-machine-learning-platform-at-netflix-4118836224?refId=dqS9iVEjwxmw%2FGLMrXJDbA%3D%3D&trackingId=EjKZVHcC0A46mOGwptwArQ%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Requires relocation to United States, not India-accessible.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI / ML Engineer",
+      "company": "Nexuslink Services India",
+      "application_url": "https://www.naukri.com/job-listings-ai-ml-engineer-nexuslink-services-india-ahmedabad-naroda-2-to-5-years-180318021255",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I am excited to apply for the AI/ML Engineer position at Nexuslink Services India. With my experience in developing production-scale AI solutions, I can help advance your AI initiatives. I have built AI voice infrastructure handling 2,000+ concurrent calls, showcasing my ability to deliver robust AI systems.\n\nMy expertise includes Python, PyTorch for model training, and LLM fine-tuning with LLaMA LoRA. I am proficient in RAG using Pinecone, and have worked with frameworks like LangChain and CrewAI for agentic workflows, along with backend development using FastAPI.\n\nA key achievement was reducing AI-content detection from 100% to 30% in multi-agent architectures, improving system reliability. I am confident in contributing to your AI projects and would welcome the opportunity to interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "Sr. Software Engineer",
+      "company": "Carelon Global Solutions India LLP",
+      "application_url": "https://www.naukri.com/job-listings-sr-software-engineer-carelon-global-solutions-india-llp-gurugram-bengaluru-4-to-8-years-200326920248",
+      "match_score": 0,
+      "rejection_reason": "Requires 4-8 years experience, senior role not suitable for candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Mentor GenAI, Prompt Engineering & AI Tools",
+      "company": "Dzinepixel Webstudios",
+      "application_url": "",
+      "match_score": 0,
+      "rejection_reason": "Role is mentoring/teaching, not AI engineering development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Machine Learning Engineer",
+      "company": "Sarvam",
+      "application_url": "",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Hiring Team at Sarvam, I am excited to apply for the Machine Learning Engineer role. Having built production AI voice infrastructure handling over 2,000 concurrent calls, I have direct experience in scaling voice AI systems aligned with Sarvam's focus. This involved real-time communication with LiveKit and optimizations for low-latency LLM interactions, critical for voice applications.\nMy technical expertise includes Python, FastAPI for backend services, RAG pipelines with Pinecone, and LLM fine-tuning using LLaMA LoRA, which are essential for developing robust AI solutions. I am proficient with tools like Deepgram STT and ElevenLabs TTS, ensuring end-to-end voice AI capabilities.\nI achieved a 10.4x reduction in LLM cold-start latency, from 3.9 seconds to 378 milliseconds, using Groq and vector caching. I am confident in contributing to your voice AI initiatives and welcome the opportunity to discuss my fit in an interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer (Multi-Agent Systems)",
+      "company": "Varp Techlabs Pune",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-multi-agent-systems-varp-techlabs-pune-pune-5-to-10-years-200326015775",
+      "match_score": null,
+      "rejection_reason": "High years of experience requirement (5-10 years) does not align with candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Gen AI Python with AWS",
+      "company": "Wipro",
+      "application_url": "https://www.naukri.com/job-listings-gen-ai-python-with-aws-wipro-pune-bengaluru-3-to-8-years-190326022037",
+      "match_score": 70,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Wipro Team, I am applying for the Gen AI Python with AWS role. My production experience in building autonomous multi-agent systems with CrewAI and LangChain directly supports your goal of deploying scalable Agentic AI solutions. I have optimized RAG workflows using Pinecone and developed high-performance backends with FastAPI, akin to AWS Lambda and API Gateway environments.\nMy stack aligns with your needs: Python for development, CrewAI for agent orchestration, LangChain for tool integration, and FastAPI for microservices. I have hands-on experience with vector databases and LLM fine-tuning, ensuring efficient AI system deployment.\nIn a multi-agent project, I reduced AI-content detection from 100% to 30% through refined agent coordination and prompt engineering. I am eager to contribute to your AWS-based Gen AI platforms and am available for an interview to discuss my achievements in detail."
+    },
+    {
+      "is_match": true,
+      "job_title": "Ai ML Engineer",
+      "company": "Firm in IT Services Sector",
+      "application_url": "https://www.naukri.com/job-listings-ai-ml-engineer-firm-in-it-services-sector-bhubaneswar-anantapur-hyderabad-secunderabad-kurnool-3-to-7-years-190326022037",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Hiring Team, I am interested in the Ai ML Engineer position. I have successfully built and deployed scalable AI solutions, including production voice infrastructure handling 2,000+ concurrent calls, demonstrating my ability to engineer robust systems under high load.\nMy technical skills include Python, PyTorch for deep learning, LightGBM for machine learning on large datasets (716K+ records), and RAG with LLMs like GPT-4 and Gemini. I use FastAPI for backend development and tools like Pinecone for vector search, ensuring full-stack AI capabilities.\nI trained LightGBM models on over 716,000 records with high accuracy, optimizing for performance and scalability. I am ready to apply my skills to your AI projects and would appreciate the chance to interview and discuss how I can add value."
+    },
+    {
+      "is_match": false,
+      "job_title": "Sr Support Engineer 1 AI, LLM, Python, ML",
+      "company": "Blue Yonder",
+      "application_url": "https://www.naukri.com/job-listings-sr-support-engineer-1-ai-llm-python-ml-blue-yonder-bengaluru-3-to-8-years-190326022037",
+      "match_score": null,
+      "rejection_reason": "Role is for a support engineer, which may not align with candidate's AI development and engineering focus.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Sr Machine Learning Engineer",
+      "company": "Amgen Inc",
+      "application_url": "https://www.naukri.com/job-listings-sr-machine-learning-engineer-amgen-inc-hyderabad-3-to-8-years-190326022037",
+      "match_score": 50,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Amgen Team, I am applying for the Sr Machine Learning Engineer role. My production-scale AI engineering experience includes optimizing LLM systems and building machine learning models, which can support advanced ML applications in biotech. I have worked on fine-tuning LLaMA models and deploying them in low-latency environments.\nMy expertise spans Python, PyTorch for neural networks, LightGBM for tabular data, and FastAPI for API development. I am adept at integrating RAG pipelines and vector databases to enhance model performance and accuracy.\nI achieved a 10.4x reduction in LLM cold-start latency through efficient caching and model optimization, improving system responsiveness. I am keen to bring my AI engineering skills to Amgen and am available for an interview to explore potential contributions."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI / ML Engineer",
+      "company": "Clustor Computing",
+      "application_url": "https://www.naukri.com/job-listings-ai-ml-engineer-clustor-computing-nagpur-3-to-8-years-190326022037",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Clustor Computing Team, I am excited about the AI / ML Engineer opportunity. I have hands-on experience in developing production AI systems, such as voice infrastructure handling 2,000+ concurrent calls, showcasing my ability to design scalable and reliable solutions.\nMy technical stack includes Python, PyTorch for deep learning, RAG with LLMs, and FastAPI for backend services. I am proficient with tools like Pinecone for vector search and CrewAI for multi-agent systems, ensuring comprehensive AI development capabilities.\nI trained LightGBM models on datasets exceeding 716,000 records, achieving high predictive accuracy and efficiency. I am confident in my ability to contribute to your AI initiatives and welcome the opportunity to discuss my qualifications in an interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "Gen AI (5-10 Years)-Pan India",
+      "company": "Infosys",
+      "application_url": "https://www.naukri.com/job-listings-gen-ai-5-10-years-pan-india-infosys-noida-kolkata-gurugram-5-to-10-years-090126040533",
+      "match_score": null,
+      "rejection_reason": "High years of experience requirement (5-10 years) does not align with candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Gen AI Architect",
+      "company": "EXL",
+      "application_url": "https://www.naukri.com/job-listings-gen-ai-architect-exl-services-com-i-pvt-ltd-noida-2-to-3-years-200326502411",
+      "match_score": null,
+      "rejection_reason": "Role requires 8+ years of experience for an architect position, not suitable for candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Generative AI Engineer",
+      "company": "Data Economy",
+      "application_url": "https://www.naukri.com/job-listings-generative-ai-engineer-dataeconomy-hyderabad-1-to-4-years-110226502914",
+      "match_score": 70,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Data Economy Team, I am applying for the Generative AI Engineer role. My experience in building RAG systems and fine-tuning LLMs for generative tasks aligns with your focus on advanced AI solutions. I have developed production AI voice infrastructure and optimized multi-agent architectures for efficiency.\nMy skills include Python, LangChain for agent orchestration, CrewAI for multi-agent systems, FastAPI for APIs, and Pinecone for vector storage. I have worked with GPT-4, Gemini, and LLaMA models, ensuring versatility in generative AI development.\nI reduced LLM cold-start latency by 10.4x, from 3.9 seconds to 378 milliseconds, enhancing response times in real-time applications. I am eager to contribute to your Generative AI projects and am available for an interview to discuss my technical achievements."
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer - Generative AI & LLMs",
+      "company": "360DigiTMG",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-generative-ai-llms-360digitmg-hyderabad-3-to-8-years-241125503344",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 3-8 years exceeds candidate's 1 YOE and role not specifically aligned with AI Voice/LLM stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Generative AI Engineer",
+      "company": "Codelynks Software Solutions (P) Ltd",
+      "application_url": "https://www.naukri.com/job-listings-generative-ai-engineer-codelynks-software-solutions-p-ltd-kochi-3-to-5-years-190126502508",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 3-5 years and focus on cloud platforms rather than AI Voice/LLM stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "LLM / Generative AI Engineer",
+      "company": "Refrens.com",
+      "application_url": "https://www.naukri.com/job-listings-llm-generative-ai-engineer-refrens-com-surat-1-to-4-years-121225500058",
+      "match_score": 65,
+      "rejection_reason": null,
+      "drafted_proposal": "I am writing to apply for the LLM / Generative AI Engineer position at Refrens.com. My background in developing production-scale AI systems, including voice infrastructure handling 2,000+ concurrent calls, demonstrates my ability to build robust and scalable AI solutions.\n\nMy expertise includes fine-tuning LLMs like LLaMA using LoRA, implementing RAG with Pinecone, and building agentic workflows with CrewAI and LangChain. I am proficient in Python, PyTorch, and FastAPI, ensuring efficient deployment and maintenance of AI models.\n\nA key achievement was reducing AI-content detection from 100% to 30% in multi-agent architectures, showcasing my skills in optimizing AI outputs. I am eager to bring my experience in LLM optimization and generative AI to Refrens.com and would welcome the opportunity to interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "Generative AI Engineer",
+      "company": "Rarr Technologies",
+      "application_url": "https://www.naukri.com/job-listings-generative-ai-engineer-rarr-technologies-gurugram-5-to-8-years-171225500503",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 5-8 years is too high compared to candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Agentic AI / Generative AI Engineer",
+      "company": "Suzva Software Technologies",
+      "application_url": "https://www.naukri.com/job-listings-agentic-ai-generative-ai-engineer-suzva-software-technology-hyderabad-chennai-6-to-11-years-200226931550",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 6-11 years is significantly higher than candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Generative AI Engineer",
+      "company": "Easemytrip",
+      "application_url": "https://www.naukri.com/job-listings-generative-ai-engineer-easemytrip-com-gurugram-1-to-4-years-120525010837",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "I am excited to apply for the Generative AI Engineer role at Easemytrip, where I can contribute to your LLM ecosystem initiatives. With my experience in building production AI voice infrastructure handling 2,000+ concurrent calls, I understand the scale and reliability required for customer-facing AI applications.\n\nMy technical stack aligns perfectly with your needs: I have hands-on experience with LangChain for agent orchestration, CrewAI for multi-agent systems, FastAPI for scalable backends, and Pinecone for vector search in RAG pipelines. Additionally, I've worked with LiveKit for real-time communication, Deepgram STT, and ElevenLabs TTS, enabling end-to-end voice AI solutions.\n\nIn a recent project, I reduced LLM cold-start latency by 10.4x (from 3.9s to 378ms) using Groq and Pinecone, directly improving user experience. I am confident I can bring similar optimizations to Easemytrip's AI efforts. I look forward to discussing how I can contribute to your team."
+    },
+    {
+      "is_match": false,
+      "job_title": "Generative AI Engineer",
+      "company": "Arohak Technologies",
+      "application_url": "https://www.naukri.com/job-listings-generative-ai-engineer-arohak-technologies-hyderabad-3-to-5-years-190326022675",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 3-5 years and lack of specific alignment with AI Voice/LLM stack, despite agentic AI mention.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Generative AI Engineer",
+      "company": "Auroedge",
+      "application_url": "https://www.naukri.com/job-listings-generative-ai-engineer-auroedge-bengaluru-8-to-10-years-210326007044",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 8-10 years is too high and role is contractual.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Generative AI Engineer",
+      "company": "Sais It Services India",
+      "application_url": "https://www.naukri.com/job-listings-generative-ai-engineer-sais-it-services-india-private-ltd-hyderabad-4-to-6-years-301025505934",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 4-6 years exceeds candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer / AI Executive (Junior Role)",
+      "company": "360DigiTMG",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-ai-executive-junior-role-360digitmg-hyderabad-0-to-2-years-170925500833",
+      "match_score": null,
+      "rejection_reason": "Role appears to be general AI/ML with data science focus, not specifically aligned with AI Voice/LLM/RAG stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior AI Engineer (India)",
+      "company": "Micro1",
+      "application_url": "https://www.naukri.com/job-listings-junior-ai-engineer-india-micro1-kolkata-mumbai-new-delhi-hyderabad-pune-chennai-bengaluru-0-to-3-years-011225501372",
+      "match_score": null,
+      "rejection_reason": "Role focuses on devops and general AI, not specifically on LLMs or Voice AI as per candidate's stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Intern AI Prompt Engineer",
+      "company": "Oritur Technologies",
+      "application_url": "https://www.naukri.com/job-listings-intern-ai-prompt-engineer-sourcewiz-gurugram-0-to-1-years-130226501287",
+      "match_score": null,
+      "rejection_reason": "Internship role not suitable for candidate with 1 YOE and production experience.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Jr. AI Engineer",
+      "company": "Annam Ai",
+      "application_url": "https://www.naukri.com/job-listings-jr-ai-engineer-annam-ai-rupnagar-0-to-2-years-190226503138",
+      "match_score": null,
+      "rejection_reason": "Role appears to be general AI/ML without focus on LLMs or Voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer",
+      "company": "Appzoy Technologies",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-appzoy-bengaluru-0-to-3-years-020226501661",
+      "match_score": null,
+      "rejection_reason": "Role is computer vision-focused, not aligned with candidate's LLM and Voice AI expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior AI Engineer",
+      "company": "Soothsayer Analytics",
+      "application_url": "https://www.naukri.com/job-listings-junior-ai-engineer-soothsayer-analytics-hyderabad-0-to-2-years-230925507852",
+      "match_score": null,
+      "rejection_reason": "Role emphasizes traditional NLP and CI/CD, not specifically LLMs or Voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer",
+      "company": "Digiboxx Technologies And Digital India",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-digiboxx-technologies-and-digital-india-pvt-ltd-mumbai-0-to-2-years-280126500673",
+      "match_score": 80,
+      "rejection_reason": null,
+      "drafted_proposal": "I am excited to apply for the AI Engineer role at Digiboxx Technologies, where my experience in production-scale chatbot and voice AI systems can directly contribute to your chatbot development goals. At my previous role, I built an AI voice infrastructure that handled over 2,000 concurrent calls, demonstrating my ability to scale AI solutions efficiently.\n\nMy technical stack aligns perfectly with backend AI engineering: I have hands-on experience with FastAPI for building robust APIs, LangChain and CrewAI for orchestrating multi-agent systems, Pinecone for vector search in RAG pipelines, and LiveKit with Deepgram STT/ElevenLabs TTS for real-time voice interactions. I am proficient in Python, PyTorch, and have fine-tuned LLMs like LLaMA using LoRA.\n\nBy implementing Groq and Pinecone optimizations, I reduced LLM cold-start latency from 3.9 seconds to 378 milliseconds, a 10.4x improvement. I am confident I can bring similar performance gains to your chatbot projects and am eager to discuss how I can contribute in an interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "Associate AI Engineer",
+      "company": "Qurinom Solutions",
+      "application_url": "https://www.naukri.com/job-listings-associate-ai-engineer-qurinom-solutions-hyderabad-0-to-3-years-010825504514",
+      "match_score": null,
+      "rejection_reason": "Role involves embedded systems and image processing, not focused on LLMs or Voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer",
+      "company": "Grhombus Technologies",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-grhombus-technologies-amod-0-to-2-years-240325504632",
+      "match_score": null,
+      "rejection_reason": "Fresher-focused role with computer vision emphasis, not matching candidate's LLM and production experience.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer",
+      "company": "Legistify",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-legistify-gurugram-0-to-2-years-221124503735",
+      "match_score": 65,
+      "rejection_reason": null,
+      "drafted_proposal": "As an AI Engineer with a focus on NLP and deep learning, I am keen to join Legistify and help advance your AI initiatives. My background includes training LightGBM models on 716K+ records and optimizing LLM pipelines for reduced latency, which can enhance your natural language processing capabilities.\n\nI bring expertise in LLM fine-tuning (GPT-4, Gemini, LLaMA), RAG implementations using Pinecone, and multi-agent architectures with CrewAI and LangChain. My production experience with FastAPI ensures scalable backend development, and I have worked with tools like PyTorch for model training.\n\nIn a recent project, I reduced AI-content detection from 100% to 30% in multi-agent systems, improving output quality. I would welcome the opportunity to discuss how my skills in LLM optimization and NLP can benefit Legistify in an interview."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer",
+      "company": "Algorizz",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-algo-rizz-technologies-bengaluru-0-to-4-years-170925501695",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I am writing to express my interest in the AI Engineer position at Algorizz. With my experience in building production AI systems, including voice infrastructure handling 2,000+ concurrent calls, I am well-equipped to contribute to your AI engineering projects and drive innovation.\n\nMy technical proficiency spans Python, PyTorch, LightGBM, and advanced LLM workflows with GPT-4, Gemini, and LLaMA fine-tuning. I have implemented RAG using Pinecone, orchestrated agents with CrewAI and LangChain, and developed APIs with FastAPI, alongside real-time voice processing with LiveKit, Deepgram STT, and ElevenLabs TTS.\n\nI achieved a 10.4x reduction in LLM cold-start latency (from 3.9s to 378ms) through optimizations with Groq and Pinecone. I am eager to bring my expertise in scaling AI solutions to Algorizz and would appreciate the chance to interview."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Agent Engineer",
+      "company": "Arya.ai",
+      "application_url": "https://www.naukri.com/job-listings-ai-agent-engineer-aryaxai-mumbai-0-to-3-years-220525506492",
+      "match_score": 75,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Hiring Team at Arya.ai, I am excited to apply for the AI Agent Engineer role to help build collaborative AI agents for enterprise teams. In my previous role, I designed and deployed a production AI voice infrastructure that scaled to handle over 2,000 concurrent calls, demonstrating my ability to deliver robust, real-time AI systems. My technical stack is directly aligned with multi-agent architectures. I have hands-on experience with CrewAI for orchestrating agent collaborations, LangChain for tool integration, and FastAPI for building high-performance backends. I've also implemented RAG systems using Pinecone to enhance agent knowledge retrieval. One concrete achievement was reducing LLM cold-start latency by 10.4x, from 3.9 seconds to 378 milliseconds, using Groq and Pinecone optimizations. I am confident in my ability to contribute to your agent initiatives and would welcome the opportunity to discuss further in an interview."
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer",
+      "company": "Centre for Computational Technologies (CCTech)",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-centre-for-computational-technologies-cctech-pune-0-to-1-years-241225504275",
+      "match_score": null,
+      "rejection_reason": "Role appears focused on traditional ML/NLP without explicit LLM or agent work, which doesn't align with candidate's LLM and voice AI expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Engineer",
+      "company": "Biz4group",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-biz4group-jaipur-0-to-1-years-070325503147",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "Dear Hiring Team at Biz4group, I am writing to express my interest in the AI Engineer position, particularly drawn to your requirement for fine-tuning open-source LLMs and VLMs. I have successfully fine-tuned LLaMA models using LoRA techniques, which reduced AI-content detection rates from 100% to 30% in multi-agent systems, showcasing my practical skills in model adaptation. My expertise includes working with PyTorch for deep learning, LangChain for framework integration, and FastAPI for deploying AI APIs. I have also optimized models using LightGBM on large datasets and integrated speech technologies like LiveKit for voice applications. A key metric from my work is training LightGBM models on 716K+ records to improve system efficiency. I am eager to bring this experience to your team and am available for an interview at your convenience."
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer",
+      "company": "MSCI Services",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-trove-research-mumbai-0-to-5-years-020226501840",
+      "match_score": null,
+      "rejection_reason": "Role likely involves traditional AI/ML or data science without specific LLM/agent focus, mismatching candidate's production LLM and voice AI stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Sr AIOps Engineer",
+      "company": "Prgx India",
+      "application_url": "https://www.naukri.com/job-listings-sr-aiops-engineer-prgx-india-pvt-ltd-pune-6-to-10-years-230126503615",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 6-10 Yrs is too high for candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Solution Consultant - AIOps",
+      "company": "Dhata Tech",
+      "application_url": "https://www.naukri.com/job-listings-solution-consultant-aiops-dhata-tech-pune-5-to-10-years-210223502868",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 5-10 Yrs is too high and role may involve consulting/sales rather than core AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Gen AI / Machine Learning Engineer",
+      "company": "eLabs Infotech",
+      "application_url": "https://www.naukri.com/job-listings-gen-ai-machine-learning-engineer-elabs-infotech-bhubaneswar-bengaluru-5-to-10-years-200326025899",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 5-10 Yrs is too high for candidate's 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer",
+      "company": "In4velocity",
+      "application_url": "https://www.naukri.com/job-listings-ai-engineer-in4velocity-bengaluru-4-to-8-years-291225023379",
+      "match_score": null,
+      "rejection_reason": "Experience requirement of 4-8 Yrs is too high for candidate's 1 YOE.",
+      "drafted_proposal": null
+    }
+  ]
+}

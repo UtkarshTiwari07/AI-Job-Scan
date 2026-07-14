@@ -1,0 +1,1543 @@
+{
+  "evaluated_jobs": [
+    {
+      "is_match": false,
+      "job_title": "Gigs Pipeline Automation DM Drafts + Follow-ups + Content Pack (n8n + Airtable + Slack + Ollama)",
+      "company": "Unknown",
+      "application_url": "",
+      "match_score": 0,
+      "rejection_reason": "This position is not remote, which does not meet my worldwide remote requirement.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Ops Automation Suite (n8n + Airtable + Slack)",
+      "company": "Unknown",
+      "application_url": "",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, so it does not align with my freelance remote-only criteria.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Email Triage & Drafting (Gmail + LLM)",
+      "company": "Unknown",
+      "application_url": "",
+      "match_score": 0,
+      "rejection_reason": "Not a remote position, which is required for my freelance work.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "FlowStack OS (Modular System Design) Standardized Leads/Activities/Bookings + Config for reusable workflows",
+      "company": "Unknown",
+      "application_url": "",
+      "match_score": 0,
+      "rejection_reason": "This role is not remote and unrelated to my AI Voice/LLM/RAG expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Contract - Python Developer - Remote",
+      "company": "Futuremug",
+      "application_url": "https://in.jooble.org/away/4514038816081434955?p=1&pos=0&rgn=3383&jobAge=36&jdpSource=101&jdpid=-2693830469254058051&crId=IN_0IN_0",
+      "match_score": 20,
+      "rejection_reason": "This role focuses on image processing with OpenCV, which is outside my specialization in AI Voice, LLMs, and RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Remote Python Engineer",
+      "company": "Turing",
+      "application_url": "https://in.linkedin.com/jobs/view/remote-python-engineer-at-turing-4381641075",
+      "match_score": 90,
+      "rejection_reason": null,
+      "drafted_proposal": "I built a production voice AI system handling 2,000+ concurrent calls, showcasing scalability in real-time AI applications. My stack aligns perfectly with your LLM evaluation projects: I'm proficient in Python, PyTorch, and LLM technologies like GPT-4 and LLaMA LoRA fine-tuning, with hands-on experience in Docker and Git for environment setup and codebase management. I reduced LLM cold-start latency by 10.4x (3.9s to 378ms) and trained models on 716K+ records, ensuring high-performance AI systems. I'm eager to contribute to your cutting-edge AI research and can start immediately\u2014let's discuss how I can add value to your team."
+    },
+    {
+      "is_match": true,
+      "job_title": "Sr Workflow Automation/ AI Agent Developer - PT/FT - NA/ Western EU/ LATAM",
+      "company": "Arc Exclusive",
+      "application_url": "https://arc.dev/remote-jobs/details/sr-workflow-automation-ai-agent-developer-pt-ft-na-western-eu-latam-o7y6aa7mm3",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I developed AI agents using CrewAI and LangChain for workflow automation, directly relevant to senior AI agent development roles. My expertise includes Python, LLMs (GPT-4, Gemini, LLaMA LoRA), and automation tools, making me a strong fit for building and optimizing AI-driven workflows. I achieved a 10.4x reduction in LLM response times and built systems for 2,000+ concurrent users, ensuring robust performance. I'm ready to bring this production-scale experience to your project\u2014let's connect to explore the details further."
+    },
+    {
+      "is_match": false,
+      "job_title": "High-Risk Payment Processing Developer WW-PT",
+      "company": "Arc Exclusive",
+      "application_url": "https://arc.dev/remote-jobs/details/high-risk-payment-processing-developer-ww-pt-o7ritbnpsb",
+      "match_score": 0,
+      "rejection_reason": "This role is unrelated to AI Voice, LLMs, RAG, or Python development as per my expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Architect",
+      "company": "PT Tri Digital Perkasa (Volantis Technology)",
+      "application_url": "https://id.jobstreet.com/job/90593813?type=standard&ref=search-standalone",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, which does not meet my worldwide remote requirement.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Backend Engineer",
+      "company": "PT Tri Digital Perkasa (Volantis Technology)",
+      "application_url": "https://id.jobstreet.com/job/90723363?type=standard&ref=search-standalone",
+      "match_score": 0,
+      "rejection_reason": "Not a remote position, so it is not suitable for my freelance remote-only work.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Fullstack Engineer",
+      "company": "PT Tri Digital Perkasa (Volantis Technology)",
+      "application_url": "https://id.jobstreet.com/job/90593963?type=standard&ref=search-standalone",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, which does not meet my requirement for worldwide remote work.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Frontend Engineer",
+      "company": "PT Tri Digital Perkasa (Volantis Technology)",
+      "application_url": "https://id.jobstreet.com/job/90683068?type=standard&ref=search-standalone",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, which does not meet my requirement for worldwide remote work.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "System Analyst",
+      "company": "PT Tri Digital Perkasa (Volantis Technology)",
+      "application_url": "https://id.jobstreet.com/job/90594044?type=standard&ref=search-standalone",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, which does not meet my requirement for worldwide remote work.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Python AI Developer",
+      "company": "Imaginary Cloud",
+      "application_url": "https://jobgether.com/offer/695f87782b723d71f728cb76-python-ai-developer",
+      "match_score": 0,
+      "rejection_reason": "Job type is full-time, but I am looking for freelance or contract positions only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "[Job-26238] Sr Python Developer (AI Specialist), Brazil",
+      "company": "Ci&T",
+      "application_url": "https://jobgether.com/offer/695dfdb22b723d71f7276f0d-job-26238-sr-python-developer-ai-specialist-brazil",
+      "match_score": 0,
+      "rejection_reason": "Job type is full-time, but I am looking for freelance or contract positions only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Coding Specialist (Fluent in Swedish) - Freelance AI Trainer Project",
+      "company": "Invisible Expert Marketplace",
+      "application_url": "https://jobgether.com/offer/697234b50365b76b0abb32ee-coding-specialist-fluent-in-swedish---freelance-ai-trainer-project",
+      "match_score": 0,
+      "rejection_reason": "Pay specified is below the minimum rate of $30 per hour equivalent.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Coding Specialist (Fluent in German) - Freelance AI Trainer Project",
+      "company": "Invisible Expert Marketplace",
+      "application_url": "https://jobgether.com/offer/697234b50365b76b0abb32d8-coding-specialist-fluent-in-german---freelance-ai-trainer-project",
+      "match_score": 0,
+      "rejection_reason": "Pay specified is below the minimum rate of $30 per hour equivalent.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Coding Specialist - Freelance AI Trainer (Fluent in Italian) Project",
+      "company": "Invisible Expert Marketplace",
+      "application_url": "https://jobgether.com/offer/697234b50365b76b0abb32f9-coding-specialist---freelance-ai-trainer-fluent-in-italian-project",
+      "match_score": 0,
+      "rejection_reason": "Pay specified is below the minimum rate of $30 per hour equivalent.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "LLM Engineer (Egypt)",
+      "company": "ledgers",
+      "application_url": "https://www.founditgulf.com/job/llm-engineer-egypt-ledgers-egypt-47072238?autoApply=true",
+      "match_score": 0,
+      "rejection_reason": "Job type is full-time, but I am looking for freelance or contract positions only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Python/FastAPI BE Developer",
+      "company": "People Prime Worldwide",
+      "application_url": "https://in.linkedin.com/jobs/view/python-fastapi-be-developer-at-people-prime-worldwide-4381014087",
+      "match_score": 0,
+      "rejection_reason": "Required experience of 4+ years exceeds my 1 year of experience.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Python FastAPI BE Developer",
+      "company": "People Prime Worldwide",
+      "application_url": "https://in.linkedin.com/jobs/view/python-fastapi-be-developer-at-people-prime-worldwide-4381014087",
+      "match_score": 0,
+      "rejection_reason": "Onsite-only position.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Outline Icons for Kitchen Ventilation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/contest/outline-icons-for-kitchen-ventilation-2709949",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI, LLM, RAG, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Outline Icons for Kitchen Ventilation - 06/03/2026 10:04 EST",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/contest/outline-icons-for-kitchen-ventilation-est-2709951",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI, LLM, RAG, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Home Services Booking App",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/android-app-development/home-services-booking-app",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI, LLM, RAG, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Video Editor Needed for Ongoing Social Media Reels Using CapCut or Canva",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/capcut/video-editor-needed-for-ongoing",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI, LLM, RAG, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Basic Web Presence for Roofing",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/web-design/basic-web-presence-for-roofing",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI, LLM, RAG, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "WordPress Multilingual Community Site",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/woocommerce/wordpress-multilingual-community-site",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI, LLM, RAG, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AWS EC2 S3 Laravel-Boots Developer (Maintenance, Updates & System Optimization)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/laravel/awd-laravel-boots-developer-maintenance",
+      "match_score": 0,
+      "rejection_reason": "Not aligned with AI engineering stack (Python, LLMs, RAG).",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Access to Sage X3 CLI",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/automation/access-sage-cli",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI, LLM, RAG, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "House Expansion and Renovation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/2d-drafting/house-expansion-renovation",
+      "match_score": 0,
+      "rejection_reason": "Pay below minimum $30/hr and unrelated to AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Product Awareness Content Writer for Recruitment Platform",
+      "company": "Lenvar Global Pvt Ltd",
+      "application_url": "https://www.freelancer.com/projects/user-experience-research/product-content-designer-for-recruitment",
+      "match_score": 0,
+      "rejection_reason": "Pay is below $30/hr and the role is unrelated to AI engineering or my technical stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Pricing and Workflow Automation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-chatbot-development/pricing-workflow-automation",
+      "match_score": 75,
+      "rejection_reason": null,
+      "drafted_proposal": "I have built production voice AI systems handling over 2,000 concurrent calls, showcasing my ability to design and scale robust AI solutions for real-world applications. My stack aligns perfectly with your AI-driven workflow needs: I use Python, PyTorch, and LLMs like GPT-4 for natural language tasks, such as generating accurate job quotes and intelligently categorizing emails, and can integrate seamlessly with tools like Gmail, Outlook, and Google Drive using FastAPI and automation frameworks. With a track record of reducing LLM cold-start by 10.4x and optimizing performance, I can deliver an efficient automation system that saves time and costs\u2014let's connect to discuss implementing this for your workflow."
+    },
+    {
+      "is_match": false,
+      "job_title": "Engaging Social Media Content Strategist for Premium Notary Services (Estate Planning, Construction, Apostille)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/contest/engaging-social-media-content-strategist-for-premium-notary-services-estate-planning-construction-apostille-est-2710083",
+      "match_score": 0,
+      "rejection_reason": "This role is focused on social media content creation, not AI engineering or related technologies.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Retouching Editor for Real Estate Photos - Long-term Partner",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/contest/retouching-editor-for-real-estate-photos-longterm-partner-2710006",
+      "match_score": 0,
+      "rejection_reason": "The job involves photo editing with tools like Photoshop, which is unrelated to my AI engineering stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Private project or contest #40284035",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/login?goto=MzZlOTdmMmM3NjFjMmI1OTQyMDdjZGVjMmU2ZmU4ZTBodHRwczovL3d3dy5mcmVlbGFuY2VyLmNvbS9wcm9qZWN0cy9idXNpbmVzcy1hbmFseXNpcy9yaXNrLWF3YXJlLXByb2plY3Qtb3B0aW9ucy1hbmFseXNpcw,,",
+      "match_score": 0,
+      "rejection_reason": "Description unavailable and the title does not indicate AI-related work.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Multi-client visa portal automation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/php/multi-client-visa-portal-automation",
+      "match_score": 0,
+      "rejection_reason": "This is a web automation project without AI components, not matching my focus on AI Voice, LLM, or RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Looking for experienced PCB design",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/stm32/looking-for-experienced-pcb-design",
+      "match_score": 0,
+      "rejection_reason": "The role requires PCB design and hardware expertise, which is unrelated to my AI software engineering stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Smart Moisture Monitor",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/mobile-app-development/smart-moisture-monitor",
+      "match_score": 0,
+      "rejection_reason": "This is an IoT and hardware development project, not aligned with AI Voice, LLM, or Python-based AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Revit Template for Commercial Projects",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/revit/revit-template-for-commercial-projects",
+      "match_score": 0,
+      "rejection_reason": "The job involves CAD software and architectural templates, which are outside my AI engineering scope.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Efficient Power Switching Circuit with esp32 controller",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/altium-designer/efficient-power-switching-circuit-with",
+      "match_score": 0,
+      "rejection_reason": "This is a hardware and embedded systems project, not related to AI software development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Automotive Automation Mechatronics Engineer",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/mechatronics/automotive-automation-mechatronics",
+      "match_score": 0,
+      "rejection_reason": "Pay specified at $11/hr is below the $30/hr minimum rate and unrelated to AI Voice/LLM/RAG/Python stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "18K Pool-Cleaning Robot Prototype",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/robotics/pool-cleaning-robot-prototype",
+      "match_score": 10,
+      "rejection_reason": "Unrelated to AI Voice/LLM/RAG/Python stack; focuses on hardware and embedded robotics.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "ESP32 Based Face Following Service Robot (GrowBuddy)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/wifi/esp-based-face-following-service",
+      "match_score": 10,
+      "rejection_reason": "Unrelated to AI stack; involves embedded firmware development, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "GRC / Cybersecurity Projects for Resume & GitHub (ISO 27001, Risk Acceptance, GRC Automation)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/risk-assessment/grc-cybersecurity-projects-for-resume",
+      "match_score": 10,
+      "rejection_reason": "Unrelated to AI Voice/LLM/RAG/Python stack; focuses on cybersecurity and GRC.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "\u667a\u80fdLED PCB\u786c\u4ef6\u8bbe\u8ba1",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/altium-designer/led-pcb",
+      "match_score": 10,
+      "rejection_reason": "Unrelated to AI stack; hardware-focused PCB design, not AI software development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Diagnostic Toolchain",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/android/esp-audio-sip-bridge-diagnostics",
+      "match_score": 0,
+      "rejection_reason": "Onsite-only position, not worldwide remote as required.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "IoT Weather Monitoring System using ESP32 (Python-Based Firmware + Simulation Mode)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/debugging/iot-weather-monitoring-system-using",
+      "match_score": 0,
+      "rejection_reason": "Onsite-only position, not worldwide remote as required.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Industrial PCB Designer (ESP32-S3, 24V Power, EMI/EMC, IP65 Enclosure) \u2013 IoT Pulse Controller for Car Wash/Vacuum",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/industrial-pcb-designer-esp-power",
+      "match_score": 0,
+      "rejection_reason": "Onsite-only position, not worldwide remote as required.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Ultra-Slim No-Neutral Smart Switch -- 2",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/embedded-systems/ultra-slim-neutral-smart-switch-40268647",
+      "match_score": 0,
+      "rejection_reason": "Onsite-only position, not worldwide remote as required.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Freelance BDEs Wanted: AI Projects",
+      "company": "Techmarqx",
+      "application_url": "https://www.freelancer.com/projects/ai-hw-sw/freelance-bdes-wanted-projects",
+      "match_score": 10,
+      "rejection_reason": "Role is business development, not AI engineering related to Voice/LLM/RAG/Python stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Enhanced Interactive Toy Creation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-model-integration/enhanced-interactive-toy-creation",
+      "match_score": 0,
+      "rejection_reason": "Pay is below minimum rate and requires hardware design skills not aligned with my AI software expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "GIS / Remote Sensing Projects",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/environmental-science/gis-remote-sensing",
+      "match_score": 0,
+      "rejection_reason": "Project is unrelated to AI, LLMs, or Python development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Virtual Assistant \u2013 AI Prompting, Design & Vibe-Coded Projects (PST Hours)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-chatbot/virtual-assistant-prompting-design-vibe",
+      "match_score": 0,
+      "rejection_reason": "Pay is below minimum rate and the role is for virtual assistance, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Industrial ESP32-S3 PCB Design (Flux.ai)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/embedded-systems/industrial-esp-pcb-design-flux",
+      "match_score": 0,
+      "rejection_reason": "Project is hardware PCB design, unrelated to AI software development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Google Ads Conversion Tracking- 2 projects",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/google-ads/google-ads-conversion-tracking-projects",
+      "match_score": 0,
+      "rejection_reason": "Project is in digital marketing, not AI development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Female Models Needed for Diverse Projects",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/film-production/female-models-needed-for-diverse",
+      "match_score": 0,
+      "rejection_reason": "Project is for modeling, unrelated to AI or software development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Projects For VideoXperts Pro",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/video-editing/projects-for-videoxperts-pro",
+      "match_score": 0,
+      "rejection_reason": "Project is for video editing, not AI development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Ultra-Slim No-Neutral Smart Switch",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/embedded-systems/ultra-slim-neutral-smart-switch",
+      "match_score": 0,
+      "rejection_reason": "Pay is below minimum rate and project is hardware-focused, not AI software.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Ultra-slim, neutral-free smart light switch",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/embedded-systems/ultra-slim-neutral-smart-switch",
+      "match_score": 0,
+      "rejection_reason": "Pay is below minimum rate and project is hardware-focused, not AI software.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Zoho One CRM & Projects Roll-Out",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/zoho-crm/zoho-one-crm-projects-roll",
+      "match_score": 0,
+      "rejection_reason": "Project is for CRM and project management setup, not focused on AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Need Guidance Securing Writing Projects",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/article-rewriting/need-guidance-securing-writing-projects",
+      "match_score": 0,
+      "rejection_reason": "This job focuses on content writing and project acquisition, which is unrelated to AI, LLM, RAG, or Python development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Dual-Variant CM4 Audio Carrier Board",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/raspberry-pi/dual-variant-audio-carrier-board",
+      "match_score": 0,
+      "rejection_reason": "This job involves hardware design and KiCad for audio boards, which is outside my AI and software engineering expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "3 projects feb-March 2026",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/seo/projects-feb-march",
+      "match_score": 0,
+      "rejection_reason": "The job description is vague and unrelated to AI, LLM, RAG, or Python development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Industrial Product Designer: 3D CAD Design for Automated Helmet Cleaning Machine Cabinet",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/3d-cad/industrial-product-designer-cad-design",
+      "match_score": 0,
+      "rejection_reason": "This job requires 3D CAD design for industrial hardware, not AI or software engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "ESP32-S3 CAN Car Gauge",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/can-bus/esp-can-car-gauge",
+      "match_score": 0,
+      "rejection_reason": "This job involves embedded systems and CAN bus firmware development, which is not related to AI, LLM, or Python.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Luxurious Logo Design Needed",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/contest/luxurious-logo-design-needed-2710493",
+      "match_score": 0,
+      "rejection_reason": "This job is for logo design, which is unrelated to AI engineering or software development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Position Board/Card Game Designer",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/prototyping/position-board-card-game-designer",
+      "match_score": 0,
+      "rejection_reason": "This job focuses on game design and graphic design, not AI or LLM technologies.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Sales-Driven Meta Ads Marketer",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/digital-marketing/sales-driven-meta-ads-marketer",
+      "match_score": 0,
+      "rejection_reason": "This job is for digital marketing and Meta ads, which is outside my AI and software engineering scope.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Residential Bedroom Visualization",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/3d-animation/residential-bedroom-visualization",
+      "match_score": 0,
+      "rejection_reason": "This job involves 3D animation and visualization, unrelated to AI, LLM, or Python development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Engineer Needed for Multi-Agent System LLM Automation",
+      "company": "Unknown",
+      "application_url": "https://www.upwork.com/freelance-jobs/apply/Engineer-Needed-for-Multi-Agent-System-LLM-Automation_~022029453780200804964/",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I have successfully built a production-scale voice AI system that handles 2,000+ concurrent calls, showcasing my ability to develop and deploy robust, scalable AI solutions in real-world environments.\nMy expertise aligns directly with your multi-agent system and LLM automation needs, as I proficiently use Python, PyTorch, LightGBM, and frameworks like CrewAI and LangChain for orchestrating LLMs such as GPT-4 and Gemini, along with RAG implementations using Pinecone and FastAPI for backend efficiency.\nWith metrics like reducing LLM cold-start latency by 10.4x and improving AI-content detection rates, I am confident in delivering high-performance automation. Let's connect to discuss how I can accelerate your project with my proven track record."
+    },
+    {
+      "is_match": true,
+      "job_title": "Engineer Python LangChain Pinecone Paid Consulting Call Potential Partnership",
+      "company": "Unknown",
+      "application_url": "https://www.upwork.com/freelance-jobs/apply/Engineer-Python-LangChain-Pinecone-Paid-Consulting-Call-Potential-Partnership_~022025967759790852337/",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I have built production voice AI systems capable of handling 2,000+ concurrent calls, showcasing my ability to scale AI solutions in real-time environments.\n\nMy expertise directly matches your requirements with Python, LangChain, and Pinecone for building RAG systems, coupled with experience in LLM fine-tuning and integration using FastAPI and CrewAI.\n\nI achieved a 10.4x reduction in LLM cold-start latency and trained models on over 716K records. I'm ready to contribute to your project and discuss a potential partnership. Let's schedule a paid consulting call."
+    },
+    {
+      "is_match": false,
+      "job_title": "Experienced Python Developer for Document Automation Systems",
+      "company": "Unknown",
+      "application_url": "https://www.upwork.com/freelance-jobs/apply/Experienced-Python-Developer-for-Document-Automation-Systems_~022028967159769712141/",
+      "match_score": 0,
+      "rejection_reason": "Job does not clearly align with AI/LLM/RAG focus, and description is unavailable to confirm AI involvement.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior AI Consultant / AI Engineer",
+      "company": "Unknown",
+      "application_url": "",
+      "match_score": 0,
+      "rejection_reason": "Position is full-time, not freelance or contract as required.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT broker",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/django/cross-platform-iot-using-mqtt",
+      "match_score": 0,
+      "rejection_reason": "Job is unrelated to AI/LLM/RAG/Python focus, focusing on IoT and full-stack development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/django/cross-platform-iot-using-mqtt",
+      "match_score": 0,
+      "rejection_reason": "Job focuses on IoT and MQTT, not related to AI/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "LiveExperts",
+      "application_url": "https://www.freelancer.com/u/liveexperts",
+      "match_score": 0,
+      "rejection_reason": "Job focuses on IoT and MQTT, not related to AI/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "DeveloperStation",
+      "application_url": "https://www.freelancer.com/u/developerstation",
+      "match_score": 0,
+      "rejection_reason": "Job focuses on IoT and MQTT, not related to AI/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "planDapps",
+      "application_url": "https://www.freelancer.com/u/plandapps",
+      "match_score": 0,
+      "rejection_reason": "Job focuses on IoT and MQTT, not related to AI/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "Rekhathakur",
+      "application_url": "https://www.freelancer.com/u/rekhathakur",
+      "match_score": 0,
+      "rejection_reason": "Job focuses on IoT and MQTT, not related to AI/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "hireageek",
+      "application_url": "https://www.freelancer.com/u/hireageek",
+      "match_score": 0,
+      "rejection_reason": "Job focuses on IoT and MQTT, not related to AI/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "intelliresponse",
+      "application_url": "https://www.freelancer.com/u/intelliresponse",
+      "match_score": 0,
+      "rejection_reason": "This job is focused on IoT and MQTT, which is outside my expertise in AI, LLMs, and voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "mrresearcher99",
+      "application_url": "https://www.freelancer.com/u/mrresearcher99",
+      "match_score": 0,
+      "rejection_reason": "This job is focused on IoT and MQTT, which is outside my expertise in AI, LLMs, and voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "Feriver",
+      "application_url": "https://www.freelancer.com/u/feriver",
+      "match_score": 0,
+      "rejection_reason": "This job is focused on IoT and MQTT, which is outside my expertise in AI, LLMs, and voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "jayprakashyadav",
+      "application_url": "https://www.freelancer.com/u/jayprakashyadav",
+      "match_score": 0,
+      "rejection_reason": "This job is focused on IoT and MQTT, which is outside my expertise in AI, LLMs, and voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "rbtech1984",
+      "application_url": "https://www.freelancer.com/u/rbtech1984",
+      "match_score": 0,
+      "rejection_reason": "This job is focused on IoT and MQTT, which is outside my expertise in AI, LLMs, and voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "dvcontact",
+      "application_url": "https://www.freelancer.com/u/dvcontact",
+      "match_score": 0,
+      "rejection_reason": "This job is focused on IoT and MQTT, which is outside my expertise in AI, LLMs, and voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform IoT using MQTT",
+      "company": "shadabkhan92",
+      "application_url": "https://www.freelancer.com/u/shadabkhan92",
+      "match_score": 0,
+      "rejection_reason": "This job is focused on IoT and MQTT, which is outside my expertise in AI, LLMs, and voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Modern Company Website Design",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/web-design/modern-company-website-design",
+      "match_score": 0,
+      "rejection_reason": "This is a web design project unrelated to AI or my technical stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "powerpoint presentation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/powerpoint/powerpoint-presentation-23173069",
+      "match_score": 0,
+      "rejection_reason": "This is a presentation creation task, not related to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Social Media App UX Revamp",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ui-design/social-media-app-revamp",
+      "match_score": 0,
+      "rejection_reason": "This UX design project does not align with my AI and voice AI skills.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Word Press Website Customization \u2013 Urgent (Hourly or Fixed Price)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/word-press-website-customization-urgent",
+      "match_score": 0,
+      "rejection_reason": "Pay is below the minimum rate and the job is unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "WhatsApp Cloud API Chatbot Developer",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-chatbot-development/whatsapp-cloud-api-chatbot-developer",
+      "match_score": 60,
+      "rejection_reason": null,
+      "drafted_proposal": "I built a production voice AI system handling 2,000+ concurrent calls, involving real-time conversational AI with LLMs, which directly translates to scalable chatbot development. My stack includes Python, LLM integration (GPT-4, Gemini), CrewAI for multi-agent systems, and FastAPI for backend APIs, perfect for deploying efficient WhatsApp Cloud API chatbots. With a 10.4x reduction in LLM cold-start to 378ms for responsive interactions, I can deliver a high-performance solution\u2014let's discuss your chatbot requirements."
+    },
+    {
+      "is_match": false,
+      "job_title": "Brevo Promotional Email Automation Setup",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/email-marketing/brevo-promotional-email-automation-setup",
+      "match_score": 0,
+      "rejection_reason": "Pay is below the minimum rate and the job is unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Modern Minimalist Black & White Logo Redesign \u2013 Keep Style, New Concept",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/contest/modern-minimalist-black-white-logo-redesign-keep-style-new-concept-2708982",
+      "match_score": 0,
+      "rejection_reason": "The job is design-focused and unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Kickstarter Campaign Page Design",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/web-design/kickstarter-campaign-page-design",
+      "match_score": 0,
+      "rejection_reason": "The job is web design and unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Logo Animation for PrepHacker RN",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/contest/logo-animation-for-prephacker-rn-2709451",
+      "match_score": 0,
+      "rejection_reason": "The job is animation and unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Full-Stack Pharma Sales App",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/backend-development/full-stack-pharma-sales-app",
+      "match_score": 0,
+      "rejection_reason": "The job is full-stack development outside my AI engineering stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Adult Board Game Design Overhaul & Redesign",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/illustration/adult-board-game-design-overhaul",
+      "match_score": 0,
+      "rejection_reason": "The job is design-focused and unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Personal Blog Website Development - 02/03/2026 08:30 EST",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/cakephp/personal-blog-website-development-est",
+      "match_score": 0,
+      "rejection_reason": "Pay is below the minimum rate and the job is unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "NSE Option Chain LTP Analyzer",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/data-analysis/nse-option-chain-ltp-analyzer",
+      "match_score": 0,
+      "rejection_reason": "The job is data analysis-focused and not aligned with AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "E-commerce Site Development",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/web-development/commerce-site-development-40277654",
+      "match_score": 0,
+      "rejection_reason": "This gig is for web development, which is unrelated to my AI, LLM, or Python engineering expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform Hospital Management System",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/web-development/cross-platform-hospital-management",
+      "match_score": 0,
+      "rejection_reason": "This role involves hospital management system development, not aligned with my AI and voice AI stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Dual Destination Wedding Website Suite",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/php/dual-destination-wedding-website-suite",
+      "match_score": 0,
+      "rejection_reason": "This project is for wedding website development, which is not related to AI or machine learning.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Versatile Freelance Partner Wanted",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/graphic-design/versatile-freelance-partner-wanted",
+      "match_score": 0,
+      "rejection_reason": "This gig requires graphic design skills, outside my AI engineering focus on LLMs and RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "FUNRUNNERS Singles Fraternity Platform,PARTNERS NEEDED - 27/02/2026 19:21 EST",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/android-app-development/funrunners-singles-fraternity-platform",
+      "match_score": 0,
+      "rejection_reason": "This is for social app development, not centered on AI technologies like LLMs or voice AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Minimalist Brand Identity Kit",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/branding/minimalist-brand-identity-kit",
+      "match_score": 0,
+      "rejection_reason": "This job is for branding and graphic design, which is unrelated to my AI and Python development stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Social Networking App Development",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/android/social-networking-app-development-40275887",
+      "match_score": 0,
+      "rejection_reason": "This role is for app development, not focused on AI, RAG, or LLM engineering as per my expertise.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Money-Earning Mobile App Build",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ui-design/money-earning-mobile-app-build",
+      "match_score": 0,
+      "rejection_reason": "The pay rate is below my minimum and the role is for UI design, not AI-related work.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Horror Story Scene Illustration Artist",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/graphic-design/horror-story-scene-illustration-artist",
+      "match_score": 0,
+      "rejection_reason": "This is for illustration work, which is not within my AI engineering domain.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Informational Site Development on PowerApps",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/content-management-system/informational-site-development-powerapps",
+      "match_score": 0,
+      "rejection_reason": "This project requires PowerApps development, not related to AI, LLM, or Python technologies.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Deploy Dynamic Node App to AWS",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/cicd/deploy-dynamic-node-aws",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI Voice/LLM/RAG/Python; focuses on DevOps and AWS deployment.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Urgent Migration Sites to Hostinger",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/web-hosting/urgent-migration-sites-the-hostinger",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI Voice/LLM/RAG/Python; involves web hosting migration.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Genomic Selection Research Intern",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/data-analysis/genomic-selection-research-intern",
+      "match_score": 0,
+      "rejection_reason": "Uses R instead of Python and pay is below the minimum $30/hr equivalent.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Optimize Custom Search Relevance",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/data-analysis/optimize-custom-search-relevance",
+      "match_score": 0,
+      "rejection_reason": "Pay below minimum and not directly aligned with AI Voice/LLM/RAG core stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Multilingual AI on Proprietary Data",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-chatbot-development/multilingual-proprietary-data",
+      "match_score": 0,
+      "rejection_reason": "Not confirmed as remote; is_remote field is false.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "LLM Fine-Tuning for Wider Coverage",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-model-development/llm-fine-tuning-for-wider",
+      "match_score": 0,
+      "rejection_reason": "Pay below minimum and not confirmed as remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Looking for someone who can develop a mini project on the topic \u201cA Deep Learning Model for Brain Segmentation in Pediatrics.\u201d",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/deep-learning/looking-for-someone-who-can",
+      "match_score": 0,
+      "rejection_reason": "Not confirmed remote and focuses on TensorFlow/computer vision rather than LLM/RAG/Python stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Technology Consultant (Remote \u2013 India / Pakistan)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-development/technology-consultant-remote-india",
+      "match_score": 90,
+      "rejection_reason": null,
+      "drafted_proposal": "As an AI Engineer with production-scale experience, I built a voice AI system handling 2,000+ concurrent calls, demonstrating robust scalability and real-time processing. This involved end-to-end development from LLM integration to deployment, ensuring high availability and performance under load.\nMy stack directly aligns with your needs: I specialize in Python, PyTorch, and LLMs including GPT-4 and Gemini, with hands-on LoRA fine-tuning for LLaMA, and RAG implementations using LangChain and CrewAI. I've designed AI architectures with FastAPI backends and integrated tools like Pinecone for vector storage, making me adept at building secure, efficient AI-powered solutions.\nI reduced LLM cold-start latency by 10.4x (from 3.9s to 378ms) and trained LightGBM on 716K+ records, cutting AI-content detection from 100% to 30%. I'm ready to contribute as your AI consultant, providing clear technical guidance and delivering measurable results. Let's discuss how I can help design and implement your AI systems."
+    },
+    {
+      "is_match": false,
+      "job_title": "Boost Credit Risk Model Performance -- 2",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/machine-learning/boost-credit-risk-model-performance",
+      "match_score": 0,
+      "rejection_reason": "Not confirmed as remote and leans towards pure data science rather than core AI Voice/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Python Library Task Orchestration",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/github/python-library-task-orchestration",
+      "match_score": 0,
+      "rejection_reason": "Not confirmed as remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "DeepseekV3 Jet Nano ML Simulation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/deep-learning/deepseekv-jet-nano-simulation",
+      "match_score": 0,
+      "rejection_reason": "Not a remote position.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI-Driven Real-Time Face Swap Development",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/computer-vision/driven-real-time-face-swap",
+      "match_score": 0,
+      "rejection_reason": "Unrelated to AI Voice, LLM, RAG, or Python stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Multi-Agent AI System for Creative Production",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/api-integration/multi-agent-system-for-creative",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "As an AI Engineer with production experience, I built a voice AI system handling 2,000+ concurrent calls, showcasing my ability to deliver scalable, real-time solutions. Your multi-agent AI system for creative production aligns perfectly with my expertise in CrewAI, LangChain, and Pinecone for orchestrating agents and managing vector databases. I reduced LLM cold-start by 10.4x and trained models on large datasets; I'm ready to architect your production-grade system. Let's connect to discuss how I can automate your pipeline."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Ad Layout Engine Development",
+      "company": "Dazzx",
+      "application_url": "https://www.freelancer.com/projects/natural-language-processing/layout-engine-development",
+      "match_score": 75,
+      "rejection_reason": null,
+      "drafted_proposal": "I have successfully developed AI-driven systems, including voice AI for high concurrency, which required robust parsing and matching algorithms. Your AI ad layout engine needs prompt understanding and template scoring, areas where I excel using LLMs and RAG techniques with Python and FastAPI. With metrics like reducing AI-content detection from 100% to 30%, I can build the intelligent brain for your platform. I'm interested in contributing to Dazzx's creative intelligence engine."
+    },
+    {
+      "is_match": false,
+      "job_title": "Train High-Resolution Diffusion Model",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/machine-learning/train-high-resolution-diffusion-model",
+      "match_score": 0,
+      "rejection_reason": "Pay is below minimum rate and unrelated to core stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Project for Deyaa for autofill and visa application form",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/fastapi/project-for-deyaa-for-autofill",
+      "match_score": 0,
+      "rejection_reason": "Pay below minimum and not focused on AI Voice/LLM/RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Develop Healthcare Workflow AI Copilot",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/machine-learning/develop-healthcare-workflow-copilot",
+      "match_score": 0,
+      "rejection_reason": "Pay is below the minimum rate of $30/hr equivalent.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Science PDF Question Generator",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/natural-language-processing/science-pdf-question-generator",
+      "match_score": 0,
+      "rejection_reason": "Pay is below minimum rate.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "GROUP COORDINATION & MANAGEMENT SYSTEM (P2P FOCUS)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-model-development/group-coordination-management-system",
+      "match_score": 0,
+      "rejection_reason": "Hourly pay is below $30/hr.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Remotion Video-Editing Templates with JSON Inputs (React/TypeScript)",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-development/remotion-video-editing-templates-with",
+      "match_score": 0,
+      "rejection_reason": "Pay below $30/hr and unrelated to AI stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Advanced AI Trade Engine Development -- 2",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-development/advanced-trade-engine-development-40271730",
+      "match_score": 65,
+      "rejection_reason": null,
+      "drafted_proposal": "Having built a production voice AI system handling 2,000+ concurrent calls, I've demonstrated expertise in scaling and optimizing AI models for real-time performance. My work involved reducing LLM cold-start latency by 10.4x, ensuring efficient deployment.\n\nMy stack aligns perfectly with your AI trade engine needs: I specialize in Python, PyTorch, and LightGBM for modelling, with experience in RAG and LLM fine-tuning (GPT-4, Gemini, LLaMA LoRA). I can brainstorm and bring AI ideas to life, focusing on optimization and implementation across various areas, though UI design would require collaboration.\n\nI trained LightGBM on 716K+ records and reduced AI-content detection from 100% to 30%, showcasing my ability to deliver measurable improvements. Let's discuss how I can enhance your AI modelling and drive your project forward as head developer."
+    },
+    {
+      "is_match": false,
+      "job_title": "Edge Device Aerial Detection - 03/02/2026 12:21 EST",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/computer-vision/edge-device-aerial-detection-est",
+      "match_score": 0,
+      "rejection_reason": "Job is focused on computer vision, which is not within my specialization in AI Voice, LLMs, and RAG.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI/ML Engineer-South-East Asia",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/mlops/engineer-south-east-asia",
+      "match_score": 0,
+      "rejection_reason": "Pay rate of $20/hr is below the minimum required $30/hr.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "frontend for analytics",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/ai-development/lead-developer-needed-for-innovative",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote and pay rate is below $30/hr.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI-Driven Survey Data Analysis App",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/data-analysis/driven-survey-data-analysis-app",
+      "match_score": 0,
+      "rejection_reason": "Position is not fully remote and prefers onsite interaction in Singapore.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI based call transfer system in telephone exchange",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/artificial-intelligence/based-call-transfer-system-telephone",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cross-Platform RNA Design Software",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/bioinformatics/cross-platform-rna-design-software",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote and pay rate is below $30/hr.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "NLP Innovation for Data Automation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/natural-language-processing/nlp-innovation-for-data-automation",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Sports Betting System with Discord Bot",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/postgresql/sports-betting-system-with-discord",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Need Autocad 3D design of Scooter front headlights (Instrument cluster, display, thorttle, switches on handle bar, brakcets, mounting hole etc ) depicting views top bottom right left side view and isometric view with both cad and pdf file",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/autocad/need-autocad-design-scooter-front",
+      "match_score": 0,
+      "rejection_reason": "Job is unrelated to AI, LLMs, RAG, or Python development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "CAD Designer for Unique Jewelry & Furniture",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/3d-design/cad-designer-for-unique-jewelry",
+      "match_score": 0,
+      "rejection_reason": "Pay is below $30/hr and job is unrelated to AI/LLM/RAG/Python stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Binary MLM Software With Repurchase",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/laravel/binary-mlm-software-with-repurchase",
+      "match_score": 0,
+      "rejection_reason": "Job is unrelated to AI/LLM/RAG/Python stack, focusing on web development with Laravel.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Complete Website Optimisation & Technical Improvement for Wix Photography Website",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/wix/complete-website-optimisation-technical",
+      "match_score": 0,
+      "rejection_reason": "Job is unrelated to AI/LLM/RAG/Python stack, focusing on website optimisation and SEO.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Tech Business Analysis & Valuation",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/financial-modeling/tech-business-analysis-valuation",
+      "match_score": 0,
+      "rejection_reason": "Job is unrelated to AI/LLM/RAG/Python stack, focusing on business analysis and valuation.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "WordPress Site for Veranda Company",
+      "company": "Unknown",
+      "application_url": "https://www.freelancer.com/projects/web-development/wordpress-site-for-veranda-company",
+      "match_score": 0,
+      "rejection_reason": "Pay is below $30/hr and job is unrelated to AI/LLM/RAG/Python stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Intern (Security focus)",
+      "company": "Value Point Systems",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=101&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_26d4f6db&cb=1772955285117&jobListingId=1010025888469&jrtk=5-pdx1-0-1jj65tdd5jite800-965b2e8b01bc7188",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, onsite-only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cloud Engineer Intern",
+      "company": "Value Point Systems",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=102&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_293ffe8f&cb=1772955285117&jobListingId=1009708098065&jrtk=5-pdx1-0-1jj65tdd5jite800-c1f8985555194170",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, onsite-only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "User Operations and Content (from Entry to Associate level)",
+      "company": "Elfie",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=103&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&ea=1&cs=1_9857ab1a&cb=1772955285117&jobListingId=1010045013650&jrtk=5-pdx1-0-1jj65tdd5jite800-f2c1a384f1335b45",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, onsite-only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cloud Security Practice Intern",
+      "company": "Value Point Systems",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=104&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_7658d155&cb=1772955285117&jobListingId=1009561181001&jrtk=5-pdx1-0-1jj65tdd5jite800-4ee45ee2a6526981",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, onsite-only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Marketing Intern",
+      "company": "C\u00f4ng Ty TNHH Savills Vi\u1ec7t Nam - Chi Nh\u00e1nh Th\u00e0nh Ph\u1ed1 H\u1ed3 Ch\u00ed Minh",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=106&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_ea9e05f8&cb=1772955285117&jobListingId=1010045815230&jrtk=5-pdx1-0-1jj65tdd5jite800-bd9a6511b642de3d",
+      "match_score": 0,
+      "rejection_reason": "Position is not remote, onsite-only.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cyber Security Operations Admin",
+      "company": "Simpson Strong-Tie Vietnam",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=107&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_8d516550&cb=1772955285117&jobListingId=1010002727805&jrtk=5-pdx1-0-1jj65tdd5jite800-82f0687418c041d6",
+      "match_score": 0,
+      "rejection_reason": "This role is in cybersecurity operations and is not related to AI, LLM, or Python development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "People And Culture Trainee / Human Resources Trainee",
+      "company": "Hotel Des Arts Sai Gon",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=108&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_740d67cc&cb=1772955285117&jobListingId=1009611674365&jrtk=5-pdx1-0-1jj65tdd5jite800-f7e7a73bd6c47597",
+      "match_score": 0,
+      "rejection_reason": "This is an HR trainee position unrelated to AI engineering or development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior Academics MIS Executive",
+      "company": "Anne Hill International School",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=109&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_9f096d7a&cb=1772955285118&jobListingId=1010044459620&jrtk=5-pdx1-0-1jj65tdd5jite800-4db46dcfbc5c84c0",
+      "match_score": 0,
+      "rejection_reason": "This MIS executive role is not focused on AI, LLM, or Python engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Ch\u0103m S\u00f3c Kh\u00e1ch H\u00e0ng KOL/KOC Shopee (Entry Level - 6 Th\u00e1ng Kinh Nghi\u1ec7m)",
+      "company": "C\u00f4ng Ty TNHH Vi\u1ec7t M\u1ef9 SSU",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=110&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_822ddcf8&cb=1772955285118&jobListingId=1010045802713&jrtk=5-pdx1-0-1jj65tdd5jite800-c3c58b50ed95fa21",
+      "match_score": 0,
+      "rejection_reason": "This customer care role has pay below the $30/hr equivalent and is not related to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Laboratory Technician",
+      "company": "Procter & Gamble",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=111&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_997ae83a&cb=1772955285119&jobListingId=1010023393187&jrtk=5-pdx1-0-1jj65tdd5jite800-cb7d49026f0a2e2b",
+      "match_score": 0,
+      "rejection_reason": "This laboratory technician position is unrelated to AI or software development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "LLM Engineer",
+      "company": "EPAM Systems, Inc.",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=112&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_323759fe&cb=1772955285118&jobListingId=1009998886825&jrtk=5-pdx1-0-1jj65tdd5jite800-a20fccdc56ec4d83",
+      "match_score": 0,
+      "rejection_reason": "This LLM Engineer role is not specified as remote freelance/contract, which is required.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "[TP.HCM] TUY\u1ec2N D\u1ee4NG \u2013 Nh\u00e2n vi\u00ean SOC Analyst",
+      "company": "M\u1eaft B\u00e3o BPO",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=113&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_ea419749&cb=1772955285118&jobListingId=1009872859671&jrtk=5-pdx1-0-1jj65tdd5jite800-bfd97f49bc091d1a",
+      "match_score": 0,
+      "rejection_reason": "This SOC analyst position is in cybersecurity and not aligned with AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Operations Support Agent (Noi Bai)",
+      "company": "FedEx AMEA",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=114&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_4f02fbe0&cb=1772955285118&jobListingId=1009934396122&jrtk=5-pdx1-0-1jj65tdd5jite800-85e2afee8b25604c",
+      "match_score": 0,
+      "rejection_reason": "This operations support role is not related to AI development or engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Order Management Specialist - Entry Professional (Outsource)",
+      "company": "Schneider Electric",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=115&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&cs=1_0dd3b3c0&cb=1772955285118&jobListingId=1009888422364&jrtk=5-pdx1-0-1jj65tdd5jite800-73bf9c999be171e1",
+      "match_score": 0,
+      "rejection_reason": "This order management specialist role is not focused on AI or Python engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Reports Administrator",
+      "company": "BLACKBIRD SECURITY INC",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=116&ao=1136043&s=58&guid=0000019ccc5eb554bccaa28e1734895a&src=GD_JOB_AD&t=SR&vt=w&ea=1&cs=1_f6cc43db&cb=1772955285118&jobListingId=1010045243616&jrtk=5-pdx1-0-1jj65tdd5jite800-827fb1cde4d7e46f",
+      "match_score": 0,
+      "rejection_reason": "This reports administrator role is unrelated to AI, LLM, or Python development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cloud Security Practice Intern",
+      "company": "Noventiq",
+      "application_url": "",
+      "match_score": 10,
+      "rejection_reason": "Not fully remote and unrelated to AI Voice/LLM/RAG/Python stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Enterprise Architect Intern - REMOTE",
+      "company": "Velera Health",
+      "application_url": "https://www.ziprecruiter.com/c/Velera-Health/Job/Enterprise-Architect-Intern-REMOTE/-in-Remote,US?jid=a809fb1e6a795a21",
+      "match_score": 30,
+      "rejection_reason": "Position is an intern role, which does not align with my experience level as an AI Engineer with 1 YOE.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Artificial Intelligence (AI) Internship - Hybrid Remote",
+      "company": "Hoosier Energy",
+      "application_url": "https://www.ziprecruiter.com/c/Hoosier-Energy/Job/Artificial-Intelligence-(AI)-Internship-Hybrid-Remote/-in-Bloomington,IN?jid=a06091f8e633be3c",
+      "match_score": 0,
+      "rejection_reason": "Not fully remote; onsite-only positions are rejected.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Solutions Specialist-Remote Opportunity",
+      "company": "Answer Financial Inc.",
+      "application_url": "https://www.ziprecruiter.com/c/Answer-Financial-Inc./Job/AI-Solutions-Specialist-Remote-Opportunity/-in-Remote,US?jid=4f055c4af360eddc",
+      "match_score": 80,
+      "rejection_reason": null,
+      "drafted_proposal": "I've engineered production voice AI systems that handle 2,000+ concurrent calls, showcasing my ability to build scalable and reliable AI applications. My proficiency in Python, coupled with hands-on experience in PyTorch, LightGBM, and LLMs like GPT-4 and LLaMA fine-tuning, directly aligns with your requirement for AI/ML frameworks and solution design. For example, I reduced LLM cold-start latency by 10.4x to 378ms, optimizing performance for real-time use cases. I'm excited to bring this expertise to Answer Financial Inc. as an AI Solutions Specialist. Let's connect to discuss how I can contribute to your projects."
+    },
+    {
+      "is_match": false,
+      "job_title": "Knowledge & AI Optimization Intern",
+      "company": "Elsevier",
+      "application_url": "https://www.ziprecruiter.com/c/Elsevier/Job/Knowledge-&-AI-Optimization-Intern/-in-New-York,NY?jid=5a834fab023aa3b9",
+      "match_score": 0,
+      "rejection_reason": "Not fully remote; onsite-only positions are rejected.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Knowledge & AI Optimization Intern",
+      "company": "RELX",
+      "application_url": "https://www.ziprecruiter.com/c/RELX/Job/Knowledge-&-AI-Optimization-Intern/-in-New-York,NY?jid=f0e4ddbdbdb6c1cd",
+      "match_score": 0,
+      "rejection_reason": "Not fully remote; onsite-only positions are rejected.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Development Intern",
+      "company": "Trumid",
+      "application_url": "https://www.ziprecruiter.com/c/Trumid/Job/AI-Development-Intern/-in-New-York,NY?jid=1ffeb296fa8dff4c",
+      "match_score": 0,
+      "rejection_reason": "Not fully remote; onsite-only positions are rejected.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Remote | Python Software Engineer -- Up to $100/hr",
+      "company": "24-MAG",
+      "application_url": "https://www.ziprecruiter.com/c/24-MAG/Job/Remote-/-Python-Software-Engineer--Up-to-$100-hr/-in-San-Francisco,CA?jid=d6390ef7ecc9fdc1",
+      "match_score": 95,
+      "rejection_reason": null,
+      "drafted_proposal": "As a Python Software Engineer, I've developed production AI systems, such as voice AI supporting 2,000+ concurrent calls, demonstrating robust software engineering in AI contexts. My stack includes Python, PyTorch, and LLM technologies like RAG and LangChain, which are essential for improving AI systems' understanding of real-world software, as your role requires. I've achieved a 10.4x reduction in LLM cold-start time, ensuring efficient AI operations. I'm keen to support your AI research lab's goals. Please let me know the next steps to apply my skills."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Operations Engineer (Remote)",
+      "company": "Concurrent Technologies Corporation",
+      "application_url": "https://www.ziprecruiter.com/c/Concurrent-Technologies-Corporation/Job/AI-Operations-Engineer-(Remote)/-in-Johnstown,PA?jid=37f770a503c0402b",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "My experience includes deploying and maintaining production AI systems, such as a voice AI platform handling 2,000+ concurrent calls, which highlights my operational expertise. I'm skilled in Python and AI/ML frameworks like PyTorch and TensorFlow, and I've worked with RAG and LLM fine-tuning, ensuring smooth AI operations. For instance, I reduced LLM cold-start to 378ms, enhancing system responsiveness. I'm interested in the AI Operations Engineer role at Concurrent Technologies Corporation and would welcome the opportunity to discuss how I can optimize your AI deployments."
+    },
+    {
+      "is_match": true,
+      "job_title": "On-Call AI Solutions Specialist - REMOTE",
+      "company": "ICF International, Inc.",
+      "application_url": "https://www.ziprecruiter.com/c/ICF-International,-Inc./Job/On-Call-AI-Solutions-Specialist-REMOTE/-in-Remote,US?jid=3ee674df41e10713",
+      "match_score": 80,
+      "rejection_reason": null,
+      "drafted_proposal": "I have hands-on experience in building and deploying AI solutions, including a production voice AI system for 2,000+ concurrent calls, demonstrating scalability and reliability. My proficiency in Python and AI/ML libraries, along with familiarity with serverless deployments via tools like FastAPI and cloud services, matches your needs for an On-Call AI Solutions Specialist. I've optimized LLM performance, cutting cold-start time by 10.4x to 378ms. I'm ready to contribute to ICF International's projects on a flexible basis. Let's schedule a call to explore further."
+    },
+    {
+      "is_match": false,
+      "job_title": "2026 Health AI Scholar (Spring/Summer)",
+      "company": "Samsung Research America Internship",
+      "application_url": "https://www.ziprecruiter.com/c/Samsung-Research-America-Internship/Job/2026-Health-AI-Scholar-(Spring-Summer)/-in-Mountain-View,CA?jid=a9eed687645127dc",
+      "match_score": 0,
+      "rejection_reason": "This position is onsite-only and an internship, not a remote freelance/contract role.",
+      "drafted_proposal": null
+    }
+  ]
+}

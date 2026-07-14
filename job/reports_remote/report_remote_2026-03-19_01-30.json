@@ -1,0 +1,706 @@
+{
+  "evaluated_jobs": [
+    {
+      "is_match": false,
+      "job_title": "SEO Associate",
+      "company": "Solace",
+      "application_url": "https://jobs.ashbyhq.com/solace/2820fa5c-dab1-4807-959d-4db0c63e13cb/application",
+      "match_score": 0,
+      "rejection_reason": "Role requires US residency and is not an AI engineering position.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Data Specialist",
+      "company": "YipitData",
+      "application_url": "https://himalayas.app/signup/talent?redirect=%2Fcompanies%2Fyipitdata%2Fjobs%2Fdata-specialist%3FshowModal%3Dtrue",
+      "match_score": 0,
+      "rejection_reason": "Role appears to be data analysis or research-focused, not AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Experienced Entry-Level Data Entry Specialist \u2013 Remote Work Opportunity at Worklith",
+      "company": "Talensparkx",
+      "application_url": "https://remotejobs.victorytuitions.in/job/experienced-entry-level-data-entry-specialist-remote-work-opportunity-at-Talexion-45/",
+      "match_score": 0,
+      "rejection_reason": "Role is data entry, not related to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer II",
+      "company": "McGraw Hill",
+      "application_url": "https://edtechjobs.io/jobs/373271239/apply",
+      "match_score": 0,
+      "rejection_reason": "Role is not explicitly AI-focused and may require US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Sr. Software Engineer",
+      "company": "Learning.com",
+      "application_url": "https://edtechjobs.io/jobs/359909768/apply",
+      "match_score": 0,
+      "rejection_reason": "Role is not explicitly AI-focused and may require US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Redactor Conversacional para Chatbots - M\u00e9xico",
+      "company": "DaCodes",
+      "application_url": "https://mx.talent.com/view?id=610302822933012319",
+      "match_score": 0,
+      "rejection_reason": "Role is conversational copywriting, not AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Infrastructure Engineer (GPU Platforms)",
+      "company": "Astra Intellectus SDN BHD",
+      "application_url": "https://my.jobstreet.com/job/90850751?type=standard&ref=search-standalone#sol=0370297e190de9101ba60fed52c85434a07b1707",
+      "match_score": 0,
+      "rejection_reason": "Role appears to be MLOps or infrastructure-focused, not core AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Technology Sales Executive",
+      "company": "Astra Intellectus SDN BHD",
+      "application_url": "https://my.jobstreet.com/job/90850851?type=standard&ref=search-standalone#sol=fcc206b3db81473705c22cc63958b98feeb1995a",
+      "match_score": 0,
+      "rejection_reason": "Role is sales, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior AI Infrastructure Engineer",
+      "company": "Astra Intellectus SDN BHD",
+      "application_url": "https://my.jobstreet.com/job/90850691?type=standard&ref=search-standalone#sol=205ae03eef19d25b299bf84b75bb860261e28cda",
+      "match_score": 0,
+      "rejection_reason": "Role appears to be MLOps or infrastructure-focused, not core AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Junior AI Solutions Engineer (LLM / AI Applications)",
+      "company": "Astra Intellectus SDN BHD",
+      "application_url": "https://my.jobstreet.com/job/90850809?type=standard&ref=search-standalone#sol=8ef6743dc9864d9b1db41ef36880a26b584755bd",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "I have built a production-scale voice AI system capable of handling 2,000+ concurrent calls, demonstrating my ability to develop and deploy high-performance AI applications that require robust infrastructure and scalability.\n\nMy expertise includes working with LLMs like GPT-4 and Gemini, fine-tuning LLaMA with LoRA, implementing RAG using LangChain and Pinecone, and building APIs with FastAPI. This aligns perfectly with deploying and supporting LLM-based solutions, as I have hands-on experience in integrating various AI components into cohesive systems using tools like CrewAI and LiveKit for real-time interactions.\n\nI optimized LLM cold-start times by 10.4x (from 3.9s to 378ms) and trained LightGBM models on over 716K records, reducing AI-content detection rates from 100% to 30%. I am excited to contribute to Astra Intellectus SDN BHD and would welcome the opportunity to discuss how my skills can benefit your team in advancing AI and LLM applications."
+    },
+    {
+      "is_match": true,
+      "job_title": "AI Solutions Engineer",
+      "company": "Astra Intellectus SDN BHD",
+      "application_url": "https://my.jobstreet.com/job/90850825?type=standard&ref=search-standalone#sol=9750ebb4dedc2bcbd085b7de81851f7bead77032",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "I have successfully built and deployed production voice AI systems handling over 2,000 concurrent calls, demonstrating my ability to design and optimize high-performance AI applications at scale. My expertise with NVIDIA GPU platforms and modern LLM technologies, including GPT-4, Gemini, and LLaMA fine-tuning using PyTorch, along with frameworks like LangChain and CrewAI for RAG and agent workflows, aligns perfectly with your need to design, deploy, and optimize AI solutions and applications. I reduced LLM cold-start latency by 10.4x (from 3.9s to 378ms) and trained LightGBM models on 716K+ records to enhance performance, and I am excited to contribute my skills to your AI initiatives. I am available to start immediately and look forward to discussing how I can support your team."
+    },
+    {
+      "is_match": false,
+      "job_title": "LLM Platform Engineer",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/llm-platform-engineer-4729476",
+      "match_score": 0,
+      "rejection_reason": "Job listing is no longer available or not a valid active opportunity.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Staff Software Engineer (Backend)",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/staff-software-engineer-backend-4753049",
+      "match_score": 0,
+      "rejection_reason": "Not AI/LLM related; focuses on Identity Governance without AI components.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Staff Backend Engineer (Python)",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/staff-backend-engineer-python-4752860",
+      "match_score": 0,
+      "rejection_reason": "Likely requires EU residency (Germany) and not confirmed as worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Backend Engineer (Python - Flask)",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/backend-engineer-python-flask-4752370",
+      "match_score": 0,
+      "rejection_reason": "Likely requires EU residency (Germany) and not confirmed as worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Backend Software Engineer | Node.js | Remote",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/backend-software-engineer-node-js-remote-4752204",
+      "match_score": 0,
+      "rejection_reason": "Not AI/LLM related; focuses on Node.js backend development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Staff Back-End Engineer \"Node j.s\"",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/staff-back-end-engineer-node-j-s-4751715",
+      "match_score": 0,
+      "rejection_reason": "Not AI/LLM related; focuses on Node.js backend development.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Engineer, Backend (Consumer Engineering)",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/senior-software-engineer-backend-consumer-engineering-4751813",
+      "match_score": 0,
+      "rejection_reason": "Likely requires US residency and not AI/LLM focused.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior Backend Engineer",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/junior-backend-engineer-4751701",
+      "match_score": 0,
+      "rejection_reason": "Not AI/LLM related; focuses on Java and Spring Boot.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Backend Engineer",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/backend-engineer-4751459",
+      "match_score": 0,
+      "rejection_reason": "Not AI/LLM related; focuses on Go microservices.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Backend Software Engineer (Middle) ID51653",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/backend-software-engineer-middle-id-51653-4748235",
+      "match_score": 0,
+      "rejection_reason": "Location restricted to Argentina, Brazil, Colombia, not 100% worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Physics PhD Experts (Remote)",
+      "company": "Get Offers",
+      "application_url": "https://ca.linkedin.com/jobs/view/physics-phd-experts-remote-at-get-offers-4386744010",
+      "match_score": 0,
+      "rejection_reason": "Requires a Physics PhD specialization, not aligned with AI engineering profile.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "LLM Engineer | $90/hr Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://ca.linkedin.com/jobs/view/llm-engineer-%2490-hr-remote-at-crossing-hurdles-4385685769",
+      "match_score": 0,
+      "rejection_reason": "Location restricted to Canada, not 100% worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer (Python) | Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://ca.linkedin.com/jobs/view/software-engineer-python-remote-at-crossing-hurdles-4384990656",
+      "match_score": 0,
+      "rejection_reason": "Location restricted to Canada and role not specifically AI-focused.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "NLP Engineer | $90/hr Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://ca.linkedin.com/jobs/view/nlp-engineer-%2490-hr-remote-at-crossing-hurdles-4385693471",
+      "match_score": 0,
+      "rejection_reason": "Location restricted to Canada, not 100% worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Sales Engineer, Israel",
+      "company": "",
+      "application_url": "https://dailyremote.com/remote-job/sales-engineer-israel-4752427",
+      "match_score": 0,
+      "rejection_reason": "Location restricted to Israel and role is sales engineering, unrelated to AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Trainer \u2013 Coding Projects (Remote, Freelance) MY",
+      "company": "Ebit Co., Ltd",
+      "application_url": "https://my.jobstreet.com/job/90898519?type=standard&ref=search-standalone",
+      "match_score": 0,
+      "rejection_reason": "Role is AI trainer, not engineering, and location may be restricted to Malaysia.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Experienced Customer Support and Administrative Professional - Part-Time Remote Opportunity with Toyota - No Prior Experience Required",
+      "company": "Toyota",
+      "application_url": "https://flexionis.wuaze.com/job/experienced-customer-support-and-administrative-professional-part-time-remote-opportunity-with-toyot",
+      "match_score": 0,
+      "rejection_reason": "Requires U.S. residency and role is customer support, unrelated to AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Experienced Entry Data Entry Clerk \u2013 Remote Opportunity for a Dynamic Hirefluxa Team Member",
+      "company": "",
+      "application_url": "https://flexionis.wuaze.com/job/experienced-entry-data-entry-clerk-remote-opportunity-for-a-dynamic-skillora-team-member",
+      "match_score": 0,
+      "rejection_reason": "Role is data entry, unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Remote Inbound Customer Service Representative \u2013 Flexible Part\u2011Time (North Carolina & Select States) \u2013 $14/hr Base + Upsell Commissions",
+      "company": "",
+      "application_url": "https://flexionis.wuaze.com/job/remote-inbound-customer-service-representative-flexible-part-time-north-carolina-select-states-14-hr",
+      "match_score": 0,
+      "rejection_reason": "Requires U.S. residency and role is customer service, unrelated to AI.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Experienced Customer Service Representative \u2013 Virtual Support Team at Skillora",
+      "company": "Skillora",
+      "application_url": "https://flexionis.wuaze.com/job/experienced-customer-service-representative-virtual-support-team-at-jobmatrixo-8",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM, focusing on customer service.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Physics Expert (Remote)",
+      "company": "Taskify AI",
+      "application_url": "https://ca.linkedin.com/jobs/view/physics-expert-remote-at-taskify-ai-4386358902",
+      "match_score": 0,
+      "rejection_reason": "Role requires PhD in Physics and focuses on model evaluation rather than AI engineering with the candidate's stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Agentic AI Engineer",
+      "company": "JUPUS",
+      "application_url": "https://jobs.ashbyhq.com/jupus/e1036acc-a0fe-4b2f-a95f-744c51175e1d",
+      "match_score": 0,
+      "rejection_reason": "Role requires being within 2 hours of CET timezone, which excludes India-based candidates.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Machine Learning Engineer - Remote",
+      "company": "Halvik",
+      "application_url": "https://www.linkedin.com/jobs/view/machine-learning-engineer-remote-at-halvik-4386386813",
+      "match_score": 0,
+      "rejection_reason": "Location text indicates US, likely requiring US residency or work authorization.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineer (Copilot Studio / Azure AI) - REMOTE",
+      "company": "Health Services Advisory Group, Inc. (HSAG)",
+      "application_url": "https://www.linkedin.com/jobs/view/ai-engineer-copilot-studio-azure-ai-remote-at-health-services-advisory-group-inc-hsag-4376815703",
+      "match_score": 0,
+      "rejection_reason": "Location text indicates United States, likely requiring US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Remote IAM Engineer",
+      "company": "Lensa",
+      "application_url": "https://www.linkedin.com/jobs/view/remote-iam-engineer-at-lensa-4386797736",
+      "match_score": 0,
+      "rejection_reason": "Role is IAM engineering, unrelated to AI/LLM.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Developer / AI Specialist",
+      "company": "",
+      "application_url": "https://www.linkedin.com/posts/faiyaz-ahmad-64457520b_were-hiring-developer-ai-specialist-activity-7439251907094913024-iZna",
+      "match_score": 85,
+      "rejection_reason": null,
+      "drafted_proposal": "I have built production-scale voice AI systems that handle over 2,000 concurrent calls, demonstrating my ability to design and deploy robust, scalable AI solutions in real-world environments. This experience has honed my skills in ensuring high availability and performance under load, directly applicable to building real AI-powered products as you describe.\n\nMy technical stack aligns perfectly with your requirements: I have hands-on experience with LLMs, including GPT-4 and Gemini, and have fine-tuned LLaMA models using LoRA. I've implemented RAG pipelines with LangChain and CrewAI, integrated vector databases like Pinecone for efficient retrieval, and optimized context-windows and token efficiency. Additionally, I've built backend systems with FastAPI and integrated voice components using LiveKit, Deepgram STT, and ElevenLabs TTS, covering the full spectrum from prototyping to production.\n\nI reduced LLM cold-start latency by 10.4x (from 3.9s to 378ms) and trained LightGBM models on 716K+ records, significantly improving AI-content detection rates. I am excited to apply these metrics-driven skills to contribute to your team's AI development efforts. I am available immediately for full-time, remote work and look forward to discussing how I can help build something impactful."
+    },
+    {
+      "is_match": false,
+      "job_title": "Backend Engineer | Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://uk.linkedin.com/jobs/view/backend-engineer-remote-at-crossing-hurdles-4385240579?refId=0v4XiqKTZO1C%2BS6LLzLLhg%3D%3D&trackingId=LjacRmivOFo3tHrnIRnaSQ%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is backend engineering with no AI focus, and location indicates UK, likely requiring UK residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "React/JavaScript Engineer (Frontend) | Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://uk.linkedin.com/jobs/view/react-javascript-engineer-frontend-remote-at-crossing-hurdles-4385689721?refId=0v4XiqKTZO1C%2BS6LLzLLhg%3D%3D&trackingId=imjtMVFDI3mxD7oXknTPxg%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is frontend engineering, unrelated to AI/LLM, and location indicates UK.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer",
+      "company": "Kyron Medical",
+      "application_url": "",
+      "match_score": 0,
+      "rejection_reason": "Role explicitly requires applicants to be based in the United States.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer, Early Career",
+      "company": "Affirm",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=ebaa166904a09d85&bb=FTv3yau76yvT89Z7kplW-dSnfqbnwVwIhUvzuy8tBWCD8DbfxDWILqcSPHxE1PAWFx4yKh6lffrlrrLKWcwxMfiMjuM-kZDKLyItgbaJc4cTwsJosW0SIJchX3pathxo&xkcb=SoBt67M3lBZYx5TN3p0LbzkdCdPP&fccid=5cf4e54c5ef78aa7&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Role requires UK residency (London), not worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior Software Engineer (Backend)",
+      "company": "Mambo Solutions",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=90d05fe3f6013b47&bb=FTv3yau76yvT89Z7kplW-YW4v1gtiKQ-kpTB3UpbL3fCqGgXuOirVMOkom3DnfI9AKCnHLy8I_sStEBwZIQtezoUVcwdqMcAj3ziBYF23Ufw8Mq0X2aBsMoIkQAcSJ-z&xkcb=SoDZ67M3lBZYx5TN3p0KbzkdCdPP&fccid=a0e915f587a5bc0a&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Job is unrelated to AI/LLM or candidate's stack.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer, New Grad",
+      "company": "Palantir Technologies",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=b2889cb2ec867d3a&bb=FTv3yau76yvT89Z7kplW-dUfo1aY_u-8qV4wNC9cl_LdcXiGx6o94hwyOYdPzA3AsHPRSOKa1026b6ePQopGEgeVhJRXAhPSZfeYRp_NYXwtsVE4USV_eAVob5tx_gRj&xkcb=SoBE67M3lBZYx5TN3p0JbzkdCdPP&fccid=c47ef3947291e221&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Role requires location in London, not worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Ubuntu Core Software Engineer",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=f901cf1f27b44b8d&bb=FTv3yau76yvT89Z7kplW-SngtkU38UhBf4PMruHWzrRHpykCHdTOFdODTkIbPYo6PGtLQv_BvPmEDCLLZus-BVnotFnHy_05YzUW6EL7szKd5JMPf0ZjDisIKXuJ3Bmy&xkcb=SoB-67M3lBZYx5TN3p0PbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Role requires UK residency and is unrelated to AI/LLM.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior Software Developer - Observability",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=a8052383ed64edb5&bb=FTv3yau76yvT89Z7kplW-fUM5nzxHk1LEcA0QLstuz5HgZbO5XnQoVOTBVNbUpS3UZtEhjA7XUbtiXis4S2VlJUyqRrfwW2pcgejnrHvEwelT8nsdG7aHbX72nNfaN7s&xkcb=SoDK67M3lBZYx5TN3p0ObzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Role requires specific location (Douglas) and is unrelated to AI/LLM.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Cloud Support Engineer",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=fa3de35c1c3773dd&bb=FTv3yau76yvT89Z7kplW-WqaEtFQgEGVU1ca0sEB4GS9--PsTd8oxz4GiMj7qLuqA6Sdz9WduvKovB2YGrU71TSGSfrS_dSs1kGeoNd3cPpf5QnS5qd4KPmxd6DzHr6j&xkcb=SoBX67M3lBZYx5TN3p0NbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Role requires UK residency and is unrelated to AI/LLM.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Support Engineer",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=e661a25b57fe73b1&bb=FTv3yau76yvT89Z7kplW-YwYrppcL9a_FdStbZFqbU5DUrqdaqTxyL6HnrCcRDrKsRM9XemfmkIKS-xoaFMSJPY0AivmlCIWR2knTQCCBvbKTaWpwt3UTF1J-EZI3nC0&xkcb=SoDj67M3lBZYx5TN3p0MbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Role requires specific location and is unrelated to AI/LLM.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer - Python and K8s",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=5edfc4a5413199aa&bb=FTv3yau76yvT89Z7kplW-TOBwbt9ln-RZDHITB92pBROvnJ81gnZhZ8NWUguC0iNU8JPZttcEHg0R41KZgfiMyg-jXARdd17wXYH3oFIuOUgsUnuiYXOA1q2bEr19Xv0&xkcb=SoC-67M3lBZYx5TN3p0CbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Job is DevOps-focused (K8s) and unrelated to AI/LLM.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Python Software Engineer, Commercial Systems",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=04d6519561ff8ab2&bb=FTv3yau76yvT89Z7kplW-YRNkD9PAqxfXBE7bLPUDcOh2Ll72fyXAfkYkepRbnKW6hMaTSXg-B8j57WWVGWj28alrz4dEDbPNkuw7d5vbTDfpTmPHWXOD3zOjnN8J_sh&xkcb=SoAj67M3lBZYx5TN3p0BbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Role is general Python development, not AI/LLM-specific.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Web Frontend Engineer - JS, CSS, React, Flutter",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=ea1d75f57a80da82&bb=FTv3yau76yvT89Z7kplW-ZXw_FcpUOakdEZgjROg8P63_O2xAe35zQQ5zsKHE26QtoxTAF5gAD7MXUapQWvCtVNWTIGNTEGqiE5SUYDmYLqI8Uo5CNIh3LZ4XtRMnltp&xkcb=SoCX67M3lBZYx5TN3p0AbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Job is frontend-focused and unrelated to AI/LLM.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Python Engineer",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=35c7da6f8ca35ebd&bb=FTv3yau76yvT89Z7kplW-c_X45J4GconEF7S4wtDyCp3-Fn5SgaMxQtg5U9Qskt4NAO5-PzpsDiMr1Hco71OxTsvMyUTDQuMWtT9g_M_RF2dHUNQ_q8ya0ZusQG2sNRD&xkcb=SoAZ67M3lBZYx5TN3p0HbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Requires residency in Douglas (UK/EU region), not worldwide remote, and not AI-focused.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Software Engineer, Sustaining Engineering",
+      "company": "Canonical",
+      "application_url": "https://uk.indeed.com/rc/clk?jk=8db7801d6a4ea4c4&bb=FTv3yau76yvT89Z7kplW-b_UNZSE8i0BTW7Fm6lPj_tdV1yhZdnecV4uCNomlZ2U8P3tN1gTamgvBau4Zf8kyLDLW2jX-OQoShHJzHR4N1Y7Wu1TPlaklVD3fF0sSRR6&xkcb=SoCt67M3lBZYx5TN3p0GbzkdCdPP&fccid=3911cf63fc0692f4&vjs=3",
+      "match_score": 0,
+      "rejection_reason": "Requires residency in Douglas (UK/EU) and not related to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI-Native Growth Marketer",
+      "company": "PodPitch",
+      "application_url": "https://wellfound.com/jobs/3994800-ai-native-growth-marketer",
+      "match_score": 0,
+      "rejection_reason": "Role is for marketing, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Forward-Deployed Software Engineer",
+      "company": "Recidiviz",
+      "application_url": "https://wellfound.com/jobs/3994681-forward-deployed-software-engineer",
+      "match_score": 0,
+      "rejection_reason": "Not specifically AI-focused and location may require US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Enterprise Account Executive - US",
+      "company": "Sprinto",
+      "application_url": "https://wellfound.com/jobs/3994577-enterprise-account-executive-us",
+      "match_score": 0,
+      "rejection_reason": "Role is for sales/account executive, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "BDM Commission Only \u2013 No Base Salary | Miles Ahead Hosting | Premium Digital Agency",
+      "company": "Miles Ahead Hosting",
+      "application_url": "https://wellfound.com/jobs/3976455-bdm-commission-only-no-base-salary-miles-ahead-hosting-premium-digital-agency",
+      "match_score": 0,
+      "rejection_reason": "Role is for business development, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": true,
+      "job_title": "Founding AI / Backend Engineer",
+      "company": "",
+      "application_url": "https://lnkd.in/gwYrmN8m",
+      "match_score": 95,
+      "rejection_reason": null,
+      "drafted_proposal": "I have built and scaled a production voice AI system that handled over 2,000 concurrent calls, demonstrating my ability to deliver robust, high-throughput AI solutions. My expertise aligns perfectly with your tech stack: I have hands-on experience with Python, FastAPI for backend services, LangChain and RAG pipelines for agentic workflows, and have fine-tuned LLMs like LLaMA using LoRA. I've also worked with vector databases similar to Qdrant and orchestrated AI agents using CrewAI. I optimized LLM cold-start times from 3.9 seconds to 378 milliseconds (a 10.4x improvement) and trained LightGBM models on 716K+ records, reducing AI-content detection rates from 100% to 30%. I am excited about the founding engineer role and can join immediately to contribute to building enterprise AI systems."
+    },
+    {
+      "is_match": false,
+      "job_title": "Public Procurement (PZP) Internship Program (He/She/They)",
+      "company": "Accenture",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=103&ao=1136043&s=58&guid=0000019d028b1607a400c8ff356a6fc2&src=GD_JOB_AD&t=SR&vt=w&cs=1_c935bd94&cb=1773864163115&jobListingId=1010039711364&jrtk=5-yul1-0-1jk18m5hqj0pb800-cdb75786d18a5554",
+      "match_score": 0,
+      "rejection_reason": "Role is an internship in procurement, unrelated to AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Digital Marketing (SEO / Web Analytics) Internship Program (She/He/They)",
+      "company": "Accenture",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=111&ao=1136043&s=58&guid=0000019d028b1607a400c8ff356a6fc2&src=GD_JOB_AD&t=SR&vt=w&cs=1_4eb6cdbf&cb=1773864163119&jobListingId=1009951591939&jrtk=5-yul1-0-1jk18m5hqj0pb800-32795956879e9c39",
+      "match_score": 0,
+      "rejection_reason": "Role is a marketing internship, not AI engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Quality Engineer Internship Program (She/He/They)",
+      "company": "Accenture",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=113&ao=1136043&s=58&guid=0000019d028b1607a400c8ff356a6fc2&src=GD_JOB_AD&t=SR&vt=w&cs=1_09531d65&cb=1773864163119&jobListingId=1010068133797&jrtk=5-yul1-0-1jk18m5hqj0pb800-7151a6e3e82e8230",
+      "match_score": 0,
+      "rejection_reason": "Role is a quality engineering internship, not AI-focused.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Quality Auditing Representative Internship Program (He/She/They)",
+      "company": "Accenture",
+      "application_url": "https://www.glassdoor.co.in/partner/jobListing.htm?pos=114&ao=1136043&s=58&guid=0000019d028b1607a400c8ff356a6fc2&src=GD_JOB_AD&t=SR&vt=w&cs=1_d324db35&cb=1773864163119&jobListingId=1010031194006&jrtk=5-yul1-0-1jk18m5hqj0pb800-e55c88ee3dd003c0",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Software Engineer",
+      "company": "SPS Commerce",
+      "application_url": "https://www.linkedin.com/jobs/view/ai-software-engineer-at-sps-commerce-4385295616",
+      "match_score": 0,
+      "rejection_reason": "Role requires US residency, not worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Contact Center Engineer III",
+      "company": "RxBenefits, Inc.",
+      "application_url": "https://www.linkedin.com/jobs/view/contact-center-engineer-iii-at-rxbenefits-inc-4384080670?position=1&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=Vh2TqVkLzWssjqkr6HOwyA%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is not primarily focused on AI/LLM and likely requires US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Mac OS Engineer",
+      "company": "Millennium",
+      "application_url": "https://www.linkedin.com/jobs/view/mac-os-engineer-at-millennium-4385957648?position=2&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=p%2FiQDBAAahBp3I%2Bw8yQ9TA%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Photonics Engineer - Lumerical",
+      "company": "Rand Worldwide",
+      "application_url": "https://www.linkedin.com/jobs/view/photonics-engineer-lumerical-at-rand-worldwide-4385627086?position=4&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=%2Fcx3VymGc8EhM%2FudoZqQqw%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Sr. eCommerce Engineer - Sarnova - Remote",
+      "company": "Sarnova",
+      "application_url": "https://www.linkedin.com/jobs/view/sr-ecommerce-engineer-sarnova-remote-at-sarnova-4387486305?position=10&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=dL1HvdgVTBfWuwG%2FeILCfg%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Palantir Foundry Engineer",
+      "company": "Strategic Employment Partners (SEP)",
+      "application_url": "https://www.linkedin.com/jobs/view/palantir-foundry-engineer-at-strategic-employment-partners-sep-4386351755?position=12&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=niqAtWCnLm7tO72XsoENzw%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Engineering Expert | $73.29/hr Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://www.linkedin.com/jobs/view/ai-engineering-expert-%2473-29-hr-remote-at-crossing-hurdles-4385207433?position=14&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=hMy6LMrgcvcKyrjDXvs6NA%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role likely requires US residency and description is unavailable to confirm worldwide remote.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Tanium Engineer",
+      "company": "Conviso Inc.",
+      "application_url": "https://www.linkedin.com/jobs/view/tanium-engineer-at-conviso-inc-4370713033?position=17&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=jNKJkHPC7dLvifrJORe8Fg%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Engineering Expert | $73.29/hr Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://www.linkedin.com/jobs/view/engineering-expert-%2473-29-hr-remote-at-crossing-hurdles-4384994803?position=18&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=w%2B51kNOPEQju2NyLJuzb4g%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is unrelated to AI/LLM engineering.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "DevSecOps Engineer",
+      "company": "Swarm Aero",
+      "application_url": "https://www.linkedin.com/jobs/view/devsecops-engineer-at-swarm-aero-4375313208?position=19&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=ubAoxcaCujD%2FwmWcCvsJ9Q%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Role is focused on DevSecOps (DevOps-related) and not aligned with AI/LLM engineering, and likely requires US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Detection Engineer",
+      "company": "Upstart",
+      "application_url": "https://www.linkedin.com/jobs/view/detection-engineer-at-upstart-4384792229?position=20&pageNum=0&refId=FRlQSE9WRcvhALUDj3xK9Q%3D%3D&trackingId=pLsYIXR9kneBl%2B393vL53Q%3D%3D",
+      "match_score": 0,
+      "rejection_reason": "Title suggests cybersecurity or data detection, not directly related to AI/LLM engineering, and likely requires US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "ML Systems Engineer | $90/hr Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://www.linkedin.com/jobs/view/ml-systems-engineer-%2490-hr-remote-at-crossing-hurdles-4385687587",
+      "match_score": 0,
+      "rejection_reason": "Role likely requires United States residency, which is not suitable for India-based candidate.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Bioinformatics Scientist (Python /R/bioinformatics tools) | $85/hr Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://www.linkedin.com/jobs/view/bioinformatics-scientist-python-r-bioinformatics-tools-%2485-hr-remote-at-crossing-hurdles-4385930782",
+      "match_score": 0,
+      "rejection_reason": "Role is in bioinformatics, not focused on AI/LLM engineering, and likely requires US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Computational Biologist | $85/hr Remote",
+      "company": "Crossing Hurdles",
+      "application_url": "https://www.linkedin.com/jobs/view/computational-biologist-%2485-hr-remote-at-crossing-hurdles-4385947089",
+      "match_score": 0,
+      "rejection_reason": "Role is in computational biology, not focused on AI/LLM engineering, and likely requires US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Junior Computational Biologist (Remote)",
+      "company": "Lensa",
+      "application_url": "https://www.linkedin.com/jobs/view/junior-computational-biologist-remote-at-lensa-4386912125",
+      "match_score": 0,
+      "rejection_reason": "Role is in computational biology, not focused on AI/LLM engineering, and likely requires US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "Bioinformatics Specialist - Fully Remote",
+      "company": "Mercor",
+      "application_url": "https://www.linkedin.com/jobs/view/bioinformatics-specialist-fully-remote-at-mercor-4386995926",
+      "match_score": 0,
+      "rejection_reason": "Role is in bioinformatics, not focused on AI/LLM engineering, and likely requires US residency.",
+      "drafted_proposal": null
+    },
+    {
+      "is_match": false,
+      "job_title": "AI Research Scientist (United States, Remote)",
+      "company": "Rex.zone",
+      "application_url": "https://www.linkedin.com/jobs/view/ai-research-scientist-united-states-remote-at-rex-zone-4386367338",
+      "match_score": 0,
+      "rejection_reason": "Role requires United States residency, as indicated in the title, which is not suitable for India-based candidate.",
+      "drafted_proposal": null
+    }
+  ]
+}
