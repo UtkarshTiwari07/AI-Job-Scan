@@ -17,6 +17,7 @@ in config/{remote,freelance,india_mnc}.yaml.
 """
 
 import os
+import re
 import sys
 import json
 
@@ -84,15 +85,28 @@ def read_resume(arg: str) -> str:
 
 def extract_with_llm(resume_text: str) -> dict:
     print(f"🧠 Extracting profile with {jobscan_llm.get_model()} ...")
+    # Budget generously: reasoning models (e.g. deepseek-v4-pro) spend a chunk of
+    # the token budget on an internal reasoning trace before emitting the JSON, so
+    # a small max_tokens can leave the actual answer empty on a full-length résumé.
     content, _ = jobscan_llm.chat_completion(
         messages=[{"role": "user", "content": EXTRACT_PROMPT + resume_text}],
-        max_tokens=2000,
+        max_tokens=8000,
     )
     content = (content or "").strip()
-    if "```json" in content:
-        content = content.split("```json")[1].split("```")[0].strip()
-    elif "```" in content:
-        content = content.split("```")[1].split("```")[0].strip()
+    if not content:
+        raise ValueError(
+            "the model returned no text (its token budget was likely consumed by "
+            "reasoning). Try a shorter résumé, or answer the questions below."
+        )
+    # Strip a ```json ... ``` fence if the model wrapped the answer.
+    fence = re.search(r"```(?:json)?\s*(.*?)```", content, re.DOTALL)
+    if fence:
+        content = fence.group(1).strip()
+    # Fall back to the outermost { ... } if there is any surrounding prose.
+    if not content.startswith("{"):
+        start, end = content.find("{"), content.rfind("}")
+        if start != -1 and end > start:
+            content = content[start:end + 1]
     return json.loads(content)
 
 
@@ -144,6 +158,9 @@ def normalise(data: dict) -> dict:
         elif k == "target_roles":
             v = data[k]
             out[k] = v if isinstance(v, list) else [s.strip() for s in str(v).split(",") if s.strip()]
+        elif k in ("stack", "metrics"):
+            v = data[k]
+            out[k] = ", ".join(str(x).strip() for x in v) if isinstance(v, list) else str(v).strip()
         else:
             out[k] = str(data[k]).strip()
     return out
