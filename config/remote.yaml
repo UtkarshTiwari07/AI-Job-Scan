@@ -1,190 +1,188 @@
 # ────────────────────────────────────────────────────────────────────
-# AI-Job-Scan — WORLDWIDE REMOTE mode search tuning
+# AI-Job-Scan v2 — WORLDWIDE REMOTE mode
 # ────────────────────────────────────────────────────────────────────
-# Everything here is DATA for the deterministic pipeline in
-# job/job_remote.py. Edit freely to retarget the search — the code logic
-# does not change. The candidate identity lives in config/profile.yaml.
+# Jobs are fetched from the curated, live-verified company boards in
+# config/companies_remote.yaml (Greenhouse/Lever/Ashby JSON APIs) — no
+# LinkedIn, no aggregators. This file holds only the deterministic filter
+# data + LLM prompts. The candidate identity lives in config/profile.yaml.
 # ────────────────────────────────────────────────────────────────────
 
-max_posting_age_days: 3          # Serper uses qdr:w; Phase 3 enforces this
+# Thresholds
+max_posting_age_days: 0     # 0 = disabled: a job listed on an ATS board IS open
+report_min_score: 50        # only matches scoring >= this reach report_*.json
+per_company_cap: 5          # keep at most N relevant jobs per company
+min_jd_chars: 200           # drop thin/empty job descriptions
+yoe_slack: 1                # allow candidate_years + slack of required experience
+jd_eval_chars: 3000         # JD length sent to the LLM
 
-# Core remote job boards for Serper `site:` queries.
-target_sites: &target_sites
-  - remoteok.com
-  - weworkremotely.com
-  - himalayas.app
-  - remotive.com
-  - wellfound.com
-  - arc.dev
-  - contra.com
-  - braintrust.us
-  - torre.ai
-  - linkedin.com
+# ── Phase 3 filters ──────────────────────────────────────────────────
 
-# ATS / AI-lab career portals (already `site:`-prefixed → sites_preformatted).
-portal_sites: &portal_sites
-  - "site:boards.greenhouse.io"
-  - "site:jobs.lever.co"
-  - "site:jobs.ashbyhq.com"
-  - "site:huggingface.co/jobs"
-  - "site:cohere.com/careers"
-  - "site:mistral.ai/careers"
-  - "site:together.ai/careers"
-  - "site:modal.com/careers"
-  - "site:replicate.com/careers"
-  - "site:anyscale.com/careers"
+# High-precision AI/ML role titles (matched against the job TITLE).
+title_include_terms:
+  - 'ai engineer'
+  - 'a\.?i\.? engineer'
+  - 'ml engineer'
+  - 'machine learning engineer'
+  - 'machine learning scientist'
+  - 'llm engineer'
+  - 'genai engineer'
+  - 'gen ai engineer'
+  - 'generative ai engineer'
+  - 'ai/ml engineer'
+  - 'ai software engineer'
+  - 'software engineer.{0,20}(machine learning|ml|ai)'
+  - 'nlp engineer'
+  - 'ai agent engineer'
+  - 'agent engineer'
+  - 'rag engineer'
+  - 'voice ai engineer'
+  - 'conversational ai'
+  - 'ml platform engineer'
+  - 'ml infrastructure engineer'
+  - 'deep learning engineer'
+  - 'applied scientist'
+  - 'applied ml'
+  - 'research engineer'
+  - 'ai researcher'
+  - 'prompt engineer'
+  - 'computer vision engineer'
 
-# Serper query clusters (per-site + broad free-text).
-query_clusters:
-  - name: "A1 — Voice AI / LLM Remote [per-site]"
-    terms: '("voice AI" OR "LLM engineer" OR "AI agent engineer") ("worldwide remote" OR "fully remote") -senior -lead'
-    num: 20
-    sites: *target_sites
-    broad: false
-  - name: "A2 — RAG / LangChain / FastAPI Remote [per-site]"
-    terms: '("RAG engineer" OR "LangChain" OR "CrewAI" OR "FastAPI" OR "LLM ops") ("fully remote" OR "worldwide") -senior -lead'
-    num: 20
-    sites: *target_sites
-    broad: false
-  - name: "A3 — GenAI Entry-Level Remote [per-site]"
-    terms: '"generative AI engineer" OR "AI engineer" ("fully remote" OR "worldwide") ("0-2 years" OR "entry level" OR "junior") -senior'
-    num: 20
-    sites: *target_sites
-    broad: false
-  - name: "B1 — Voice AI Worldwide [broad]"
-    terms: '"voice AI engineer" OR "conversational AI engineer" OR "LiveKit engineer" ("fully remote" OR "worldwide") -senior -lead'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
-  - name: "B2 — LLM / RAG Worldwide [broad]"
-    terms: '"LLM engineer" OR "RAG engineer" OR "agentic AI engineer" ("fully remote" OR "worldwide" OR "async") ("junior" OR "entry" OR "0-2 years") -senior'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
-  - name: "B3 — Remote-First AI Startups [broad]"
-    terms: '("remote-first startup" OR "async company" OR "distributed team") "AI engineer" OR "LLM platform" ("junior" OR "entry") -"data scientist" -"DevOps"'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
-  - name: "C1 — Greenhouse / Lever / Ashby Portals"
-    terms: '"LLM" OR "RAG" OR "voice AI" OR "LangChain" ("fully remote" OR "remote") ("junior" OR "0-2 years" OR "entry")'
-    num: 10
-    sites: *portal_sites
-    broad: false
-    sites_preformatted: true
-  - name: "D1 — Python AI Backend Remote [broad]"
-    terms: '("AI infrastructure engineer" OR "LLM platform engineer" OR "AI backend engineer") ("fully remote" OR "worldwide") ("junior" OR "entry" OR "0-3 years") -"data scientist" -"DevOps" -"SRE"'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
+# JD-level relevance (matched against the full description). A job passes
+# relevance if the TITLE hits above OR the JD hits any of these.
+ai_relevance_keywords:
+  - '\bllm\b'
+  - '\brag\b'
+  - 'langchain'
+  - 'llamaindex'
+  - 'langgraph'
+  - 'crewai'
+  - 'openai'
+  - 'anthropic'
+  - 'claude'
+  - '\bgpt\b'
+  - 'gemini'
+  - 'llama'
+  - 'mistral'
+  - 'transformer'
+  - 'hugging ?face'
+  - 'pytorch'
+  - 'tensorflow'
+  - 'fine.?tun'
+  - '\blora\b'
+  - 'embedding'
+  - 'pinecone'
+  - 'weaviate'
+  - 'chroma'
+  - 'qdrant'
+  - 'pgvector'
+  - 'vector (database|db|store|search)'
+  - 'fastapi'
+  - 'agentic'
+  - '\bmcp\b'
+  - 'whisper'
+  - 'deepgram'
+  - 'elevenlabs'
+  - 'livekit'
+  - '\bnlp\b'
+  - 'natural language processing'
+  - 'machine learning'
+  - 'deep learning'
+  - 'generative ai'
+  - '\bvllm\b'
+  - 'inference'
+  - 'diffusion model'
 
-# Pre-built search URLs injected directly into Phase 1 (no Serper call).
-direct_urls:
-  - "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&f_WT=2&f_TPR=r259200&f_E=2"
-  - "https://www.linkedin.com/jobs/search/?keywords=AI%20Agent%20Engineer&f_WT=2&f_TPR=r259200"
-  - "https://www.linkedin.com/jobs/search/?keywords=voice%20AI%20engineer&f_WT=2&f_TPR=r259200"
-  - "https://www.linkedin.com/jobs/search/?keywords=RAG%20engineer%20remote&f_WT=2&f_TPR=r259200"
-  - "https://www.linkedin.com/jobs/search/?keywords=generative%20AI%20engineer%20worldwide&f_TPR=r259200&f_E=2"
-  - "https://wellfound.com/jobs?q=LLM+engineer&remote=true"
-  - "https://wellfound.com/jobs?q=AI+agent+engineer&remote=true"
-  - "https://wellfound.com/jobs?q=voice+AI&remote=true"
-  - "https://wellfound.com/jobs?q=RAG+engineer&remote=true"
-
-# ── Phase 3 pre-filter data ──────────────────────────────────────────
-recruiter_terms: [recruit, staffing, placement agency, hr solutions, manpower]
-
-# Off-stack titles to hard-reject (each entry is one regex alternative).
+# Off-stack titles to hard-reject.
 title_reject_terms:
-  - medical writer
-  - medical editor
-  - biostatistic
-  - clinical research
-  - data analyst
-  - business analyst
-  - data modeler
-  - data scientist
-  - mlops
-  - 'data engineer(?!.*ai)'
-  - computer vision
-  - cv engineer
-  - 'java\b'
+  - 'data analyst'
+  - 'business analyst'
+  - 'financial analyst'
+  - 'data entry'
+  - 'sales'
+  - 'account executive'
+  - 'marketing'
+  - 'recruiter'
+  - 'customer success'
+  - 'customer support'
+  - 'technical support'
+  - 'solutions? architect'
+  - 'sales engineer'
+  - 'field engineer'
+  - 'support engineer'
+  - 'devops engineer'
+  - 'site reliability'
+  - '\bsre\b'
+  - 'security engineer'
+  - 'network engineer'
+  - 'hardware engineer'
+  - 'firmware'
+  - 'mechanical engineer'
+  - 'electrical engineer'
+  - 'qa engineer'
+  - 'quality assurance'
+  - '\bjava\b'
   - '\.net\b'
-  - 'android\b'
-  - 'ios\b'
-  - 'devops(?!.*ai)'
-  - sysadmin
-  - network engineer
-  - blockchain
-  - solidity
-  - frontend developer
-  - support consultant
-  - 'technical support(?!.*ai)'
+  - 'salesforce'
+  - 'frontend engineer'
+  - 'front.?end developer'
+  - 'ios engineer'
+  - 'android engineer'
+  - 'accountant'
+  - 'recruiting'
+  - 'people operations'
 
-seniority_reject_terms: [senior, lead, principal, manager, director, 'vp ', head of, staff engineer]
-experience_years_reject: ["4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+"]
-
-remote_pass_tokens: [remote, work from home, wfh, anywhere, worldwide, globally]
-remote_reject_tokens: ["on-site only", "onsite only", "must be in office", "must relocate"]
-
-geo_lock_tokens:
-  - "united states only"
-  - "us only"
-  - "us-based"
-  - "us residents"
-  - "us citizens"
-  - "must be in the us"
-  - "must be located in"
-  - "authorized to work in the us"
-  - "right to work in the uk"
-  - "uk-based"
-  - "uk residents"
-  - "canada only"
-  - "australia only"
-  - "eu only"
-  - "europe only"
-  - "remote (us)"
-  - "remote (usa)"
-  - "remote (uk)"
-  - "remote (canada)"
-  - "remote, united states"
-  - "remote, usa"
-  - "us permanent resident"
-  - "green card"
+seniority_reject_terms: [senior, staff, principal, lead, 'head of', director, 'vp', manager, distinguished, fellow, 'sr', 'ii', 'iii', 'iv']
 
 education_reject_tokens:
-  - "master's degree required"
-  - "masters degree required"
-  - "m.s. required"
-  - "msc required"
   - "phd required"
-  - "ph.d"
+  - "ph.d. required"
+  - "ph.d required"
   - "doctorate required"
+  - "must have a phd"
 
-# ── Prompt templates (Phase 2 extraction + Phase 4 evaluation) ───────
-scrape_instruction: |
-  Extract EVERY job posting on this page. For each return:
-  title, company, url (direct apply link), site (domain),
-  posted_date (ISO or relative like '3 hours ago' — ALWAYS fill),
-  location_text, is_remote (true/false), job_type,
-  pay_text (salary or empty), experience_text (years/level — ALWAYS fill),
-  description_snippet (first 400 chars — ALWAYS fill even if partial).
-  Return [] if not a job listing.
+# Worldwide-remote gate
+remote_pass_tokens: [remote, "work from home", wfh, anywhere, worldwide, globally, distributed, "remote-first"]
+remote_reject_tokens: ["on-site only", "onsite only", "must be in office", "must relocate", "in-office", "hybrid"]
+geo_lock_tokens:
+  - "u.s. only"
+  - "us only"
+  - "united states only"
+  - "us-based only"
+  - "must be located in the united states"
+  - "must reside in the us"
+  - "authorized to work in the us"
+  - "us citizen"
+  - "security clearance"
+  - "uk only"
+  - "canada only"
+  - "eu only"
+  - "europe only"
+  - "emea only"
+  - "must be based in"
 
+# ── Phase 4 LLM eval ─────────────────────────────────────────────────
 eval_system: |
-  You are {name}'s worldwide-remote job agent. Candidate is {location}-based.
-  Stack: {stack}
-  Metrics: {metrics}
+  You are {name}'s worldwide-remote AI/ML job agent. The candidate is
+  {location}-based and early-career (~{experience_years} years experience).
+  Candidate stack: {stack}
+  Key achievements: {metrics}
 
-  RULES:
-  - Role MUST be 100% worldwide remote (reject if US/UK/EU residency required).
-  - Any type (full-time/contract/freelance) is fine.
-  - Reject: pure data science, MLOps-only, DevOps-only, Java/.NET, unrelated to AI/LLM.
-  - Empty description_snippet but clear AI title → is_match=true, score=60, note "description unavailable".
-  - Early-career but production-scale — don't reject purely due to YOE.
-
-  For is_match=true: drafted_proposal (3 paras: achievement → stack fit → metric + CTA).
-  For is_match=false: rejection_reason (1 sentence).
+  You are given the FULL job description for each job. For each job:
+  - Infer min_years and max_years STRICTLY from the JD's stated experience
+    requirements (use 0 if none is stated). Do NOT guess high.
+  - Set "seniority" to the role's level (intern/junior/mid/senior/lead/staff/principal/unknown).
+  - Set "location_ok"=true ONLY if the role is genuinely open to a worldwide-remote,
+    {location}-based candidate (false for US/UK/EU-residency-only or onsite-only).
+  - Set is_match=true ONLY if it is a hands-on AI/ML/LLM engineering role that fits
+    the candidate's stack, location_ok is true, and the required experience is within
+    reach of an early-career candidate.
+  - match_score (0-100): reward direct stack overlap (LLM, RAG, agents, Python, ML)
+    and early-career fit; penalise seniority and stack mismatch.
+  - If is_match=true: drafted_proposal = 3 tight paragraphs (a relevant achievement →
+    stack fit → one concrete metric + a call to action), signed as {name}.
+  - If is_match=false: rejection_reason = one sentence; drafted_proposal = null.
   {format_instructions}
 
 format_instructions: |
-  Return ONLY valid JSON: {"evaluated_jobs":[{"is_match":true/false,"job_title":"string","company":"string","application_url":"string","match_score":0-100,"rejection_reason":"string or null","drafted_proposal":"string or null"}]}
+  Return ONLY valid JSON (no markdown fences):
+  {"evaluated_jobs":[{"job_title":"string","company":"string","application_url":"string","is_match":true,"match_score":0,"min_years":0,"max_years":null,"seniority":"unknown","location_ok":true,"rejection_reason":"string or null","drafted_proposal":"string or null"}]}
