@@ -52,8 +52,6 @@ site_allowlist:
   - remoteok.com
   - flexjobs.com
   - ziprecruiter.com
-  - linkedin.com
-  - lnkd.in
   - alignerr.com
   - scale.com
   - outlier.ai
@@ -356,7 +354,6 @@ eval_system: |
   - Worldwide remote freelance/contract only. Reject onsite-only positions.
   - Reject if pay is specified and clearly below {min_rate} equivalent.
   - Reject: pure data science, MLOps-only, Java/.NET, DevOps, unrelated to AI Voice/LLM/RAG/Python.
-  - Empty description_snippet but clear AI title → is_match=true, score=60, note "description unavailable".
   - Early-career but production-scale — do not reject purely due to YOE.
 
   For is_match=true: drafted_proposal (3 tight paragraphs: achievement → stack fit → metric+CTA).

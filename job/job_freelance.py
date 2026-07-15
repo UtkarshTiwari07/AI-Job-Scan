@@ -321,7 +321,10 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
         hits = sum(1 for j in results if j.get("is_match"))
         print(f"  ✅ Batch {idx}/{len(batches)} — {hits}/{len(results)} matched, total: {len(all_evaluated)}")
 
-    return json.dumps({"evaluated_jobs": all_evaluated}, indent=2)
+    # Report only genuine matches (>=50) — non-matches go nowhere near the report.
+    matches = [j for j in all_evaluated
+               if j.get("is_match") and (j.get("match_score") or 0) >= 50]
+    return json.dumps({"evaluated_jobs": matches}, indent=2)
 
 # ══════════════════════════════════════════════════════════════════
 # MOCK + MAIN

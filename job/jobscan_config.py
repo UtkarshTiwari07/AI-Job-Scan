@@ -58,6 +58,21 @@ _GENERIC = {
     "scrape_instruction": "",
     "eval_system": "",
     "format_instructions": "",
+    # v2 (ATS-registry) defaults
+    "title_include_terms": [],
+    "india_location_tokens": [],
+    "report_min_score": 50,     # only matches scoring >= this reach report_*.json
+    "per_company_cap": 5,       # keep at most N jobs per company after filtering
+    "min_jd_chars": 200,        # reject thin/empty job descriptions
+    "yoe_slack": 1,             # allow candidate_years + slack years of experience
+    "jd_eval_chars": 3000,      # truncate JD sent to the LLM (cost control)
+}
+
+# Which company registry file each mode reads (v2). Freelance keeps the old
+# Serper/scrape path and has no registry.
+COMPANIES_FILE = {
+    "remote": "companies_remote.yaml",
+    "india_mnc": "companies_india.yaml",
 }
 
 
@@ -139,11 +154,17 @@ def load_config(mode: str) -> "Config":
         "metrics": (profile_raw.get("metrics") or "").strip(),
         "location": (profile_raw.get("location") or "").strip(),
     }
-    cfg.experience_years = profile_raw.get("experience_years")
+    _years = profile_raw.get("experience_years")
+    cfg.experience_years = int(_years) if isinstance(_years, (int, float)) else 0
     cfg.target_roles = profile_raw.get("target_roles") or []
 
     # ── thresholds ───────────────────────────────────────────────────
     cfg.max_posting_age_days = int(g("max_posting_age_days"))
+    cfg.report_min_score = int(g("report_min_score"))
+    cfg.per_company_cap = int(g("per_company_cap"))
+    cfg.min_jd_chars = int(g("min_jd_chars"))
+    cfg.yoe_slack = int(g("yoe_slack"))
+    cfg.jd_eval_chars = int(g("jd_eval_chars"))
 
     # Freelance pay floor: the profile's salary_min overrides the mode default.
     min_pay = profile_raw.get("salary_min_usd_per_hour")
@@ -171,6 +192,7 @@ def load_config(mode: str) -> "Config":
     cfg.title_reject_re = _compile(g("title_reject_terms"), word=False)
     cfg.seniority_reject_re = _compile(g("seniority_reject_terms"), word=True)
     cfg.ai_relevance_re = _compile(g("ai_relevance_keywords"), word=False)
+    cfg.title_include_re = _compile(g("title_include_terms"), word=False)
 
     # ── plain substring token lists ──────────────────────────────────
     cfg.experience_years_reject = g("experience_years_reject")
@@ -178,5 +200,14 @@ def load_config(mode: str) -> "Config":
     cfg.geo_lock_tokens = g("geo_lock_tokens")
     cfg.remote_pass_tokens = g("remote_pass_tokens")
     cfg.remote_reject_tokens = g("remote_reject_tokens")
+    cfg.india_location_tokens = g("india_location_tokens")
+
+    # ── company registry (v2 modes) ──────────────────────────────────
+    cfg.companies_file = COMPANIES_FILE.get(mode)
+    cfg.companies = []
+    if cfg.companies_file:
+        cpath = os.path.join(CONFIG_DIR, cfg.companies_file)
+        if os.path.exists(cpath):
+            cfg.companies = (_read_yaml(cpath) or {}).get("companies", [])
 
     return cfg

@@ -1,413 +1,167 @@
 # ────────────────────────────────────────────────────────────────────
-# AI-Job-Scan — INDIA MNC / STARTUP mode search tuning
+# AI-Job-Scan v2 — INDIA MNC / GCC / startup mode
 # ────────────────────────────────────────────────────────────────────
-# DATA for the deterministic pipeline in job/job_india_mnc.py.
-# This preset is India-centric (Serper region gl:in, India job boards).
-# The candidate identity lives in config/profile.yaml.
+# Jobs are fetched from config/companies_india.yaml (Indian AI startups on
+# Greenhouse/Lever/Ashby + Workday GCCs + company-domain Serper fallback) —
+# no LinkedIn, no Naukri, no aggregators. Filter data + prompts only here.
 # ────────────────────────────────────────────────────────────────────
 
-max_posting_age_days: 3
+max_posting_age_days: 0
+report_min_score: 50
+per_company_cap: 5
+min_jd_chars: 200
+yoe_slack: 1
+jd_eval_chars: 3000
 
-# Extra Serper parameters merged into every query (India region + English).
-serper_extra:
-  gl: "in"
-  hl: "en"
+# India-accessibility gate (job location must hit one of these).
+india_location_tokens:
+  - india
+  - bengaluru
+  - bangalore
+  - hyderabad
+  - pune
+  - mumbai
+  - delhi
+  - gurgaon
+  - gurugram
+  - noida
+  - chennai
+  - kolkata
+  - ahmedabad
+  - kochi
+  - coimbatore
+  - apac
 
-# India job boards for Serper `site:` queries.
-target_sites: &target_sites
-  - naukri.com
-  - linkedin.com
-  - foundit.in
-  - wellfound.com
-  - instahyre.com
-  - iimjobs.com
-  - hirist.tech
-
-# India AI-startup career pages (already `site:`-prefixed → sites_preformatted).
-direct_company_pages: &direct_company_pages
-  - "site:sarvam.ai"
-  - "site:krutrim.ai"
-  - "site:observe.ai"
-  - "site:yellow.ai"
-  - "site:haptik.ai"
-  - "site:uniphore.com"
-  - "site:sprinklr.com"
-  - "site:razorpay.com"
-  - "site:groww.in"
-  - "site:meesho.io"
-  - "site:smallcase.com"
-  - "site:zepto.team"
-
-# Big MNC career portals (already `site:`-prefixed → sites_preformatted).
-mnc_career_pages: &mnc_career_pages
-  - "site:careers.microsoft.com"
-  - "site:adobe.com/careers"
-  - "site:atlassian.com/company/careers"
-  - "site:salesforce.com/company/careers"
-  - "site:oracle.com/careers"
-  - "site:sap.com/careers"
-  - "site:cisco.com/c/en/us/about/careers"
-  - "site:ibm.com/employment"
-  - "site:amazon.jobs"
-  - "site:nvidia.com/en-us/about-nvidia/careers"
-  - "site:databricks.com/company/careers"
-  - "site:stripe.com/jobs"
-  - "site:hubspot.com/careers"
-  - "site:workday.com/en-us/company/careers"
-  - "site:mongodb.com/careers"
-  - "site:elastic.co/careers"
-  - "site:hasura.io/careers"
-  - "site:freshworks.com/company/careers"
-
-# ONLY jobs scraped from these domains pass Phase 3 (blocks aggregator spam).
-site_allowlist:
-  - naukri.com
-  - linkedin.com
-  - lnkd.in
-  - foundit.in
-  - wellfound.com
-  - instahyre.com
-  - iimjobs.com
-  - hirist.tech
-  - sarvam.ai
-  - krutrim.ai
-  - observe.ai
-  - yellow.ai
-  - haptik.ai
-  - uniphore.com
-  - sprinklr.com
-  - razorpay.com
-  - groww.in
-  - meesho.io
-  - smallcase.com
-  - zepto.team
-  - hasura.io
-  - freshworks.com
-  - boards.greenhouse.io
-  - jobs.lever.co
-  - jobs.ashbyhq.com
-  - smartrecruiters.com
-  - jobs.smartrecruiters.com
-  - careers.microsoft.com
-  - careers.google.com
-  - amazon.jobs
-  - careers.adobe.com
-  - atlassian.com
-  - salesforce.com
-  - careers.oracle.com
-  - jobs.sap.com
-  - jobs.cisco.com
-  - ibm.com
-  - nvidia.wd5.myworkdayjobs.com
-  - databricks.com
-  - stripe.com
-  - mongodb.com
-  - elastic.co
-  - hubspot.com
-  - workday.com
-  - cohere.com
-  - huggingface.co
-  - modal.com
-  - together.ai
-  - anyscale.com
-  - wandb.ai
-  - clarifai.com
-  - turing.com
-  - scale.ai
-
-query_clusters:
-  - name: "A1 — LLM/RAG/Agent Engineer India [per-site]"
-    terms: '("LLM engineer" OR "RAG engineer" OR "AI agent engineer" OR "generative AI engineer") ("0-2 years" OR "0-1 year" OR "entry level" OR "junior" OR "fresher") India'
-    num: 20
-    sites: *target_sites
-    broad: false
-  - name: "A2 — Voice AI / LangChain / FastAPI India [per-site]"
-    terms: '("voice AI" OR "LangChain" OR "CrewAI" OR "FastAPI" OR "Pinecone" OR "LiveKit") "AI engineer" OR "software engineer" India'
-    num: 20
-    sites: *target_sites
-    broad: false
-  - name: "A3 — Funded AI Startup India [per-site]"
-    terms: '("Series B" OR "Series C" OR "unicorn" OR "funded" OR "startup") "AI engineer" OR "ML engineer" ("fresher" OR "entry level" OR "0-2 years") India'
-    num: 20
-    sites: *target_sites
-    broad: false
-  - name: "B1 — GenAI Engineer India [broad, AI boards only]"
-    terms: '"generative AI engineer" OR "LLM engineer" OR "AI agent developer" India ("0-2 years" OR "freshers" OR "entry level" OR "junior") -"data scientist" -"data analyst" -"business analyst" -"medical" -site:apna.co -site:talent.com -site:qureos.com -site:fresheroffcampus.com -site:simplyhired.co.in -site:ambitionbox.com -site:shine.com -site:monsterindia.com -site:glassdoor.co.in -site:jaabz.com -site:instagram.com'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
-  - name: "B2 — Named AI Companies India [broad]"
-    terms: '(Sarvam OR Krutrim OR "Observe.AI" OR "Yellow.ai" OR Haptik OR Uniphore OR "Sprinklr" OR "Murf AI" OR "Gnani AI" OR "Slang Labs" OR "PolyAI" OR "Reverie") "AI engineer" OR "backend engineer" ("junior" OR "fresher" OR "0-2") India -site:apna.co -site:talent.com -site:qureos.com -site:glassdoor.co.in'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
-  - name: "B3 — YC / Sequoia India AI [broad]"
-    terms: '("Y Combinator" OR "YC" OR "Sequoia" OR "Lightspeed" OR "Accel" OR "Nexus") "AI engineer" OR "founding engineer" India ("0-2 years" OR "entry level" OR "fresher") -senior -lead -site:apna.co -site:talent.com -site:glassdoor.co.in -site:qureos.com'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
-  - name: "C1 — India AI Startup Career Pages"
-    terms: '"AI engineer" OR "software engineer" OR "backend engineer" OR "founding engineer" India ("junior" OR "0-2 years" OR "entry" OR "fresher" OR "new grad")'
-    num: 10
-    sites: *direct_company_pages
-    broad: false
-    sites_preformatted: true
-  - name: "C2 — Big MNC Career Portals India"
-    terms: '("AI engineer" OR "ML engineer" OR "machine learning" OR "LLM" OR "generative AI" OR "AI software engineer") India'
-    num: 10
-    sites: *mnc_career_pages
-    broad: false
-    sites_preformatted: true
-  - name: "D1 — Python AI Backend India [broad]"
-    terms: '("python AI engineer" OR "backend AI" OR "AI infrastructure" OR "LLM platform") India ("0-2 years" OR "junior" OR "fresher") -"data scientist" -"data engineer" -"DevOps" -"SRE" -site:apna.co -site:talent.com -site:qureos.com -site:glassdoor.co.in -site:fresheroffcampus.com -site:simplyhired.co.in'
-    num: 20
-    sites: ["_broad_"]
-    broad: true
-
-# Pre-built search URLs injected directly into Phase 1 (no Serper call).
-direct_urls:
-  - "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&location=India&f_TPR=r259200&f_E=2"
-  - "https://www.linkedin.com/jobs/search/?keywords=AI%20Agent%20Engineer&location=India&f_TPR=r259200&f_E=2"
-  - "https://www.linkedin.com/jobs/search/?keywords=Generative%20AI%20Engineer&location=India&f_TPR=r259200&f_E=1%2C2"
-  - "https://www.linkedin.com/jobs/search/?keywords=RAG%20Engineer&location=India&f_TPR=r259200"
-  - "https://www.linkedin.com/jobs/search/?keywords=voice%20AI%20engineer&location=India&f_TPR=r259200"
-  - "https://www.linkedin.com/jobs/search/?keywords=LangChain%20FastAPI%20engineer&location=India&f_TPR=r259200&f_E=2"
-  - "https://www.linkedin.com/jobs/search/?keywords=AI%20engineer%20startup%20India&f_TPR=r259200&f_E=1%2C2"
-  - "https://wellfound.com/jobs?q=AI+engineer&l=India&remote=false"
-  - "https://wellfound.com/jobs?q=LLM+engineer&l=India"
-  - "https://wellfound.com/jobs?q=generative+AI&l=India"
-  - "https://www.naukri.com/llm-engineer-jobs-in-india"
-  - "https://www.naukri.com/ai-engineer-jobs-in-india?experience=0"
-  - "https://www.naukri.com/generative-ai-engineer-jobs"
-  - "https://boards.greenhouse.io/embed/job_board?for=cohere&b=https%3A%2F%2Fcohere.com%2Fcareers"
-  - "https://boards.greenhouse.io/huggingface"
-  - "https://boards.greenhouse.io/modal"
-  - "https://boards.greenhouse.io/together"
-  - "https://boards.greenhouse.io/anyscale"
-  - "https://boards.greenhouse.io/wandb"
-  - "https://boards.greenhouse.io/clarifai"
-  - "https://jobs.lever.co/turing"
-  - "https://jobs.lever.co/scale"
-  - "https://jobs.ashbyhq.com/sarvam"
-  - "https://careers.microsoft.com/v2/global/en/search.html?lc=India&l=en_us&d=Software%20Engineering&exp=Experienced%20professionals&et=Full-Time"
-  - "https://careers.google.com/jobs/results/?company=Google&jex=ENTRY_LEVEL&location=India&q=machine+learning"
-  - "https://careers.google.com/jobs/results/?company=Google&jex=ENTRY_LEVEL&location=India&q=AI+engineer"
-  - "https://www.databricks.com/company/careers/open-positions?department=Engineering&location=India"
-  - "https://careers.salesforce.com/en/jobs/?search=AI+engineer&location=India&country=India"
-  - "https://stripe.com/jobs/search?location_filter=india&name=engineer"
-  - "https://www.atlassian.com/company/careers/all-jobs?location=India&team=Engineering"
-  - "https://careers.oracle.com/jobs/#en/sites/jobsearch/jobs?keyword=AI+ML&location=India"
-  - "https://www.freshworks.com/company/careers/job-openings/?location=india"
-  - "https://careers.adobe.com/us/en/search-results?keywords=AI%20engineer&country=India"
-  - "https://www.ibm.com/careers/search?q=AI+engineer&country=India"
-  - "https://nvidia.wd5.myworkdayjobs.com/NVIDIAExternalCareerSite?locationCountry=469a2d0c4ba44f4da32ece4bfd00e5b4&q=deep+learning"
-  - "https://jobs.sap.com/search/?q=AI+engineer&locname=India&country=IN"
-  - "https://jobs.cisco.com/jobs/SearchJobs/AI?listFilterMode=1&21178=%5B186%5D&21178_format=6020"
-  - "https://jobs.smartrecruiters.com/?keyword=LLM+engineer&location=India"
-  - "https://jobs.smartrecruiters.com/?keyword=generative+AI&location=India"
-
-# ── Phase 3 pre-filter data ──────────────────────────────────────────
-recruiter_terms: [recruit, staffing, placement agency, hr solutions, manpower]
+title_include_terms:
+  - 'ai engineer'
+  - 'a\.?i\.? engineer'
+  - 'ml engineer'
+  - 'machine learning engineer'
+  - 'machine learning scientist'
+  - 'llm engineer'
+  - 'genai engineer'
+  - 'gen ai engineer'
+  - 'generative ai engineer'
+  - 'ai/ml engineer'
+  - 'ai software engineer'
+  - 'software engineer.{0,20}(machine learning|ml|ai)'
+  - 'nlp engineer'
+  - 'ai agent engineer'
+  - 'agent engineer'
+  - 'rag engineer'
+  - 'voice ai engineer'
+  - 'conversational ai'
+  - 'ml platform engineer'
+  - 'ml infrastructure engineer'
+  - 'deep learning engineer'
+  - 'applied scientist'
+  - 'applied ml'
+  - 'research engineer'
+  - 'ai researcher'
+  - 'prompt engineer'
+  - 'computer vision engineer'
+  - 'data scientist'
 
 ai_relevance_keywords:
   - '\bllm\b'
   - '\brag\b'
   - 'langchain'
+  - 'llamaindex'
+  - 'langgraph'
   - 'crewai'
-  - 'fastapi'
   - 'openai'
-  - 'gemini'
+  - 'anthropic'
   - 'claude'
-  - 'gpt'
-  - 'pinecone'
-  - '\bai\b'
-  - '\bml\b'
-  - 'machine learning'
-  - 'generative'
-  - 'agentic'
-  - 'voice ai'
-  - 'livek'
-  - 'deepgram'
-  - 'eleven.?labs'
-  - 'transformer'
-  - 'fine.?tun'
-  - 'vector'
-  - 'embedding'
-  - 'chatbot'
-  - 'nlp'
-  - 'hugging face'
-  - 'pytorch'
-  - 'tensorflow'
-  - 'sklearn'
-  - 'scikit'
-  - 'inferenc'
+  - '\bgpt\b'
+  - 'gemini'
   - 'llama'
   - 'mistral'
-  - 'prompt'
+  - 'transformer'
+  - 'hugging ?face'
+  - 'pytorch'
+  - 'tensorflow'
+  - 'fine.?tun'
+  - '\blora\b'
+  - 'embedding'
+  - 'pinecone'
+  - 'weaviate'
+  - 'qdrant'
+  - 'vector (database|db|store|search)'
+  - 'fastapi'
+  - 'agentic'
+  - 'whisper'
+  - 'deepgram'
+  - 'livekit'
+  - '\bnlp\b'
+  - 'natural language processing'
+  - 'machine learning'
+  - 'deep learning'
+  - 'generative ai'
+  - 'inference'
 
-# Off-stack titles to hard-reject (each entry is one regex alternative).
 title_reject_terms:
-  - '\bqa\b'
-  - quality ana
-  - quality assur
-  - manual test
-  - software test
-  - functional test
-  - automation test
-  - medical writer
-  - medical editor
-  - biostatistic
-  - statistical programmer
-  - clinical research
-  - pharmacovigilance
-  - regulatory affair
-  - relationship officer
-  - sales
-  - telecall
-  - tele sales
-  - tele caller
-  - business development
-  - branch manager
-  - delivery boy
-  - customer service
-  - client serv
-  - 'hr \b'
-  - human resource
-  - talent acqui
-  - talent manag
-  - marketing
-  - social media
-  - graphic design
-  - content writer
-  - digital content
-  - data analyst
-  - business analyst
-  - data modeler
-  - power bi
-  - tableau
-  - 'data engineer(?!.*ai)'
-  - data scientist
-  - mlops
-  - computer vision
-  - cv engineer
-  - nlp researcher
-  - deep learning researcher
-  - robotics
+  - 'business analyst'
+  - 'financial analyst'
+  - 'data entry'
+  - 'sales'
+  - 'account executive'
+  - 'marketing'
+  - 'recruiter'
+  - 'customer success'
+  - 'customer support'
+  - 'technical support'
+  - 'solutions? architect'
+  - 'sales engineer'
+  - 'support engineer'
+  - 'devops engineer'
+  - 'site reliability'
+  - '\bsre\b'
+  - 'security engineer'
+  - 'network engineer'
+  - 'hardware engineer'
+  - 'firmware'
+  - 'qa engineer'
+  - 'quality assurance'
   - '\bjava\b'
-  - java developer
-  - java engineer
   - '\.net\b'
-  - angular
-  - react native
-  - mern
-  - mean stack
-  - php developer
-  - php engineer
-  - ruby on rails
-  - 'node.?js developer'
-  - wordpress
-  - 'android\b'
-  - ios developer
-  - ios engineer
-  - flutter
-  - kotlin
-  - swift
-  - 'devops(?!.*ai)'
-  - sysadmin
-  - network engineer
-  - embedded
-  - firmware
-  - blockchain
-  - solidity
-  - 'web3(?!.*ai)'
-  - nft
-  - 'full.?stack(?!.*ai|.*ml|.*python)'
-  - 'frontend(?!.*ai)'
-  - support consultant
-  - 'technical support(?!.*ai)'
-  - it support
-  - service desk
-  - salesforce
-  - oracle
-  - powerbi
-  - odoo
-  - teamcenter
-  - executive assistant
-  - chief of staff
-  - operations manager
-  - scrum master
-  - cyber security
-  - cybersecurity
-  - penetration test
+  - 'salesforce'
+  - 'frontend engineer'
+  - 'front.?end developer'
+  - 'ios engineer'
+  - 'android engineer'
+  - 'accountant'
 
-seniority_reject_terms: [senior, lead, principal, manager, director, 'vp ', head of]
-experience_years_reject: ["3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+ years", "10+"]
-
-geo_lock_tokens:
-  - "united states only"
-  - "us only"
-  - "us citizens"
-  - "us permanent resident"
-  - "green card"
-  - "uk residents"
-  - "uk-based"
-  - "canada only"
-  - "australia only"
-  - "europe only"
-  - "eu only"
-  - "must be located in the us"
-  - "authorized to work in the us"
+seniority_reject_terms: [senior, staff, principal, lead, 'head of', director, 'vp', manager, distinguished, fellow, 'sr', 'ii', 'iii', 'iv']
 
 education_reject_tokens:
-  - "master's degree required"
-  - "masters degree required"
-  - "m.s. required"
-  - "msc required"
-  - "m.tech required"
   - "phd required"
-  - "ph.d"
+  - "ph.d. required"
   - "doctorate required"
-  - "doctoral degree"
-  - "postgraduate degree required"
-
-# ── Prompt templates ─────────────────────────────────────────────────
-scrape_instruction: |
-  Extract EVERY job posting visible on this page.
-  For each job return:
-    title, company, url (the direct apply/detail link), site (domain),
-    posted_date (ISO 8601 date OR relative string like '3 hours ago' — ALWAYS fill this),
-    location_text (exact text shown), is_remote (true/false),
-    job_type (full-time / contract / part-time / unknown),
-    pay_text (exact salary shown, or empty),
-    experience_text (exact years/level shown, e.g. "0-2 years", "fresher", "3-5 yrs" — ALWAYS fill this),
-    description_snippet (first 400 chars of job description — ALWAYS fill even if partial).
-  If the page is NOT a job listing, return an empty list [].
+  - "must have a phd"
 
 eval_system: |
-  You are {name}'s autonomous India AI job matching agent.
-
+  You are {name}'s India AI/ML job agent. The candidate is based in India
+  ({location}) and early-career (~{experience_years} years experience).
   Candidate stack: {stack}
-  Key metrics: {metrics}
+  Key achievements: {metrics}
 
-  RULES:
-  - Target: well-funded India startups (Series A+), top MNCs, or high-growth AI companies.
-  - The role must be geographically accessible in India (remote India, hybrid India, onsite India).
-  - Reject: relocation to US/Europe, unpaid internships, pure data science (no LLM/agent work), DevOps-only, sales, roles entirely unrelated to AI/LLM/Python.
-  - IMPORTANT: If description_snippet is empty but title and company clearly indicate an AI engineering role, set is_match=true with a best-effort match_score of 60 and note "description unavailable".
-  - Candidate may be early-career but has production-scale achievements — do NOT reject purely due to YOE if stack fits.
-
-  For each job:
-  1. is_match=true only if role matches AI Voice/LLM/RAG/FastAPI stack AND is India-accessible.
-  2. If is_match=true:
-     - match_score (0-100): reward Voice AI, LLM optimization, RAG, LiveKit, production backend scale.
-     - drafted_proposal: tight 3-paragraph technical cover letter.
-       Para 1: address the company's specific AI goal with a production achievement.
-       Para 2: stack fit + tools (LiveKit, CrewAI, FastAPI, Pinecone, LangChain).
-       Para 3: one concrete metric + offer to interview.
-  3. If is_match=false: rejection_reason (one sentence).
-
+  You are given the FULL job description for each job. For each job:
+  - Infer min_years and max_years STRICTLY from the JD's stated experience
+    requirements (use 0 if none is stated). Do NOT guess high.
+  - Set "seniority" to the role's level (intern/junior/mid/senior/lead/staff/principal/unknown).
+  - Set "location_ok"=true ONLY if the role is genuinely accessible from India
+    (remote-India, hybrid-India, or onsite in an Indian city). Set false for roles
+    requiring relocation abroad or restricted to another country.
+  - Set is_match=true ONLY if it is a hands-on AI/ML/LLM engineering role that fits
+    the candidate's stack, location_ok is true, and the required experience is within
+    reach of an early-career candidate.
+  - match_score (0-100): reward direct stack overlap (LLM, RAG, agents, Python, ML)
+    and early-career fit; penalise seniority and stack mismatch.
+  - If is_match=true: drafted_proposal = 3 tight paragraphs (a relevant achievement →
+    stack fit → one concrete metric + a call to action), signed as {name}.
+  - If is_match=false: rejection_reason = one sentence; drafted_proposal = null.
   {format_instructions}
 
 format_instructions: |
   Return ONLY valid JSON (no markdown fences):
-  {"evaluated_jobs":[{"is_match":true/false,"job_title":"string","company":"string","application_url":"string","match_score":0-100,"rejection_reason":"string or null","drafted_proposal":"string or null"}]}
+  {"evaluated_jobs":[{"job_title":"string","company":"string","application_url":"string","is_match":true,"match_score":0,"min_years":0,"max_years":null,"seniority":"unknown","location_ok":true,"rejection_reason":"string or null","drafted_proposal":"string or null"}]}
