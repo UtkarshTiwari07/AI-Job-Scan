@@ -14,6 +14,40 @@ per_company_cap: 5          # keep at most N relevant jobs per company
 min_jd_chars: 200           # drop thin/empty job descriptions
 yoe_slack: 1                # allow candidate_years + slack of required experience
 jd_eval_chars: 3000         # JD length sent to the LLM
+eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
+
+# ── Phase D sources (v3) ─────────────────────────────────────────────
+# LinkedIn is DISCOVERY-ONLY: its guest search page has no login wall and
+# gives title/company/location/date per card, but its job-detail pages carry
+# NO apply-method info without an authenticated session (verified live — the
+# Easy-Apply-vs-external-redirect distinction only renders via logged-in JS).
+# So every company found here is resolved to its OWN Greenhouse/Lever/Ashby
+# board (job/company_resolve.py) and fetched through the same adapters as the
+# static registry below — the reported application_url is ALWAYS the
+# company's own page, never linkedin.com, by construction.
+sources:
+  ats: true          # config/companies_remote.yaml
+  linkedin: true      # discovery only, see above
+  remoteok: true      # remoteok.com/api, tag-filtered — full JD already included
+  hn: true            # HN "Ask HN: Who is hiring" monthly thread — full JD already included
+
+linkedin_queries:
+  - {keywords: "AI engineer", f_e: "1,2", f_wt: "2"}        # entry+junior, worldwide remote
+  - {keywords: "machine learning engineer", f_e: "1,2", f_wt: "2"}
+  - {keywords: "LLM engineer", f_wt: "2"}
+  - {keywords: "RAG engineer", f_wt: "2"}
+
+# Broad (non-site-restricted) Serper queries used only to discover NEW
+# companies' OWN ATS boards (a hit's token is parsed straight from the URL —
+# see sources.ats_from_url). Never returns an aggregator or listing URL as a
+# reported job.
+serper_discovery_queries:
+  - '("AI engineer" OR "LLM engineer" OR "ML engineer") ("junior" OR "entry level" OR "0-2 years") remote site:boards.greenhouse.io'
+  - '("AI engineer" OR "LLM engineer" OR "ML engineer") ("junior" OR "entry level") remote site:jobs.lever.co'
+  - '("AI engineer" OR "LLM engineer" OR "ML engineer") ("junior" OR "entry level") remote site:jobs.ashbyhq.com'
+
+junior_tokens: ["junior", "entry level", "entry-level", "0-2 years", "0-1 year",
+                "1-2 years", "early career", "new grad", "graduate", "fresher", "intern"]
 
 # ── Phase 3 filters ──────────────────────────────────────────────────
 
@@ -171,8 +205,13 @@ eval_system: |
   - Infer min_years and max_years STRICTLY from the JD's stated experience
     requirements (use 0 if none is stated). Do NOT guess high.
   - Set "seniority" to the role's level (intern/junior/mid/senior/lead/staff/principal/unknown).
-  - Set "location_ok"=true ONLY if the role is genuinely open to a worldwide-remote,
-    {location}-based candidate (false for US/UK/EU-residency-only or onsite-only).
+  - Set "location_ok": default to true (the deterministic pre-filter already confirmed
+    a remote signal with no matched restriction). Set it to FALSE only if the JD
+    EXPLICITLY restricts eligibility to a specific country/region that is not
+    {location} (e.g. "US citizens only", "must reside in Germany", "Brazil-based
+    candidates only") — this is the one thing the deterministic filter can't
+    enumerate for every country, so it's your call. If geography is simply
+    unstated, that means accessible — do NOT infer a restriction that isn't written.
   - Set is_match=true ONLY if it is a hands-on AI/ML/LLM engineering role that fits
     the candidate's stack, location_ok is true, and the required experience is within
     reach of an early-career candidate.

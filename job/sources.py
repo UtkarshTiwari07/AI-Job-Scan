@@ -330,6 +330,113 @@ def _crawl_jds(urls: list) -> dict:
         return {}
 
 
+def fetch_remoteok(tags=("machine-learning", "ai")) -> list:
+    """RemoteOK public API, tag-filtered. Description is already the full JD."""
+    out, seen_ids = [], set()
+    for tag in tags:
+        data = _get_json(f"https://remoteok.com/api?tags={tag}")
+        if not isinstance(data, list):
+            continue
+        for j in data:
+            if not isinstance(j, dict) or not j.get("position") or j.get("id") in seen_ids:
+                continue
+            seen_ids.add(j.get("id"))
+            salary = ""
+            if j.get("salary_min") or j.get("salary_max"):
+                salary = f"${j.get('salary_min', 0):,}-${j.get('salary_max', 0):,}"
+            job = _job(
+                title=j.get("position"),
+                url=j.get("url") or j.get("apply_url"),
+                location_text=j.get("location", ""),
+                is_remote=True,
+                workplace_type="remote",
+                posted_date=_iso_date(j.get("date")),
+                pay_text=salary,
+                jd_text=strip_html(j.get("description")),
+                source="remoteok",
+            )
+            job["company"] = (j.get("company") or "").strip()
+            out.append(job)
+    return out
+
+
+_HN_NON_TITLE_SEGMENT = re.compile(
+    r"(\$|k\+|equity|remote|onsite|on-site|hybrid|full.?time|part.?time|contract|"
+    r"salary|per year|/yr|/hr|series [a-z]\b)", re.IGNORECASE)
+
+
+def _hn_parse_company_title(first_line: str):
+    """Best-effort company/title split of an HN hiring post's pipe-delimited first
+    line ('Company | Role | Location | ...' or 'Company | Salary | Location | Role').
+    Skips segments that look like comp/location/employment-type when picking the
+    title. Falls back to a generic label when the line isn't pipe-delimited."""
+    parts = [p.strip() for p in first_line.split("|") if p.strip()]
+    if len(parts) >= 2:
+        company = re.sub(r"\s*\([^)]*\)\s*$", "", parts[0]).strip()
+        title = next((p for p in parts[1:] if not _HN_NON_TITLE_SEGMENT.search(p)), parts[1])
+        if company and title:
+            return company[:80], title[:120]
+    company = re.split(r"\s+is\s+(looking|hiring)", first_line, maxsplit=1)[0].strip()
+    return (company[:80] or "Unknown"), "AI/Software role (see description)"
+
+
+def fetch_hn_whoishiring(thread_id: str = None) -> list:
+    """Latest 'Ask HN: Who is hiring?' thread via the Algolia API. Each top-level
+    comment IS the full job posting — no enrichment needed."""
+    if not thread_id:
+        data = _get_json(
+            "https://hn.algolia.com/api/v1/search_by_date"
+            "?tags=story,author_whoishiring&query=Who%20is%20hiring&hitsPerPage=3")
+        hits = (data or {}).get("hits", [])
+        thread = next((h for h in hits if (h.get("title") or "").lower().startswith("ask hn: who is hiring")), None)
+        if not thread:
+            return []
+        thread_id = thread["objectID"]
+
+    tree = _get_json(f"https://hn.algolia.com/api/v1/items/{thread_id}")
+    if not tree:
+        return []
+    out = []
+    for c in (tree.get("children") or []):
+        raw = c.get("text") or ""
+        if not raw or c.get("author") == "whoishiring":
+            continue
+        plain = strip_html(raw)
+        first_line = plain.splitlines()[0] if plain else ""
+        company, title = _hn_parse_company_title(first_line)
+        job = _job(
+            title=title,
+            url=f"https://news.ycombinator.com/item?id={c.get('id')}",
+            location_text=first_line,
+            posted_date=_iso_date(c.get("created_at")),
+            jd_text=plain,
+            source="hn_whoishiring",
+        )
+        job["company"] = company
+        out.append(job)
+    return out
+
+
+_ATS_URL_PATTERNS = (
+    ("greenhouse", re.compile(r"boards\.greenhouse\.io/(?:embed/job_board\?for=)?([a-z0-9\-_]+)", re.I)),
+    ("lever", re.compile(r"jobs\.lever\.co/([a-z0-9\-_]+)", re.I)),
+    ("ashby", re.compile(r"jobs\.ashbyhq\.com/([a-z0-9\-_]+)", re.I)),
+)
+
+
+def ats_from_url(url: str):
+    """Extract (ats, token) directly from a company's own ATS URL, e.g. a Serper
+    hit or a discovered link — no name-guessing needed when the URL itself names
+    the board. Returns None if the URL doesn't match a known ATS pattern."""
+    if not url:
+        return None
+    for ats, pattern in _ATS_URL_PATTERNS:
+        m = pattern.search(url)
+        if m:
+            return ats, m.group(1)
+    return None
+
+
 ADAPTERS = {
     "greenhouse": lambda c, **kw: fetch_greenhouse(c["token"]),
     "lever": lambda c, **kw: fetch_lever(c["token"]),

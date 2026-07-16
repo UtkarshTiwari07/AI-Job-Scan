@@ -2,42 +2,65 @@
 
 **An open-source, autonomous job-search agent for AI/ML engineers.**
 
-Give it your profile, plug in any LLM, and it pulls fresh AI/ML openings
-**straight from companies' own hiring boards**, filters them hard against your
-stack and experience, and drafts a tailored proposal for each genuine match —
-for **worldwide-remote** and **India / GCC** markets.
+Give it your profile, plug in any LLM, and it discovers fresh AI/ML openings from
+company hiring boards and job feeds, verifies every one against its **full job
+description**, filters them hard against your stack and experience, and drafts a
+tailored proposal for each genuine match — for **worldwide-remote** and
+**India / GCC** markets.
 
-No LinkedIn. No job-board aggregators. No thin, unverifiable listings. Every job
-comes from a curated, **live-verified** company board via its official API, so
-the description, location, and seniority are real and the filters actually work.
+No aggregator listings, no thin cards, no fabricated summaries. Every job in your
+report was fetched from a real source with its full description in hand — an
+ATS's own JSON API, RemoteOK, HN's "Who is hiring", or a company board discovered
+through search — so the description, location, and seniority are real and the
+filters actually work. LinkedIn is used for **discovery only** (see below): it
+never provides the link you'd apply through.
 
 ---
 
-## Why v2 (what changed and why)
+## How it works (v3)
 
-The first version searched Google (via Serper) and scraped whatever turned up —
-mostly LinkedIn/Naukri **search pages**, which hand a scraper thin, login-walled
-data. The result was ~95% noise: senior roles, off-stack roles, and jobs the LLM
-scored 0 all showed up as "results".
+Earlier versions taught two hard lessons, both still visible in the design:
 
-v2 flips the sourcing model:
+- **v1** searched broadly (Google + LinkedIn/aggregator listing pages) and found
+  the right *kinds* of jobs, but scraped thin, login-walled cards — the
+  extraction step then **fabricated** filler text for what it couldn't read.
+  ~95% noise.
+- **v2** fixed the fabrication by fetching only from a curated list of elite
+  companies' own ATS APIs (full JD, no scraping) — but that pool skewed senior
+  and US-centric, so a junior/India-based profile matched **zero** jobs. Correct
+  filtering on the wrong pool.
 
-1. **Fetch** — for each company in a curated registry, call its ATS JSON API
-   (**Greenhouse / Lever / Ashby**, plus **Workday** for big GCCs) and get every
-   open role **with its full description** — no browser, no login walls.
+**v3 combines both lessons**: discover broadly, but never evaluate or report
+anything without its real, full description in hand.
+
+1. **Discover** — merge several sources: a curated company registry (Greenhouse /
+   Lever / Ashby / Workday JSON APIs), RemoteOK, HN's monthly "Who is hiring"
+   thread, and **LinkedIn's public job-search results** (title/company/location
+   only — no login, and its detail pages carry no apply-method info without one,
+   verified live). Every company LinkedIn surfaces is resolved to its **own** ATS
+   board or dropped — so a LinkedIn-discovered job is never itself the reported
+   link, and Easy-Apply-flooded listings never enter the pool at all.
 2. **Filter (deterministic Python — no LLM)** — drop thin JDs, off-stack titles,
-   senior/lead titles, roles requiring more years than your bracket, wrong-geo
-   roles, and cap per company so one big board can't dominate.
-3. **Evaluate (your LLM)** — read the **full JD**, infer required years, score
-   the fit 0-100, and draft a proposal.
-4. **Report** — a job reaches `report_*.json` **only if** it's a match, scores
-   ≥ your threshold (default 50), is within your experience bracket, and is
-   location-accessible. Everything else lands in `audit_*.json` with a reason.
+   senior/lead titles, roles requiring more years than your bracket, and cap per
+   company so one big board can't dominate. A remote job is treated as
+   accessible unless something *explicit* restricts it — silence about
+   geography no longer causes a false rejection.
+3. **Rank** — score every surviving candidate on junior-language density, title
+   match, source reliability, and recency; only the top N (default 60) go to
+   the LLM, so a big discovery run doesn't burn unlimited API budget.
+4. **Evaluate (your LLM)** — read the **full JD**, infer required years, judge
+   any country-specific restriction the deterministic filter can't enumerate for
+   every country on Earth, score the fit 0-100, and draft a proposal.
+5. **Report** — a job reaches `report_*.json` **only if** it's a match, scores
+   ≥ your threshold, is within your experience bracket, and is location-
+   accessible. Everything else lands in `audit_*.json` with a reason, and a
+   per-source funnel in the run summary tells you *where* the pipeline thinned
+   — so an empty report reads as an honest "no match this week," not a mystery.
 
-That last step is enforced in Python, not left to the model — so **every job in
-your report is a genuine ≥50% match within your experience range.** The trade-off
-is honest: this is precision over volume — on a quiet week the report may be
-short or empty (the run summary tells you that, vs. a fetch failure).
+That report/audit split is enforced in Python, not left to the model — so
+**every job in your report is a genuine match within your experience range.**
+The trade-off is honest: this is precision over volume, and coverage still
+depends on which companies/feeds you configure — see Honest limits below.
 
 ---
 
@@ -74,15 +97,16 @@ One env var picks the model for evaluation, in [litellm](https://docs.litellm.ai
 | Anthropic | `anthropic/claude-sonnet-4-...`      | `ANTHROPIC_API_KEY` |
 | Groq      | `groq/llama-3.3-70b-versatile`       | `GROQ_API_KEY`      |
 
-`SERPER_API_KEY` is only needed for the optional Tier-3 fallback (searching a
-company's own careers domain); Tier-1/2 ATS fetching needs no search key.
+`SERPER_API_KEY` powers the broad-discovery queries (`serper_discovery_queries`)
+and the Tier-3 company-domain fallback; the registry/RemoteOK/HN/LinkedIn sources
+don't need it.
 
 ---
 
-## The company registry
+## Sources — the registry and beyond
 
-Jobs come from `config/companies_remote.yaml` and `config/companies_india.yaml`.
-Each entry names a company, its ATS, and a live-verified token:
+The static base is `config/companies_remote.yaml` / `config/companies_india.yaml`
+— every entry names a company, its ATS, and a live-verified token:
 
 ```yaml
 companies:
@@ -93,13 +117,16 @@ companies:
     tags: [ai-lab]
 ```
 
-- **Tier 1** — Greenhouse/Lever/Ashby JSON APIs (full JD in one call). Most companies.
-- **Tier 2** — Workday (GCCs); list + detail calls.
-- **Tier 3** — `serper`: a `site:<company-domain>` search of the company's *own*
-  careers site (never an aggregator), best-effort.
+On top of that, each mode's YAML (`sources:` block) turns on additional discovery:
+**LinkedIn** (public job-search results — company names only, resolved to the
+company's own ATS board via `job/company_resolve.py`; never a reported URL),
+**RemoteOK** and **HN "Who is hiring"** (both give full descriptions directly),
+and broad **Serper** queries that extract a company token straight from a
+Greenhouse/Lever/Ashby URL in the results. Tune `linkedin_queries` /
+`serper_discovery_queries` per mode to widen or narrow what gets discovered.
 
-Tokens rot as companies rebrand or migrate ATS. Re-verify and regenerate the
-registry any time with:
+Static-registry tokens rot as companies rebrand or migrate ATS. Re-verify and
+regenerate the registry any time with:
 
 ```bash
 python job/probe_registry.py        # probes candidates, keeps only live tokens with AI/ML roles
@@ -117,9 +144,11 @@ re-running it, or by hand-adding a verified entry to the YAML.
   filter. Create it with `python job/init_profile.py` or copy
   `config/profile.example.yaml`. Gitignored — your details stay yours.
 - **`config/{remote,india_mnc}.yaml`** — the AI/ML filter taxonomy + thresholds +
-  LLM prompt for each mode: `title_include_terms`, `ai_relevance_keywords`,
-  `title_reject_terms`, `seniority_reject_terms`, `report_min_score`,
-  `per_company_cap`, `yoe_slack`, etc. Tune to narrow or widen the net.
+  discovery sources + LLM prompt for each mode: `title_include_terms`,
+  `ai_relevance_keywords`, `title_reject_terms`, `seniority_reject_terms`,
+  `report_min_score`, `per_company_cap`, `yoe_slack`, `eval_max_candidates`,
+  `sources`, `linkedin_queries`, `serper_discovery_queries`. Tune to narrow or
+  widen the net.
 
 ---
 
@@ -128,34 +157,46 @@ re-running it, or by hand-adding a verified entry to the YAML.
 ```
 config/
   profile.example.yaml         # your profile template
-  remote.yaml / india_mnc.yaml # filter taxonomy + thresholds + LLM prompt per mode
+  remote.yaml / india_mnc.yaml # filter taxonomy + thresholds + sources + LLM prompt
   companies_remote.yaml        # curated, live-verified company boards (~95)
   companies_india.yaml         # India startups + GCCs (Tier 1/2/3)
   freelance.yaml               # legacy (deferred) freelance mode
 job/
-  sources.py        # ATS adapters (greenhouse/lever/ashby/workday/serper)
-  registry.py       # load the registry + fetch every board
-  filters.py        # deterministic Phase-3 pre-filter + YOE parsing
-  pipeline.py       # orchestrator: fetch → filter → eval → report/audit + summary
-  probe_registry.py # maintenance: verify/derive ATS tokens
-  jobscan_config.py # config loader
-  jobscan_llm.py    # provider-agnostic LLM layer (litellm)
-  init_profile.py   # build config/profile.yaml (résumé or Q&A)
+  sources.py           # ATS adapters + RemoteOK + HN Who's-Hiring + ATS-URL parsing
+  discovery.py         # LinkedIn guest search + broad Serper discovery
+  company_resolve.py   # resolve a bare company name to its live ATS board (+cache)
+  registry.py          # load the static registry + fetch/tag every board
+  filters.py           # deterministic pre-filter + YOE parsing + rank()
+  pipeline.py          # orchestrator: discover → filter → rank → eval → report/audit + funnel
+  probe_registry.py    # maintenance: verify/derive static-registry ATS tokens
+  jobscan_config.py    # config loader
+  jobscan_llm.py       # provider-agnostic LLM layer (litellm)
+  init_profile.py      # build config/profile.yaml (résumé or Q&A)
   job_remote.py / job_india_mnc.py   # thin entrypoints → pipeline.run(mode)
-  job_freelance.py  # legacy freelance mode (Serper/scrape; deferred rework)
+  job_freelance.py     # legacy freelance mode (Serper/scrape; deferred rework)
 ```
 
 ---
 
 ## Honest limits
 
-- **Precision, not volume.** Curated boards + hard filters mean fewer but real
-  results. A short or empty report is a valid outcome; widen the registry for more.
-- **Undocumented APIs.** Greenhouse/Lever/Ashby public endpoints have no SLA; a
-  vendor change can break a tier. Adapters fail gracefully (a dead board is
-  skipped and reported, never crashes a run).
+- **Precision, not volume.** Hard filters + a full-JD requirement mean fewer but
+  real results. A short or empty report is a valid outcome — the run summary's
+  per-source funnel tells you whether that's "no match this week" or a source
+  that broke; widen `sources`/`linkedin_queries`/the registry for more volume.
+- **LinkedIn's guest access is unofficial.** It can rate-limit or change markup
+  without notice; a break there just drops that source's contribution to the
+  funnel, it never produces bad data (nothing from LinkedIn is ever reported
+  directly — see Sources above).
+- **Undocumented APIs generally.** Greenhouse/Lever/Ashby/RemoteOK/HN have no
+  SLA; a vendor change can break a source. Adapters fail gracefully (skipped
+  and counted in the funnel, never crashes a run).
 - **India coverage is thinner** than remote — fewer Indian firms use clean ATS
-  APIs, so GCCs lean on the Workday/Tier-3 fallback.
+  APIs, so GCCs lean on the Workday/Tier-3 fallback and India-specific LinkedIn
+  discovery matters more there.
+- **Company-name resolution is a best-effort guess** (`company_resolve.py` tries
+  a few slug variants) — small companies without a Greenhouse/Lever/Ashby board
+  simply won't resolve, which is correct behavior, not a bug.
 - **`match_score` is model-relative** — swapping `LLM_MODEL` can shift how many
   jobs clear the threshold.
 

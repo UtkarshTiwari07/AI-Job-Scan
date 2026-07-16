@@ -12,6 +12,31 @@ per_company_cap: 5
 min_jd_chars: 200
 yoe_slack: 1
 jd_eval_chars: 3000
+eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
+
+# ── Phase D sources (v3) ─────────────────────────────────────────────
+# LinkedIn is DISCOVERY-ONLY (see config/remote.yaml for why): each company
+# found is resolved to its OWN ATS board via job/company_resolve.py, so the
+# reported application_url is always the company's own page, never linkedin.com.
+sources:
+  ats: true           # config/companies_india.yaml
+  linkedin: true       # discovery only
+  remoteok: false      # RemoteOK skews US/global-remote, little India-specific signal
+  hn: false            # same — HN Who's Hiring skews US/remote
+
+linkedin_queries:
+  - {keywords: "AI engineer", location: "India", f_e: "1,2"}
+  - {keywords: "machine learning engineer", location: "India", f_e: "1,2"}
+  - {keywords: "LLM engineer", location: "India"}
+  - {keywords: "generative AI engineer", location: "India", f_e: "1,2"}
+
+serper_discovery_queries:
+  - '("AI engineer" OR "LLM engineer" OR "ML engineer") India ("junior" OR "entry level" OR "fresher" OR "0-2 years") site:boards.greenhouse.io'
+  - '("AI engineer" OR "LLM engineer" OR "ML engineer") India ("junior" OR "fresher") site:jobs.lever.co'
+  - '("AI engineer" OR "LLM engineer" OR "ML engineer") India ("junior" OR "fresher") site:jobs.ashbyhq.com'
+
+junior_tokens: ["junior", "entry level", "entry-level", "0-2 years", "0-1 year",
+                "1-2 years", "early career", "fresher", "new grad", "graduate", "intern"]
 
 # India-accessibility gate (job location must hit one of these).
 india_location_tokens:
@@ -149,9 +174,13 @@ eval_system: |
   - Infer min_years and max_years STRICTLY from the JD's stated experience
     requirements (use 0 if none is stated). Do NOT guess high.
   - Set "seniority" to the role's level (intern/junior/mid/senior/lead/staff/principal/unknown).
-  - Set "location_ok"=true ONLY if the role is genuinely accessible from India
-    (remote-India, hybrid-India, or onsite in an Indian city). Set false for roles
-    requiring relocation abroad or restricted to another country.
+  - Set "location_ok"=true if the role is India-accessible: onsite/hybrid in an
+    Indian city, remote-India, OR fully worldwide-remote with no country
+    restriction stated (worldwide includes India — don't reject just because
+    "India" isn't literally named). Set FALSE only when the JD explicitly
+    restricts eligibility to a country other than India, or requires relocation
+    abroad. If geography is simply unstated for an onsite role, treat the
+    location field as authoritative, not the JD prose.
   - Set is_match=true ONLY if it is a hands-on AI/ML/LLM engineering role that fits
     the candidate's stack, location_ok is true, and the required experience is within
     reach of an early-career candidate.

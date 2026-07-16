@@ -66,6 +66,12 @@ _GENERIC = {
     "min_jd_chars": 200,        # reject thin/empty job descriptions
     "yoe_slack": 1,             # allow candidate_years + slack years of experience
     "jd_eval_chars": 3000,      # truncate JD sent to the LLM (cost control)
+    # v3 (hybrid discovery) defaults
+    "eval_max_candidates": 60,  # rank, then LLM-evaluate only the top N per run
+    "junior_tokens": [],        # JD phrases that boost rank (falls back to filters.DEFAULT_JUNIOR_TOKENS)
+    "linkedin_queries": [],     # [{keywords, location, f_e, f_wt}, ...] for discovery
+    "serper_discovery_queries": [],  # broad (non-site-restricted) Serper queries
+    "sources": {"ats": True, "linkedin": True, "remoteok": False, "hn": False},
 }
 
 # Which company registry file each mode reads (v2). Freelance keeps the old
@@ -165,6 +171,11 @@ def load_config(mode: str) -> "Config":
     cfg.min_jd_chars = int(g("min_jd_chars"))
     cfg.yoe_slack = int(g("yoe_slack"))
     cfg.jd_eval_chars = int(g("jd_eval_chars"))
+    cfg.eval_max_candidates = int(g("eval_max_candidates"))
+    cfg.junior_tokens = g("junior_tokens")
+    cfg.linkedin_queries = g("linkedin_queries")
+    cfg.serper_discovery_queries = g("serper_discovery_queries")
+    cfg.sources = {**_GENERIC["sources"], **(g("sources") or {})}
 
     # Freelance pay floor: the profile's salary_min overrides the mode default.
     min_pay = profile_raw.get("salary_min_usd_per_hour")

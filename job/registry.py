@@ -35,13 +35,48 @@ def load_registry(companies_file: str) -> list:
     return data.get("companies", [])
 
 
-def _fingerprint(title: str, company: str) -> str:
-    return hashlib.md5(f"{title.lower().strip()}|{company.lower().strip()}".encode()).hexdigest()
+def fingerprint(title: str, company: str, location: str = "") -> str:
+    """Includes location so the same title/company posted in multiple locations
+    (common on big boards) isn't collapsed into a single 'duplicate'."""
+    key = f"{title.lower().strip()}|{company.lower().strip()}|{(location or '').lower().strip()}"
+    return hashlib.md5(key.encode()).hexdigest()
+
+
+def tag_jobs(jobs: list, company: str, token: str, tier: int = 1, tags: list = None) -> list:
+    """Attach company/tier/tags/fingerprint/timestamp to a batch of raw adapter
+    output. Used both for the static registry and for dynamically discovered
+    companies (LinkedIn/Serper → company_resolve), so every job — regardless of
+    how it was found — carries the same fields the rest of the pipeline expects."""
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    for j in jobs:
+        j["company"] = company
+        j["company_token"] = token
+        j["tier"] = tier
+        j["source_tier"] = tier
+        j["tags"] = tags or []
+        j["_fingerprint"] = fingerprint(j.get("title", ""), company, j.get("location_text", ""))
+        j["_fetched_at"] = now
+    return jobs
+
+
+def tag_multi_company_jobs(jobs: list, tier: int, tags: list) -> list:
+    """Like tag_jobs, but for feeds spanning MANY companies (RemoteOK, HN
+    Who's-Hiring) where each job already carries its own `company` field —
+    fills in company_token/fingerprint/tier/tags/timestamp per job."""
+    now = datetime.datetime.utcnow().isoformat() + "Z"
+    for j in jobs:
+        company = j.get("company", "") or "Unknown"
+        j["company_token"] = company.lower().strip()
+        j["tier"] = tier
+        j["source_tier"] = tier
+        j["tags"] = tags or []
+        j["_fingerprint"] = fingerprint(j.get("title", ""), company, j.get("location_text", ""))
+        j["_fetched_at"] = now
+    return jobs
 
 
 def fetch_all(companies: list, search_text: str = "", serper_key: str = "") -> tuple:
     """Fetch + normalize + tag jobs from every company. Returns (jobs, summary)."""
-    now = datetime.datetime.utcnow().isoformat() + "Z"
     all_jobs, dead = [], []
     per_tier = {1: 0, 2: 0, 3: 0}
 
@@ -59,14 +94,7 @@ def fetch_all(companies: list, search_text: str = "", serper_key: str = "") -> t
         if not jobs:
             dead.append(f"{c.get('name')} [{c.get('ats')}:{token}]")
             continue
-        for j in jobs:
-            j["company"] = c.get("name", "")
-            j["company_token"] = token
-            j["tier"] = tier
-            j["source_tier"] = tier
-            j["tags"] = c.get("tags", [])
-            j["_fingerprint"] = _fingerprint(j["title"], c.get("name", ""))
-            j["_fetched_at"] = now
+        tag_jobs(jobs, c.get("name", ""), token, tier, c.get("tags", []))
         all_jobs.extend(jobs)
         per_tier[tier] = per_tier.get(tier, 0) + len(jobs)
 

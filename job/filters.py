@@ -22,7 +22,6 @@ DEFAULT_INDIA_LOCATION_TOKENS = [
     "india", "bengaluru", "bangalore", "hyderabad", "pune", "mumbai", "delhi",
     "gurgaon", "gurugram", "noida", "chennai", "kolkata", "ahmedabad", "apac",
 ]
-WORLDWIDE_TOKENS = ["worldwide", "anywhere", "global", "globally", "any location"]
 
 
 def parse_yoe(text: str):
@@ -55,19 +54,35 @@ def parse_age_days(posted_date: str):
 
 
 def _geo_ok_remote(job, cfg):
-    """(pass: bool, reason: str|None) for worldwide-remote mode."""
-    combined = f"{job.get('location_text','')} {job.get('jd_text','')}".lower()
+    """(pass: bool, reason: str|None) for worldwide-remote mode.
+
+    Default-accessible policy: a job passes unless there's an EXPLICIT
+    restriction. Two fixes vs. the original version (found while diagnosing a
+    live run that filtered out nearly everything):
+      1. The on-site/hybrid check now looks at `location_text` (a structured,
+         authoritative ATS field, e.g. "San Francisco, CA (Hybrid)") instead of
+         scanning the full JD body — a JD merely MENTIONING "hybrid" somewhere
+         (e.g. "some teams work hybrid; this role is fully remote") no longer
+         causes a false reject.
+      2. Passing no longer requires a magic "worldwide/anywhere/global" word to
+         be present — silence about geography now means accessible, not
+         rejected. Only an EXPLICIT restriction (geo_lock_tokens: "US citizen",
+         "must be located in the United States", etc.) rejects.
+    """
+    loc = (job.get("location_text", "") or "").lower()
+    jd = (job.get("jd_text", "") or "").lower()
     has_remote = (job.get("is_remote") is True
                   or job.get("workplace_type") == "remote"
-                  or any(t in combined for t in cfg.remote_pass_tokens))
-    has_onsite = any(t in combined for t in cfg.remote_reject_tokens)
-    worldwide = any(t in combined for t in WORLDWIDE_TOKENS)
-    geo_locked = any(t in combined for t in cfg.geo_lock_tokens)
+                  or any(t in loc for t in cfg.remote_pass_tokens)
+                  or any(t in jd for t in cfg.remote_pass_tokens))
+    has_onsite = (job.get("workplace_type") in ("hybrid", "onsite", "on-site")
+                  or any(t in loc for t in cfg.remote_reject_tokens))
+    geo_locked = any(t in f"{loc} {jd}" for t in cfg.geo_lock_tokens)
     if not has_remote:
         return False, "Not remote"
-    if has_onsite and not worldwide:
-        return False, "On-site required"
-    if geo_locked and not worldwide:
+    if has_onsite:
+        return False, "On-site/hybrid required"
+    if geo_locked:
         return False, "Geo-locked (region-restricted remote)"
     return True, None
 
@@ -173,3 +188,38 @@ def prefilter(jobs, cfg, cross_run_seen, mode):
             cross_run_seen[j["_fingerprint"]] = now_iso
 
     return candidates, rejected
+
+
+# ─────────────────────────── Phase R — rank ─────────────────────────
+
+DEFAULT_JUNIOR_TOKENS = [
+    "junior", "entry level", "entry-level", "0-2 years", "0-1 year", "1-2 years",
+    "early career", "early-career", "new grad", "graduate", "fresher", "intern",
+]
+
+_STRUCTURED_SOURCES = {"greenhouse", "lever", "ashby", "workday"}
+
+
+def rank(jobs: list, cfg) -> list:
+    """Deterministic pre-eval ranking so a capped LLM budget spends itself on the
+    MOST promising candidates first — never a silent, unranked truncation.
+    Scoring is a simple additive heuristic (title match, junior-language
+    density, salary transparency, source structure, recency); ties broken by
+    posted_date. Returns jobs sorted best-first; pipeline.py caps and audits
+    the remainder with their rank so nothing just disappears.
+    """
+    junior_tokens = getattr(cfg, "junior_tokens", None) or DEFAULT_JUNIOR_TOKENS
+    scored = []
+    for j in jobs:
+        title_l = (j.get("title") or "").lower()
+        jd_l = (j.get("jd_text") or "").lower()
+        score = 0
+        if cfg.title_include_re and cfg.title_include_re.search(title_l):
+            score += 3
+        score += min(sum(1 for t in junior_tokens if t in jd_l), 3)
+        if j.get("pay_text"):
+            score += 1
+        score += 2 if j.get("source") in _STRUCTURED_SOURCES else 1
+        scored.append((score, j.get("posted_date") or "", j))
+    scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    return [j for _, _, j in scored]
