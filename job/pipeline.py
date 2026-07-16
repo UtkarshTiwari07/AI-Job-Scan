@@ -26,10 +26,13 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(HERE), ".env"))
 from jobscan_config import load_config
 import registry
 import filters
+import discovery
+import sources
 import jobscan_llm
 
 EVAL_BATCH = 4
 SEARCH_TEXT = "AI engineer OR machine learning engineer OR LLM engineer"
+LINKEDIN_MAX_NEW_COMPANIES = 40  # cap company_resolve probes per run
 
 
 # ─────────────────────── cross-run dedup cache ──────────────────────
@@ -153,6 +156,57 @@ def _slim(c):
 
 # ─────────────────────────── run ────────────────────────────────────
 
+def discover_and_fetch(mode, cfg, serper_key):
+    """Phase D — merge every enabled source into one job pool, tagged with which
+    source found it (funnel['per_source']) so an empty report is diagnosable."""
+    all_jobs = []
+    funnel = {"per_source": {}, "dead_boards": [], "linkedin_companies_found": 0,
+              "linkedin_companies_resolved": []}
+
+    def add(jobs, label):
+        all_jobs.extend(jobs)
+        funnel["per_source"][label] = funnel["per_source"].get(label, 0) + len(jobs)
+
+    known_tokens = {c.get("token") or c.get("tenant") for c in cfg.companies}
+
+    if cfg.sources.get("ats", True) and cfg.companies:
+        reg_jobs, reg_summary = registry.fetch_all(cfg.companies, search_text=SEARCH_TEXT,
+                                                    serper_key=serper_key)
+        add(reg_jobs, "ats_registry")
+        funnel["dead_boards"] = reg_summary.get("dead", [])
+    elif not cfg.companies:
+        print(f"  ⚠️  No companies in config/{cfg.companies_file} — run: python job/probe_registry.py")
+
+    if cfg.sources.get("linkedin", True) and cfg.linkedin_queries:
+        print("  🔎 LinkedIn discovery (company names only — never a reported URL)...")
+        by_company = discovery.linkedin_discover_companies(cfg.linkedin_queries, max_pages_per_query=2)
+        funnel["linkedin_companies_found"] = len(by_company)
+        li_jobs, li_summary = discovery.resolve_and_fetch_new(
+            set(by_company.keys()), known_tokens, cap=LINKEDIN_MAX_NEW_COMPANIES)
+        add(li_jobs, "linkedin_resolved")
+        funnel["linkedin_companies_resolved"] = li_summary["resolved"]
+        known_tokens |= {r.split("->", 1)[1].split(":", 1)[1] for r in li_summary["resolved"]}
+
+    if cfg.sources.get("remoteok", False):
+        rok = registry.tag_multi_company_jobs(sources.fetch_remoteok(), tier=2, tags=["remoteok"])
+        add(rok, "remoteok")
+
+    if cfg.sources.get("hn", False):
+        hn = registry.tag_multi_company_jobs(sources.fetch_hn_whoishiring(), tier=2, tags=["hn"])
+        add(hn, "hn_whoishiring")
+
+    if cfg.serper_discovery_queries and serper_key:
+        hits = discovery.serper_broad_discover(cfg.serper_discovery_queries, serper_key)
+        new_hits = [(a, t) for a, t in hits if t not in known_tokens]
+        for ats, token in new_hits:
+            jobs = registry.tag_jobs(sources.ADAPTERS[ats]({"token": token}), token, token, tier=1,
+                                     tags=["serper-discovered"])
+            add(jobs, "serper_discovered")
+            known_tokens.add(token)
+
+    return all_jobs, funnel
+
+
 def run(mode, dry_run=False):
     cfg = load_config(mode)
     ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -162,28 +216,26 @@ def run(mode, dry_run=False):
     report_path = os.path.join(rdir, f"report_{mode}_{ts}.json")
     audit_path = os.path.join(rdir, f"audit_{mode}_{ts}.json")
 
-    print(f"\n{'='*64}\n🚀 {mode.upper()} scan v2  {'[DRY RUN]' if dry_run else '[LIVE]'}\n{'='*64}")
+    print(f"\n{'='*64}\n🚀 {mode.upper()} scan v3  {'[DRY RUN]' if dry_run else '[LIVE]'}\n{'='*64}")
 
     cross_run_seen = load_seen(mode)
-    fetch_summary = {}
+    funnel = {}
     if dry_run:
         print("[DRY RUN] using mock ATS data (no network, no LLM)")
         jobs = _mock_jobs(mode)
     else:
-        if not cfg.companies:
-            print(f"❌ No companies in config/{cfg.companies_file}. Run: python job/probe_registry.py")
-            return
         serper_key = os.getenv("SERPER_API_KEY", "")
-        print(f"\n📡 PHASE 1-2 — fetching {len(cfg.companies)} company boards...")
-        jobs, fetch_summary = registry.fetch_all(cfg.companies, search_text=SEARCH_TEXT,
-                                                 serper_key=serper_key)
+        print(f"\n📡 PHASE D — discovery ({len(cfg.companies)} registry companies"
+              f"{' + LinkedIn' if cfg.sources.get('linkedin') and cfg.linkedin_queries else ''}"
+              f"{' + RemoteOK' if cfg.sources.get('remoteok') else ''}"
+              f"{' + HN' if cfg.sources.get('hn') else ''})...")
+        jobs, funnel = discover_and_fetch(mode, cfg, serper_key)
         with open(raw_path, "w") as f:
             for j in jobs:
                 f.write(json.dumps(j, default=str) + "\n")
-        print(f"  ✓ {len(jobs)} jobs fetched from {fetch_summary.get('companies_with_jobs')} "
-              f"boards (per-tier: {fetch_summary.get('per_tier')})")
+        print(f"  ✓ {len(jobs)} jobs total — {funnel['per_source']}")
 
-    print(f"\n🔬 PHASE 3 — deterministic pre-filter ({len(jobs)} jobs)...")
+    print(f"\n🔬 PHASE V — deterministic pre-filter ({len(jobs)} jobs)...")
     candidates, rejected = filters.prefilter(jobs, cfg, cross_run_seen, mode)
     print(f"  ✓ {len(candidates)} candidates | ✗ {len(rejected)} filtered")
 
@@ -194,8 +246,15 @@ def run(mode, dry_run=False):
         with open(report_path, "w") as f:
             json.dump(result, f, indent=2, default=str)
     else:
-        report, eval_audit = evaluate_and_draft(candidates, cfg)
-        audit = rejected + eval_audit
+        print(f"\n📶 PHASE R — ranking {len(candidates)} candidates "
+              f"(evaluating top {cfg.eval_max_candidates})...")
+        ranked = filters.rank(candidates, cfg)
+        to_eval, over_cap = ranked[:cfg.eval_max_candidates], ranked[cfg.eval_max_candidates:]
+        over_cap_audit = [{**_slim(c), "rejection_reason": f"not evaluated (rank #{i}, over cap {cfg.eval_max_candidates})"}
+                          for i, c in enumerate(over_cap, start=cfg.eval_max_candidates + 1)]
+
+        report, eval_audit = evaluate_and_draft(to_eval, cfg)
+        audit = rejected + over_cap_audit + eval_audit
         save_seen(mode, cross_run_seen)
         with open(report_path, "w") as f:
             json.dump({"mode": mode, "generated_at": ts, "count": len(report),
@@ -206,17 +265,19 @@ def run(mode, dry_run=False):
                     "company": a.get("company"), "reason": a.get("rejection_reason")}
                    for a in audit], f, indent=2, default=str)
 
-    _summary(mode, dry_run, fetch_summary, candidates, rejected, report, report_path, audit_path)
+    _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path)
 
 
-def _summary(mode, dry_run, fetch_summary, candidates, rejected, report, report_path, audit_path):
+def _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path):
     print(f"\n{'='*64}\n📊 RUN SUMMARY — {mode}\n{'='*64}")
-    if fetch_summary:
-        print(f"  boards fetched      : {fetch_summary.get('companies_with_jobs')}/{fetch_summary.get('companies')}")
-        print(f"  jobs fetched        : {fetch_summary.get('total_jobs')}  per-tier {fetch_summary.get('per_tier')}")
-        dead = fetch_summary.get("dead", [])
+    if funnel:
+        print(f"  per-source jobs     : {funnel.get('per_source', {})}")
+        dead = funnel.get("dead_boards", [])
         if dead:
-            print(f"  boards with 0 jobs  : {len(dead)}  (e.g. {', '.join(dead[:5])}{'…' if len(dead) > 5 else ''})")
+            print(f"  registry boards w/ 0 jobs : {len(dead)}  (e.g. {', '.join(dead[:5])}{'…' if len(dead) > 5 else ''})")
+        if funnel.get("linkedin_companies_found"):
+            print(f"  LinkedIn: {funnel['linkedin_companies_found']} companies found, "
+                  f"{len(funnel.get('linkedin_companies_resolved', []))} resolved to a live board")
     print(f"  passed pre-filter   : {len(candidates)}")
     top_reasons = Counter(r.get("rejection_reason", "?").split(":")[0].split("(")[0].strip()
                           for r in rejected)
@@ -226,7 +287,10 @@ def _summary(mode, dry_run, fetch_summary, candidates, rejected, report, report_
         print(f"  ✅ REPORTED (>=min)  : {len(report)}")
         if not report:
             print("     (No matches cleared the bar this run — that's an honest result,\n"
-                  "      not an error. Widen config/companies_*.yaml for more volume.)")
+                  "      not an error. Check the per-source funnel above: an empty report\n"
+                  "      with healthy fetch counts means no real match this run; a funnel\n"
+                  "      full of zeros means a source broke — widen config/companies_*.yaml\n"
+                  "      or config/<mode>.yaml's linkedin_queries for more volume.)")
     print(f"\n  report → {report_path}")
     print(f"  audit  → {audit_path}")
 
