@@ -156,6 +156,18 @@ def _slim(c):
 
 # ─────────────────────────── run ────────────────────────────────────
 
+def _enrichable(cfg):
+    """Predicate for Phase E: only spend a crawl on a job whose TITLE already marks
+    it AI/ML and isn't off-stack, so crawl budget is never wasted on a job that
+    Phase V would title-reject anyway."""
+    def ok(job):
+        title = job.get("title") or ""
+        if cfg.title_reject_re and cfg.title_reject_re.search(title):
+            return False
+        return bool(cfg.title_include_re and cfg.title_include_re.search(title))
+    return ok
+
+
 def discover_and_fetch(mode, cfg, serper_key):
     """Phase D — merge every enabled source into one job pool, tagged with which
     source found it (funnel['per_source']) so an empty report is diagnosable."""
@@ -182,7 +194,8 @@ def discover_and_fetch(mode, cfg, serper_key):
         by_company = discovery.linkedin_discover_companies(cfg.linkedin_queries, max_pages_per_query=2)
         funnel["linkedin_companies_found"] = len(by_company)
         li_jobs, li_summary = discovery.resolve_and_fetch_new(
-            set(by_company.keys()), known_tokens, cap=LINKEDIN_MAX_NEW_COMPANIES)
+            set(by_company.keys()), known_tokens, cap=LINKEDIN_MAX_NEW_COMPANIES,
+            serper_key=serper_key)
         add(li_jobs, "linkedin_resolved")
         funnel["linkedin_companies_resolved"] = li_summary["resolved"]
         known_tokens |= {r.split("->", 1)[1].split(":", 1)[1] for r in li_summary["resolved"]}
@@ -230,10 +243,21 @@ def run(mode, dry_run=False):
               f"{' + RemoteOK' if cfg.sources.get('remoteok') else ''}"
               f"{' + HN' if cfg.sources.get('hn') else ''})...")
         jobs, funnel = discover_and_fetch(mode, cfg, serper_key)
+        print(f"  ✓ {len(jobs)} jobs total — {funnel['per_source']}")
+
+        # PHASE E — enrich thin-JD, link-only jobs with their FULL page text via
+        # crawl4ai (verify from real raw text, never a fabricated snippet). No-op
+        # when crawl4ai isn't installed or the sandbox blocks the headless browser.
+        n_enriched = sources.enrich_jobs(
+            jobs, min_jd_chars=cfg.min_jd_chars, cap=cfg.enrich_max_crawls,
+            should_enrich=_enrichable(cfg))
+        funnel["crawl4ai_enriched"] = n_enriched
+        if n_enriched:
+            print(f"\n🔎 PHASE E — crawl4ai backfilled {n_enriched} thin-JD job(s) with full page text")
+
         with open(raw_path, "w") as f:
             for j in jobs:
                 f.write(json.dumps(j, default=str) + "\n")
-        print(f"  ✓ {len(jobs)} jobs total — {funnel['per_source']}")
 
     print(f"\n🔬 PHASE V — deterministic pre-filter ({len(jobs)} jobs)...")
     candidates, rejected = filters.prefilter(jobs, cfg, cross_run_seen, mode)
@@ -278,6 +302,8 @@ def _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, a
         if funnel.get("linkedin_companies_found"):
             print(f"  LinkedIn: {funnel['linkedin_companies_found']} companies found, "
                   f"{len(funnel.get('linkedin_companies_resolved', []))} resolved to a live board")
+        if funnel.get("crawl4ai_enriched"):
+            print(f"  crawl4ai enriched  : {funnel['crawl4ai_enriched']} thin-JD job(s) from their page text")
     print(f"  passed pre-filter   : {len(candidates)}")
     top_reasons = Counter(r.get("rejection_reason", "?").split(":")[0].split("(")[0].strip()
                           for r in rejected)

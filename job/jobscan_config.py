@@ -66,6 +66,7 @@ _GENERIC = {
     "min_jd_chars": 200,        # reject thin/empty job descriptions
     "yoe_slack": 1,             # allow candidate_years + slack years of experience
     "jd_eval_chars": 3000,      # truncate JD sent to the LLM (cost control)
+    "enrich_max_crawls": 30,    # v4: max crawl4ai backfills per run for thin-JD, link-only jobs
     # v3 (hybrid discovery) defaults
     "eval_max_candidates": 60,  # rank, then LLM-evaluate only the top N per run
     "junior_tokens": [],        # JD phrases that boost rank (falls back to filters.DEFAULT_JUNIOR_TOKENS)
@@ -171,6 +172,7 @@ def load_config(mode: str) -> "Config":
     cfg.min_jd_chars = int(g("min_jd_chars"))
     cfg.yoe_slack = int(g("yoe_slack"))
     cfg.jd_eval_chars = int(g("jd_eval_chars"))
+    cfg.enrich_max_crawls = int(g("enrich_max_crawls"))
     cfg.eval_max_candidates = int(g("eval_max_candidates"))
     cfg.junior_tokens = g("junior_tokens")
     cfg.linkedin_queries = g("linkedin_queries")

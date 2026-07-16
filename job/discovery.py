@@ -117,13 +117,16 @@ def serper_broad_discover(queries: list, serper_key: str, num: int = 20) -> set:
     return found
 
 
-def resolve_and_fetch_new(company_names: set, known_tokens: set, cap: int = 40) -> tuple:
+def resolve_and_fetch_new(company_names: set, known_tokens: set, cap: int = 40,
+                          serper_key: str = None) -> tuple:
     """Resolve each NEW company name (not already in known_tokens) to a live ATS
     board and fetch its jobs. Returns (jobs, summary). Bounded by `cap` resolve
-    attempts per run (each is a few HTTP probes) to keep runtime sane."""
+    attempts per run (each is a few HTTP probes) to keep runtime sane. When a
+    `serper_key` is given, company_resolve falls back to a Serper board lookup for
+    names whose ATS slug can't be guessed — lifting the resolve yield."""
     jobs, resolved, unresolved = [], [], []
     for name in list(company_names)[:cap]:
-        entry = company_resolve.resolve(name)
+        entry = company_resolve.resolve(name, serper_key=serper_key)
         if not entry:
             unresolved.append(name)
             continue

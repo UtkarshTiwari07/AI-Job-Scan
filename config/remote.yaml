@@ -13,7 +13,11 @@ report_min_score: 50        # only matches scoring >= this reach report_*.json
 per_company_cap: 5          # keep at most N relevant jobs per company
 min_jd_chars: 200           # drop thin/empty job descriptions
 yoe_slack: 1                # allow candidate_years + slack of required experience
-jd_eval_chars: 3000         # JD length sent to the LLM
+jd_eval_chars: 12000        # JD length sent to the LLM — full raw text, not a 3k snippet.
+                            # location/remote/experience are verified by the LLM from this
+                            # text (+ the structured location field), not from hard-coded
+                            # token lists; a 3k truncation used to hide eligibility clauses.
+enrich_max_crawls: 30       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
 eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
 
 # ── Phase D sources (v3) ─────────────────────────────────────────────
@@ -201,17 +205,32 @@ eval_system: |
   Candidate stack: {stack}
   Key achievements: {metrics}
 
-  You are given the FULL job description for each job. For each job:
+  You are given, for each job, its structured "location" field AND its FULL raw
+  job description. BOTH are evidence — read the raw text, do not rely on the title
+  alone. For each job:
   - Infer min_years and max_years STRICTLY from the JD's stated experience
-    requirements (use 0 if none is stated). Do NOT guess high.
+    requirements (use 0 if none is stated). Do NOT guess high. Read the whole
+    description — the experience requirement is often past the first paragraph.
   - Set "seniority" to the role's level (intern/junior/mid/senior/lead/staff/principal/unknown).
-  - Set "location_ok": default to true (the deterministic pre-filter already confirmed
-    a remote signal with no matched restriction). Set it to FALSE only if the JD
-    EXPLICITLY restricts eligibility to a specific country/region that is not
-    {location} (e.g. "US citizens only", "must reside in Germany", "Brazil-based
-    candidates only") — this is the one thing the deterministic filter can't
-    enumerate for every country, so it's your call. If geography is simply
-    unstated, that means accessible — do NOT infer a restriction that isn't written.
+  - Set "location_ok" by deciding: could a person BASED IN {location} actually hold
+    this job? The candidate can only take a role that is legally open to someone
+    working from {location}. Weigh the structured "location" field and the raw JD
+    text together:
+      * TRUE if it is fully worldwide / "remote anywhere" / has no geographic
+        restriction, OR remote within a region that INCLUDES {location}
+        (e.g. APAC, Asia, or {location} itself named).
+      * FALSE if the "location" field names a specific country/region OTHER than
+        {location} (e.g. "Remote, United States", "US Remote", "Remote (EMEA)",
+        "UK - Remote") AND the JD does not explicitly open it worldwide; OR the JD
+        requires foreign work authorization / residency / a specific timezone
+        overlap that excludes {location}; OR it is onsite/hybrid in a city outside
+        {location}. A country-scoped remote field means country-scoped by
+        DEFAULT — do NOT treat a named foreign country as "accessible" just
+        because the word "remote" appears.
+      * Only when the "location" field is a bare "Remote" with NO country AND the
+        JD says nothing about geography should you lean TRUE (a genuine worldwide
+        role) — never invent a restriction that isn't written, but never ignore
+        one that is.
   - Set is_match=true ONLY if it is a hands-on AI/ML/LLM engineering role that fits
     the candidate's stack, location_ok is true, and the required experience is within
     reach of an early-career candidate.
