@@ -330,6 +330,53 @@ def _crawl_jds(urls: list) -> dict:
         return {}
 
 
+def enrich_jobs(jobs: list, min_jd_chars: int = 200, cap: int = 30,
+                should_enrich=None) -> int:
+    """v4 — crawl4ai backfill for jobs that have a link but a thin/empty JD.
+
+    The user's rule: "crawl4ai is important if any link is there" — verification
+    must run on the REAL page text, never on a fabricated summary. For each job
+    whose `jd_len` is below `min_jd_chars` and that carries a crawlable
+    (non-LinkedIn) URL, fetch the page and use its raw markdown as `jd_text` — no
+    LLM extraction, so there is nothing to hallucinate. Mutates the qualifying
+    jobs in place and returns how many were successfully enriched.
+
+    Bounded by `cap` crawls per run; `should_enrich(job)->bool` (optional) lets the
+    caller skip off-stack titles so a crawl is never spent on a job that would be
+    title-rejected anyway. A graceful no-op (returns 0) when crawl4ai isn't
+    installed, no job qualifies, or the network blocks the headless browser — the
+    still-thin jobs are then dropped by the downstream non-empty-JD gate, exactly
+    as before (honest, never fabricated).
+
+    LinkedIn URLs are intentionally excluded: their guest pages carry no JD/apply
+    markup (verified), so crawling them would reproduce the v1 fabrication failure.
+    """
+    need = []
+    for j in jobs:
+        if (j.get("jd_len") or 0) >= min_jd_chars:
+            continue
+        url = j.get("url") or ""
+        if not url or "linkedin.com" in url.lower():
+            continue
+        if should_enrich is not None and not should_enrich(j):
+            continue
+        need.append(j)
+        if len(need) >= cap:
+            break
+    if not need:
+        return 0
+    jd_by_url = _crawl_jds([j["url"] for j in need])
+    enriched = 0
+    for j in need:
+        text = (jd_by_url.get(j["url"]) or "").strip()
+        if len(text) >= min_jd_chars:
+            j["jd_text"] = text
+            j["jd_len"] = len(text)
+            j["tags"] = list(j.get("tags") or []) + ["crawl4ai-enriched"]
+            enriched += 1
+    return enriched
+
+
 def fetch_remoteok(tags=("machine-learning", "ai")) -> list:
     """RemoteOK public API, tag-filtered. Description is already the full JD."""
     out, seen_ids = [], set()

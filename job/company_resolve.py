@@ -61,34 +61,77 @@ def _save_cache(cache: dict):
 
 
 _CACHE = _load_cache()
+_SERPER_TRIED = set()  # names Serper-probed this process (avoids re-probing a cached miss)
+
+# ATS boards a Serper lookup can extract a token from (via sources.ats_from_url).
+_SERPER_SITES = ("boards.greenhouse.io", "jobs.lever.co", "jobs.ashbyhq.com")
 
 
-def resolve(name: str) -> dict:
+def _resolve_via_serper(name: str, serper_key: str) -> dict:
+    """v4 — find a company's OWN ATS board with a targeted Serper search when
+    slug-guessing misses. Extracts (ats, token) straight from the first ATS URL in
+    the results (never an aggregator), so the reported application_url is still the
+    company's own board. This is what lifts the LinkedIn discovery yield: most
+    surfaced companies don't have a guessable Greenhouse/Lever/Ashby slug."""
+    sites = " OR ".join(f"site:{s}" for s in _SERPER_SITES)
+    q = f'"{name}" (careers OR jobs OR hiring) ({sites})'
+    r = sources._request(
+        "POST", "https://google.serper.dev/search",
+        headers={"X-API-KEY": serper_key, "Content-Type": "application/json"},
+        data=json.dumps({"q": q, "num": 10}))
+    if r is None or r.status_code != 200:
+        return {}
+    try:
+        organic = r.json().get("organic", [])
+    except ValueError:
+        return {}
+    for o in organic:
+        hit = sources.ats_from_url(o.get("link", ""))
+        if hit:
+            return {"ats": hit[0], "token": hit[1]}
+    return {}
+
+
+def resolve(name: str, serper_key: str = None) -> dict:
     """Return {'ats':..., 'token':...} for the first live board found, or {} if none.
 
-    Cached across calls (and across runs, via CACHE_PATH) — a company resolved
-    once is never re-probed.
+    Two stages: (1) guess ATS token slugs from the name and probe Ashby/Lever/
+    Greenhouse; (2) if that misses and a `serper_key` is given, a targeted Serper
+    search finds the company's own ATS board. Cached across calls and runs
+    (CACHE_PATH). A previously-cached miss is retried through Serper ONCE per
+    process when a key becomes available, so enabling Serper widens coverage
+    without re-probing every dead name every run.
     """
     key = name.strip().lower()
     if not key:
         return {}
-    if key in _CACHE:
-        return _CACHE[key]
+    cached = _CACHE.get(key)
+    if cached:                       # non-empty hit → resolved earlier, reuse it
+        return cached
+
+    already_missed = (cached == {})  # a persisted "not found"
+    if already_missed and (not serper_key or key in _SERPER_TRIED):
+        return {}
 
     result = {}
-    for token in _slug_variants(name):
-        for ats, fn in (("ashby", sources.fetch_ashby),
-                        ("lever", sources.fetch_lever),
-                        ("greenhouse", lambda t: sources.fetch_greenhouse(t, content=False))):
-            try:
-                jobs = fn(token)
-            except Exception:
-                jobs = []
-            if jobs:
-                result = {"ats": ats, "token": token}
+    if not already_missed:           # first time we see this name → slug-guess probes
+        for token in _slug_variants(name):
+            for ats, fn in (("ashby", sources.fetch_ashby),
+                            ("lever", sources.fetch_lever),
+                            ("greenhouse", lambda t: sources.fetch_greenhouse(t, content=False))):
+                try:
+                    jobs = fn(token)
+                except Exception:
+                    jobs = []
+                if jobs:
+                    result = {"ats": ats, "token": token}
+                    break
+            if result:
                 break
-        if result:
-            break
+
+    if not result and serper_key:    # slug-guess missed → Serper board lookup
+        _SERPER_TRIED.add(key)
+        result = _resolve_via_serper(name, serper_key)
 
     _CACHE[key] = result
     _save_cache(_CACHE)

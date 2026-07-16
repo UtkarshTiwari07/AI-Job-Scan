@@ -11,7 +11,11 @@ report_min_score: 50
 per_company_cap: 5
 min_jd_chars: 200
 yoe_slack: 1
-jd_eval_chars: 3000
+jd_eval_chars: 12000        # full raw JD to the LLM (not a 3k snippet) — location,
+                            # remote-eligibility and experience are verified by the LLM
+                            # from this text + the structured location field, not from
+                            # hard-coded token lists.
+enrich_max_crawls: 30       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
 eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
 
 # ── Phase D sources (v3) ─────────────────────────────────────────────
@@ -170,17 +174,30 @@ eval_system: |
   Candidate stack: {stack}
   Key achievements: {metrics}
 
-  You are given the FULL job description for each job. For each job:
+  You are given, for each job, its structured "location" field AND its FULL raw
+  job description. BOTH are evidence — read the raw text, do not rely on the title
+  alone. For each job:
   - Infer min_years and max_years STRICTLY from the JD's stated experience
-    requirements (use 0 if none is stated). Do NOT guess high.
+    requirements (use 0 if none is stated). Do NOT guess high. Read the whole
+    description — the experience requirement is often past the first paragraph.
   - Set "seniority" to the role's level (intern/junior/mid/senior/lead/staff/principal/unknown).
-  - Set "location_ok"=true if the role is India-accessible: onsite/hybrid in an
-    Indian city, remote-India, OR fully worldwide-remote with no country
-    restriction stated (worldwide includes India — don't reject just because
-    "India" isn't literally named). Set FALSE only when the JD explicitly
-    restricts eligibility to a country other than India, or requires relocation
-    abroad. If geography is simply unstated for an onsite role, treat the
-    location field as authoritative, not the JD prose.
+  - Set "location_ok" by deciding: could a person BASED IN {location} actually hold
+    this job? Weigh the structured "location" field and the raw JD text together:
+      * TRUE if it is onsite/hybrid in an Indian city (Bengaluru, Hyderabad, Pune,
+        Mumbai, Delhi/NCR, Gurgaon, Noida, Chennai, Kolkata, etc.), remote within
+        India / APAC, OR genuinely worldwide-remote with no country restriction
+        (worldwide includes India — don't reject just because "India" isn't
+        literally named).
+      * FALSE if the "location" field names a specific country/region OTHER than
+        India (e.g. "Remote, United States", "US Remote", "Remote (EMEA)",
+        "London - Remote") AND the JD does not explicitly open it worldwide; OR the
+        JD requires foreign work authorization / residency / relocation abroad; OR
+        it is onsite/hybrid in a city outside India. A country-scoped remote field
+        means country-scoped by DEFAULT — do NOT treat a named foreign country as
+        "India-accessible" just because the word "remote" appears.
+      * Only when the "location" field is a bare "Remote" with NO country AND the
+        JD says nothing about geography should you lean TRUE — never invent a
+        restriction that isn't written, but never ignore one that is.
   - Set is_match=true ONLY if it is a hands-on AI/ML/LLM engineering role that fits
     the candidate's stack, location_ok is true, and the required experience is within
     reach of an early-career candidate.

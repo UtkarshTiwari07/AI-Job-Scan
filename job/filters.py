@@ -199,6 +199,17 @@ DEFAULT_JUNIOR_TOKENS = [
 
 _STRUCTURED_SOURCES = {"greenhouse", "lever", "ashby", "workday"}
 
+# v4 ranking-only signals (NOT gates — the LLM makes the authoritative location call).
+DEFAULT_WORLDWIDE_TOKENS = ["worldwide", "anywhere", "globally", "global",
+                            "remote-first", "fully remote"]
+# A location field scoped to a specific foreign region is down-weighted so the capped
+# eval budget favours likely-accessible roles. Deliberately small; the LLM verifies
+# accessibility from the full raw text — this only orders who gets evaluated.
+_COUNTRY_SCOPE_RE = re.compile(
+    r"\b(united states|u\.s\.a?|us|usa|america|americas|uk|united kingdom|canada|"
+    r"canadian|europe|european|emea|latam|germany|france|brazil|australia|singapore)\b",
+    re.IGNORECASE)
+
 
 def rank(jobs: list, cfg) -> list:
     """Deterministic pre-eval ranking so a capped LLM budget spends itself on the
@@ -209,10 +220,13 @@ def rank(jobs: list, cfg) -> list:
     the remainder with their rank so nothing just disappears.
     """
     junior_tokens = getattr(cfg, "junior_tokens", None) or DEFAULT_JUNIOR_TOKENS
+    india_tokens = getattr(cfg, "india_location_tokens", None) or DEFAULT_INDIA_LOCATION_TOKENS
+    mode = getattr(cfg, "mode", "")
     scored = []
     for j in jobs:
         title_l = (j.get("title") or "").lower()
         jd_l = (j.get("jd_text") or "").lower()
+        loc_l = (j.get("location_text") or "").lower()
         score = 0
         if cfg.title_include_re and cfg.title_include_re.search(title_l):
             score += 3
@@ -220,6 +234,22 @@ def rank(jobs: list, cfg) -> list:
         if j.get("pay_text"):
             score += 1
         score += 2 if j.get("source") in _STRUCTURED_SOURCES else 1
+
+        # Accessibility: boost worldwide / in-region roles, down-weight ones whose
+        # location field is scoped to a foreign country the candidate can't work from.
+        worldwide = any(t in loc_l for t in DEFAULT_WORLDWIDE_TOKENS)
+        foreign_scope = bool(_COUNTRY_SCOPE_RE.search(loc_l))
+        if mode == "india_mnc":
+            if any(t in loc_l for t in india_tokens) or worldwide:
+                score += 2
+            elif foreign_scope:
+                score -= 2
+        else:  # remote — worldwide is ideal; a foreign-country-scoped remote is not
+            if worldwide:
+                score += 2
+            elif foreign_scope:
+                score -= 2
+
         scored.append((score, j.get("posted_date") or "", j))
     scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
     return [j for _, _, j in scored]

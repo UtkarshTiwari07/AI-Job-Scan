@@ -48,9 +48,15 @@ anything without its real, full description in hand.
 3. **Rank** — score every surviving candidate on junior-language density, title
    match, source reliability, and recency; only the top N (default 60) go to
    the LLM, so a big discovery run doesn't burn unlimited API budget.
-4. **Evaluate (your LLM)** — read the **full JD**, infer required years, judge
-   any country-specific restriction the deterministic filter can't enumerate for
-   every country on Earth, score the fit 0-100, and draft a proposal.
+4. **Evaluate (your LLM)** — read the **full raw JD** (not a truncated snippet;
+   fetched with crawl4ai when a source only gave a link) plus the structured
+   location field, and **verify** the things a token list can't: is this role
+   actually accessible from *your* country (a remote job scoped to another country
+   — e.g. "Remote, United States" or one requiring foreign work authorization — is
+   *not*), does the stated experience fit, is it a genuine stack match. Then score
+   the fit 0-100 and draft a proposal. Location, remote-eligibility and experience
+   are judged by the model from the real text — never inferred from hard-coded
+   keyword lists.
 5. **Report** — a job reaches `report_*.json` **only if** it's a match, scores
    ≥ your threshold, is within your experience bracket, and is location-
    accessible. Everything else lands in `audit_*.json` with a reason, and a
@@ -125,6 +131,14 @@ and broad **Serper** queries that extract a company token straight from a
 Greenhouse/Lever/Ashby URL in the results. Tune `linkedin_queries` /
 `serper_discovery_queries` per mode to widen or narrow what gets discovered.
 
+For a LinkedIn-surfaced company whose ATS token can't be guessed from its name,
+`company_resolve.py` falls back to a targeted Serper search for its **own** board
+(`SERPER_API_KEY` required) — so far more discovered companies resolve to a real
+careers page, and the reported link is still never `linkedin.com`. Any source that
+yields only a link (no full JD) is passed through crawl4ai to fetch the real page
+text before it's ever evaluated — nothing is judged on a thin or fabricated
+snippet (`enrich_max_crawls` bounds the crawls per run).
+
 Static-registry tokens rot as companies rebrand or migrate ATS. Re-verify and
 regenerate the registry any time with:
 
@@ -198,7 +212,12 @@ job/
   a few slug variants) — small companies without a Greenhouse/Lever/Ashby board
   simply won't resolve, which is correct behavior, not a bug.
 - **`match_score` is model-relative** — swapping `LLM_MODEL` can shift how many
-  jobs clear the threshold.
+  jobs clear the threshold. Location/experience verification is model-driven too:
+  a remote role scoped to a country other than yours is treated as inaccessible by
+  default, which is deliberately strict (it stops US-only-remote roles leaking into
+  an India-based report) — a genuinely global role that tags one country and never
+  says "worldwide" can occasionally be dropped. Every such drop is recorded in
+  `audit_*.json` with its reason, so the strictness is visible and tunable.
 
 ## Disclaimer
 
