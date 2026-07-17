@@ -88,11 +88,26 @@ def _geo_ok_remote(job, cfg):
 
 
 def _geo_ok_india(job, cfg):
+    """India-accessible = India-located (onsite/hybrid/remote-India) OR a genuine
+    worldwide-remote role a candidate in India can take.
+
+    v5 change: worldwide-remote is now accepted. A live audit showed global
+    remote-first firms hire India via EOR and tag the role "Remote"/"Worldwide",
+    NOT "India" — so requiring an India token was filtering out exactly the roles
+    that fill an India-based candidate's report. A remote role scoped to a foreign
+    country still fails (via _geo_ok_remote's geo-lock check); the LLM makes the
+    final accessibility call from the full text.
+    """
     tokens = getattr(cfg, "india_location_tokens", None) or DEFAULT_INDIA_LOCATION_TOKENS
     loc = (job.get("location_text", "") or "").lower()
     # Location field is authoritative; fall back to a scan of the JD head.
     hay = loc if loc else (job.get("jd_text", "") or "")[:300].lower()
     if any(t in hay for t in tokens):
+        return True, None
+    # Not India-located → accept only if it's a genuine worldwide-remote role
+    # (a foreign-country-scoped "Remote, US" role fails _geo_ok_remote's geo lock).
+    ok, _ = _geo_ok_remote(job, cfg)
+    if ok:
         return True, None
     return False, "Not India-accessible"
 
