@@ -32,7 +32,11 @@ ML_TITLE_RE = re.compile(
 
 # ── Candidate companies: (name, ats_guess, token, tags) ──────────────
 # ats_guess is tried first; if it yields 0 jobs the other two are tried.
-REMOTE_CANDIDATES = [
+# _REMOTE_BASE is the historical candidate pool; v5 filters out the mega/DSA-driven
+# flooders (REMOVE_REMOTE_TOKENS) and appends live-verified remote-first companies
+# (ADD_REMOTE) from the user's two attached remote-first lists. See the plan's
+# "Redesign v5" section for the evidence behind each removal.
+_REMOTE_BASE = [
     # AI labs / model & infra companies
     ("Anthropic", "greenhouse", "anthropic", ["ai-lab"]),
     ("OpenAI", "ashby", "openai", ["ai-lab"]),
@@ -188,6 +192,63 @@ REMOTE_CANDIDATES = [
     ("Rubrik", "greenhouse", "rubrik", ["infra", "security"]),
 ]
 
+# v5 — mega / DSA-driven / prestige-US flooders. Live audit: huge senior-heavy,
+# US-centric boards (OpenAI 707 jobs, Databricks 780, Airbnb, Pinterest, Reddit…)
+# that flood the funnel with volume but convert ~0 early-career remote roles. Dropped
+# per the user's "remove the big DSA companies" decision.
+REMOVE_REMOTE_TOKENS = {
+    "anthropic", "openai", "databricks", "snowflakecomputing", "confluent",
+    "reddit", "pinterest", "airbnb", "discord", "dropbox",
+    "coinbase", "robinhood", "affirm", "brex", "plaid", "chime", "sofi", "gusto",
+    "instacart", "doordash", "faire", "flexport", "samsara",
+    "datadog", "figma", "rippling", "rubrik", "retool", "airtable", "webflow", "miro", "grammarly",
+    "palantir", "vannevarlabs", "nuro", "zipline", "applied", "verkada",
+    "cerebrassystems", "sambanovasystems", "groq", "lambdalabs", "coreweave", "nebius",
+    "attentivemobile", "ironcladinc",
+}
+
+# v5 — genuinely remote-first companies from the user's two attached lists, each
+# token VERIFIED live this session (job counts noted). Includes crypto/Web3 (highest
+# remote AI/ML volume), remote-first infra/devtools, and Hugging Face via Workable.
+ADD_REMOTE = [
+    # crypto / Web3 (remote-native, heavy AI/ML hiring)
+    ("Binance", "lever", "binance", ["crypto", "remote-first"]),            # 278 jobs / 50 ML
+    ("OKX", "greenhouse", "okx", ["crypto", "remote-first"]),               # 310 / 44
+    ("Bybit", "greenhouse", "bybit", ["crypto", "remote-first"]),           # 128 / 3
+    ("Crypto.com", "lever", "crypto", ["crypto", "remote-first"]),          # 119 / 9
+    ("Fireblocks", "greenhouse", "fireblocks", ["crypto"]),                 # 61 / 3
+    ("BitGo", "greenhouse", "bitgo", ["crypto"]),                           # 37 / 1
+    ("Anchorage Digital", "lever", "anchorage", ["crypto"]),                # 44 jobs
+    # remote-first infra / devtools / SaaS (confirmed India-friendly in the doc)
+    ("Canonical", "greenhouse", "canonical", ["remote-first", "india"]),    # 301 / 5
+    ("Veeva", "lever", "veeva", ["remote-first", "india"]),                 # 800 / 15
+    ("Okta / Auth0", "greenhouse", "okta", ["security", "remote-first"]),   # 343 / 14
+    ("Mozilla", "greenhouse", "mozilla", ["remote-first"]),                 # 77 / 11
+    ("JFrog", "greenhouse", "jfrog", ["devtools", "india"]),                # 42 / 2
+    ("Hex", "greenhouse", "hextechnologies", ["data"]),                     # 26 / 3
+    ("Buildkite", "greenhouse", "buildkite", ["devtools", "remote-first"]), # 12 / 1
+    ("Sourcegraph", "greenhouse", "sourcegraph91", ["devtools", "remote-first"]),
+    ("Coursera", "greenhouse", "coursera", ["edtech", "india"]),            # 14 / 3
+    # AI / data / talent (remote-first, India-relevant)
+    ("Sardine", "ashby", "sardine", ["ai", "fintech"]),                     # 35 / 8
+    ("Forter", "greenhouse", "forter", ["ai", "fintech"]),                  # 41 / 6
+    ("Prolific", "greenhouse", "prolific", ["ai", "remote-first"]),         # 29 / 4
+    ("Apollo.io", "greenhouse", "apolloio", ["ai", "remote-first", "india"]),  # 43 / 2
+    ("Lightricks", "greenhouse", "lightricks", ["ai"]),                     # 6 / 2
+    ("Hugging Face", "workable", "huggingface", ["ai-lab", "remote-first"]),  # workable
+    ("Toptal", "lever", "toptal", ["talent", "remote-first", "india"]),     # 19 / 3
+    ("Andela", "ashby", "andela", ["talent", "remote-first", "india"]),     # 14 / 3
+    ("Superside", "lever", "superside", ["remote-first", "india"]),         # 18 / 7
+    # remote-first fintech / hr / payments
+    ("Payoneer", "greenhouse", "payoneer", ["fintech", "india"]),           # 142 / 8
+    ("Alpaca", "greenhouse", "alpaca", ["fintech", "remote-first"]),        # 53 / 2
+    ("Bitpanda", "greenhouse", "bitpanda", ["fintech"]),                    # 51 jobs
+    ("Oyster HR", "ashby", "oyster", ["hr", "remote-first"]),               # 10 / 1
+    ("RemoFirst", "lever", "remofirst", ["hr", "remote-first"]),            # 17 / 1
+]
+
+REMOTE_CANDIDATES = [c for c in _REMOTE_BASE if c[2] not in REMOVE_REMOTE_TOKENS] + ADD_REMOTE
+
 INDIA_CANDIDATES = [
     ("Sarvam AI", "ashby", "sarvam", ["india", "ai-lab", "voice"]),
     ("Sarvam AI (alt)", "lever", "sarvamai", ["india", "ai-lab"]),
@@ -237,41 +298,51 @@ INDIA_CANDIDATES = [
     ("Druva", "greenhouse", "druva", ["india", "infra"]),
     ("Netradyne", "greenhouse", "netradyne", ["india", "ai", "cv"]),
     ("Ola Krutrim", "ashby", "krutrim", ["india", "ai-lab"]),
+    # v5 — more Indian product / AI companies (probe verifies the live ATS token)
+    ("Eightfold AI", "greenhouse", "eightfold", ["india", "ai", "hr"]),
+    ("Locus", "lever", "locus", ["india", "ai", "logistics"]),
+    ("Kore.ai", "lever", "koreai", ["india", "ai", "voice"]),
+    ("Vymo", "lever", "vymo", ["india", "ai", "saas"]),
+    ("Entropik", "lever", "entropik", ["india", "ai"]),
+    ("Ushur", "greenhouse", "ushur", ["india", "ai"]),
+    ("SquadStack", "lever", "squadstack", ["india", "ai"]),
+    ("SpotDraft", "lever", "spotdraft", ["india", "ai", "legal"]),
+    ("Zluri", "lever", "zluri", ["india", "saas"]),
+    ("Setu", "lever", "setu", ["india", "fintech"]),
+    ("M2P Fintech", "lever", "m2p", ["india", "fintech"]),
+    ("Tiger Analytics", "greenhouse", "tigeranalytics", ["india", "ai", "analytics"]),
+    ("Fractal", "greenhouse", "fractal", ["india", "ai", "analytics"]),
+    ("Swiggy", "greenhouse", "swiggy", ["india", "food", "ml"]),
+    ("Turing", "greenhouse", "turing", ["india", "ai", "remote-first"]),
+    ("Rubrik India", "greenhouse", "rubrik", ["india", "infra"]),
+    ("Simpplr", "greenhouse", "simpplr", ["india", "saas"]),
+    ("Gong", "greenhouse", "gong", ["india", "ai"]),
+    ("Sprinklr", "lever", "sprinklr", ["india", "ai"]),
 ]
 
-# Tier-2 Workday GCCs: (name, tenant, dc, site, tags). Verified live.
-WORKDAY_GCC = [
-    ("NVIDIA", "nvidia", "wd5", "NVIDIAExternalCareerSite", ["india", "gcc", "ai"]),
-]
-
-# Tier-3 serper-domain (unverified pass-through; only a search domain).
+# v5 — FAANG/GCC entries REMOVED. The 21 Tier-3 `ats: serper` GCCs (Google,
+# Microsoft, Amazon, Adobe, Walmart, Uber, PayPal, Visa, Mastercard, Goldman,
+# JPMorgan, …) and the NVIDIA Workday GCC were the entire reason crawl4ai ran in
+# india_mnc (serper → fetch_serper_domain → _crawl_jds), and were DSA-driven,
+# senior-heavy boards that flooded the funnel with volume but converted ~0 roles.
+# Removed on the user's instruction. India volume now comes from Indian product
+# companies (India-located roles) + the shared remote-first set (worldwide-remote
+# roles, since india_mnc now accepts those — see filters._geo_ok_india).
+WORKDAY_GCC = []
 SERPER_REMOTE = []
-SERPER_INDIA = [
-    ("Google India", "careers.google.com", ["india", "gcc"]),
-    ("Microsoft India", "careers.microsoft.com", ["india", "gcc"]),
-    ("Amazon India", "amazon.jobs", ["india", "gcc"]),
-    ("Adobe India", "careers.adobe.com", ["india", "gcc"]),
-    ("Walmart Global Tech India", "careers.walmart.com", ["india", "gcc"]),
-    ("Salesforce India", "salesforce.com", ["india", "gcc"]),
-    ("SAP Labs India", "jobs.sap.com", ["india", "gcc"]),
-    ("Atlassian India", "atlassian.com", ["india", "gcc"]),
-    ("Uber India", "uber.com", ["india", "gcc"]),
-    ("PayPal India", "paypal.com", ["india", "gcc"]),
-    ("Visa India", "visa.com", ["india", "gcc"]),
-    ("Mastercard India", "mastercard.com", ["india", "gcc"]),
-    ("Goldman Sachs India", "goldmansachs.com", ["india", "gcc"]),
-    ("JPMorgan India", "jpmorganchase.com", ["india", "gcc"]),
-    ("Wells Fargo India", "wellsfargojobs.com", ["india", "gcc"]),
-    ("Target India", "target.com", ["india", "gcc"]),
-    ("Qualcomm India", "qualcomm.com", ["india", "gcc"]),
-    ("Intuit India", "intuit.com", ["india", "gcc"]),
-    ("ServiceNow India", "servicenow.com", ["india", "gcc"]),
-    ("Cisco India", "cisco.com", ["india", "gcc"]),
-    ("Optum / UnitedHealth India", "optum.com", ["india", "gcc"]),
-]
+SERPER_INDIA = []
 
 
 def _probe(ats, token):
+    if ats == "workable":  # list-only (fast) — titles are enough to gauge AI/ML volume
+        data = sources._post_json(
+            f"https://apply.workable.com/api/v3/accounts/{token}/jobs",
+            {"query": "", "location": [], "department": [], "worktype": [], "remote": []})
+        jobs = (data or {}).get("results", []) if data else []
+        if not jobs:
+            return None
+        ml = sum(1 for j in jobs if ML_TITLE_RE.search(j.get("title", "")))
+        return {"jobs": len(jobs), "ml": ml}
     fn = {"greenhouse": lambda t: sources.fetch_greenhouse(t, content=False),
           "lever": sources.fetch_lever,
           "ashby": sources.fetch_ashby}.get(ats)
@@ -289,6 +360,8 @@ def _probe(ats, token):
 
 def verify(candidate):
     name, ats_guess, token, tags = candidate
+    # Probe the guessed ATS first, then the standard three. Workable is only probed
+    # when it's the explicit guess (it needs a per-account POST, not a slug on a shared host).
     order = [ats_guess] + [a for a in ("ashby", "lever", "greenhouse") if a != ats_guess]
     for ats in order:
         res = _probe(ats, token)
@@ -335,16 +408,18 @@ def _yaml_block(entries, serper_entries):
     return "\n".join(lines) + "\n"
 
 
-def build(candidates, workday, serper, out_path, do_write):
+def build(candidates, workday, serper, out_path, do_write, extra_verified=None):
     verified = []
     with cf.ThreadPoolExecutor(max_workers=12) as ex:
         for res in ex.map(verify, candidates):
             if res:
                 verified.append(res)
+    if extra_verified:  # e.g. the shared remote-first set, reused in the india registry
+        verified.extend(extra_verified)
     # de-dup by (ats, token)
     seen, uniq = set(), []
     for e in verified:
-        key = (e["ats"], e["token"])
+        key = (e["ats"], e.get("token"))
         if key not in seen:
             seen.add(key); uniq.append(e)
     for wd in workday:
@@ -370,8 +445,11 @@ def build(candidates, workday, serper, out_path, do_write):
 if __name__ == "__main__":
     do_write = "--print" not in sys.argv
     print("Probing REMOTE candidates ...")
-    build(REMOTE_CANDIDATES, [], SERPER_REMOTE,
-          os.path.join(CONFIG_DIR, "companies_remote.yaml"), do_write)
-    print("\nProbing INDIA candidates ...")
+    remote_verified = build(REMOTE_CANDIDATES, [], SERPER_REMOTE,
+                            os.path.join(CONFIG_DIR, "companies_remote.yaml"), do_write)
+    # india_mnc now also accepts worldwide-remote roles, so the verified remote-first
+    # companies feed the India registry too (alongside Indian product companies).
+    print("\nProbing INDIA candidates (+ shared remote-first set) ...")
     build(INDIA_CANDIDATES, WORKDAY_GCC, SERPER_INDIA,
-          os.path.join(CONFIG_DIR, "companies_india.yaml"), do_write)
+          os.path.join(CONFIG_DIR, "companies_india.yaml"), do_write,
+          extra_verified=remote_verified)

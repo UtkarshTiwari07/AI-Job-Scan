@@ -268,6 +268,49 @@ def fetch_workday(tenant: str, dc: str, site: str, search_text: str = "",
     return out
 
 
+def fetch_workable(account: str, max_detail: int = 40) -> list:
+    """Workable public job board (used by Hugging Face and many remote-first firms).
+
+    Two calls, like Workday: a v3 POST lists the jobs (title, location, remote flag,
+    workplace, posted date — but NO description), then a v2 GET per job returns the
+    full description. Verified live: v3 list + v2 detail both 200 with a browser UA.
+    `max_detail` bounds the per-job detail calls.
+    """
+    listing = _post_json(
+        f"https://apply.workable.com/api/v3/accounts/{account}/jobs",
+        {"query": "", "location": [], "department": [], "worktype": [], "remote": []})
+    if not listing:
+        return []
+    out = []
+    for post in (listing.get("results") or [])[:max_detail]:
+        sc = post.get("shortcode")
+        if not sc:
+            continue
+        detail = _get_json(f"https://apply.workable.com/api/v2/accounts/{account}/jobs/{sc}") or {}
+        loc = post.get("location") or {}
+        city = (loc.get("city") or "").strip()
+        country = (loc.get("country") or "").strip()
+        workplace = (post.get("workplace") or "").strip().lower()
+        is_remote = bool(post.get("remote")) or workplace == "remote"
+        loc_text = ", ".join(x for x in (city, country) if x)
+        if is_remote:
+            loc_text = f"Remote{' - ' + loc_text if loc_text else ''}"
+        depts = post.get("department") or []
+        out.append(_job(
+            title=post.get("title"),
+            url=f"https://apply.workable.com/{account}/j/{sc}/",
+            location_text=loc_text,
+            is_remote=is_remote,
+            workplace_type=workplace,
+            employment_type=post.get("type", ""),
+            department=depts[0] if depts else "",
+            posted_date=_iso_date(post.get("published")),
+            jd_text=strip_html(detail.get("description")),
+            source="workable",
+        ))
+    return out
+
+
 def fetch_serper_domain(domain: str, terms: str, serper_key: str,
                         num: int = 10, enrich: bool = True) -> list:
     """Tier-3 fallback: Serper `site:<domain>` discovery of real JD pages.
@@ -490,6 +533,7 @@ ADAPTERS = {
     "ashby": lambda c, **kw: fetch_ashby(c["token"]),
     "workday": lambda c, **kw: fetch_workday(c["tenant"], c["dc"], c["site"],
                                              search_text=kw.get("search_text", "")),
+    "workable": lambda c, **kw: fetch_workable(c["token"]),
     "serper": lambda c, **kw: fetch_serper_domain(c["domain"], kw.get("search_text", ""),
                                                   kw.get("serper_key", "")),
 }

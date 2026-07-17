@@ -61,6 +61,28 @@ india_location_tokens:
   - coimbatore
   - apac
 
+# Worldwide-remote gate (v5): india_mnc now also accepts genuine worldwide-remote
+# roles (a candidate in India can take them). These tokens let the deterministic
+# gate recognise a real remote signal and reject a role scoped to a foreign country.
+remote_pass_tokens: [remote, "work from home", wfh, anywhere, worldwide, globally, distributed, "remote-first"]
+remote_reject_tokens: ["on-site only", "onsite only", "must be in office", "must relocate", "in-office", "hybrid"]
+geo_lock_tokens:
+  - "u.s. only"
+  - "us only"
+  - "united states only"
+  - "us-based only"
+  - "must be located in the united states"
+  - "must reside in the us"
+  - "authorized to work in the us"
+  - "us citizen"
+  - "security clearance"
+  - "uk only"
+  - "canada only"
+  - "eu only"
+  - "europe only"
+  - "emea only"
+  - "must be based in"
+
 title_include_terms:
   - 'ai engineer'
   - 'a\.?i\.? engineer'
