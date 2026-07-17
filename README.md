@@ -40,19 +40,25 @@ Earlier versions taught four hard lessons, all still visible in the design:
   Naukri (India's dominant board), and companies with no public ATS API at all —
   the *volume* stayed too small.
 - **v7 plugs into the real job market and fixes a self-sabotaging dedup bug.**
-  Real board search (Indeed/Naukri/LinkedIn/Google, via the open-source
+  Real board search (Indeed/LinkedIn/Google, via the open-source
   [JobSpy](https://github.com/Bunsly/JobSpy) scraper) is now the primary volume
   source — it's what most of "the market" actually runs on, ATS APIs included.
   And a real bug is fixed: earlier versions marked every *candidate* as
   cross-run-"seen," not just reported ones — re-running the tool while tuning it
   silently drained the whole pool to near-nothing. Now only a job that's actually
   **reported** is remembered, so repeated runs no longer sabotage themselves.
+- **v8** raises volume dials that turned out to be capped below real supply,
+  broadens the Delhi NCR company-targeted query, makes the eval stage's rejection
+  reasons visible in the run summary (previously only in `audit_*.json`), and
+  clears the dedup bug's poisoned cache automatically. Naukri (JobSpy supports it,
+  but it 406'd with a captcha challenge in live testing even from a residential
+  IP) was dropped — see Honest limits.
 
 1. **Discover** — most job-targeted sources first:
-   - **Real job boards** (primary volume): Indeed, Naukri, LinkedIn, Google Jobs
-     and others via JobSpy — one uniform call returns full descriptions and,
-     wherever the board resolved it, the company's own careers URL
-     (`job_url_direct`) instead of the board's posting page.
+   - **Real job boards** (primary volume): Indeed, LinkedIn, Google Jobs and others
+     via JobSpy — one uniform call returns full descriptions and, wherever the
+     board resolved it, the company's own careers URL (`job_url_direct`) instead
+     of the board's posting page.
    - **Job-level search**: Serper queries built from your `profile.target_roles`,
      restricted to `jobs.lever.co` / `jobs.ashbyhq.com` / `boards.greenhouse.io` /
      `apply.workable.com`. A per-job hit is fetched as ONE job via that ATS's own
@@ -142,8 +148,9 @@ don't need it, though discovery is far weaker without it.
 ## Sources — real job boards, the registry, and beyond
 
 **Primary volume: real job boards, via [JobSpy](https://github.com/Bunsly/JobSpy).**
-`pip install python-jobspy` unlocks one call that fans out to Indeed, Naukri,
-LinkedIn, Google Jobs, Glassdoor, ZipRecruiter, Bayt and BDJobs, returning full
+`pip install python-jobspy` unlocks one call that fans out to Indeed, LinkedIn,
+Google Jobs, Glassdoor, ZipRecruiter, Bayt and BDJobs (JobSpy also supports Naukri,
+but this project doesn't query it — see Honest limits), returning full
 descriptions and — wherever a board resolved it — the company's own careers URL
 (`job_url_direct`) instead of the board's own posting page. Configure searches in
 each mode's `jobspy_searches`. Without this dependency the run prints a loud
@@ -235,7 +242,7 @@ config/
   companies_india.yaml         # India startups + GCCs (Tier 1/2/3)
   freelance.yaml               # legacy (deferred) freelance mode
 job/
-  jobspy_source.py     # PRIMARY volume: Indeed/Naukri/LinkedIn/Google via python-jobspy
+  jobspy_source.py     # PRIMARY volume: Indeed/LinkedIn/Google via python-jobspy
   sources.py           # ATS adapters (+ per-job endpoints) + RemoteOK + HN + URL parsing
   discovery.py         # job-level Serper search + LinkedIn guest search
   company_resolve.py   # resolve a bare company name to its live ATS board (+cache)
@@ -279,10 +286,14 @@ job/
   says "worldwide" can occasionally be dropped. Every such drop is recorded in
   `audit_*.json` with its reason, so the strictness is visible and tunable.
 - **JobSpy scrapes real boards — expect occasional rate-limiting or IP-based
-  blocks**, especially Naukri (its API can demand a captcha from a datacenter IP;
-  a residential IP is far less likely to hit this) and Google Jobs (indexing can
-  be sparse for a given query). Each board fails independently to a loud per-source
-  zero in the funnel — it never silently shrinks the net or fabricates a result.
+  blocks.** Google Jobs' indexing can be sparse for a given query. Each board
+  fails independently to a loud per-source zero in the funnel — it never silently
+  shrinks the net or fabricates a result. **Naukri is not used at all**: its API
+  returned `406 recaptcha required` in live testing even from a residential IP
+  (not just the datacenter IPs it's expected to block), and a Serper
+  `site:naukri.com` fallback wasn't viable either (few hits are per-job URLs, and
+  a Naukri job page is a JS shell with no text to a plain fetch). Naukri-listed
+  employers are still reachable via the Indeed/Google/company-targeted searches.
 - **A JobSpy row's reported link is the board's own posting page when the board
   didn't resolve a `job_url_direct`** — most common on LinkedIn, whose apply
   mechanism needs a login session. That's still a real job with a real, fully
@@ -290,7 +301,9 @@ job/
   always the company's own page. The domain in the URL always tells you which.
 - **Cross-run dedup now only remembers REPORTED jobs** (fixed in v7 — earlier
   versions marked every *candidate* as seen, which meant re-running the tool while
-  tuning it silently drained the whole pool). Use `--fresh` to ignore the cache
+  tuning it silently drained the whole pool; a one-time migration in v8 clears any
+  such poisoned cache automatically on your next run — no action needed). Use
+  `--fresh` to ignore the cache
   entirely for one run.
 
 ## Disclaimer

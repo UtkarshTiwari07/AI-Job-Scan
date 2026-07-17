@@ -107,14 +107,21 @@ def _build_ncr_searches(cfg) -> list:
     the user's exact ask ('ai engineer job company name = housing.com'). Indeed
     supports the company name directly in its own search box; Google Jobs'
     `google_search_term` is a natural-language query built the same way — both are
-    tried per company since either can miss depending on how each board indexed it."""
+    tried per company since either can miss depending on how each board indexed it.
+
+    v8: the Indeed query broadened from one exact role phrase (`"<role> <company>"`)
+    to an OR of AI/ML terms — a company's actual open role is often titled
+    differently ("Applied Scientist", "Data Scientist - ML") than the profile's
+    first target role, and the original exact-phrase query was too narrow to find
+    it even when a matching job existed on the board."""
     batch = _ncr_search_batch(cfg.ncr_target_companies)
     role = (cfg.target_roles or DEFAULT_TARGET_ROLES)[0]
     searches = []
     for company in batch:
-        searches.append({"sites": ["indeed"], "search_term": f"{role} {company}",
+        searches.append({"sites": ["indeed"],
+                         "search_term": f'{company} ("AI engineer" OR "machine learning" OR "data scientist")',
                          "location": "Delhi, India", "country_indeed": "India",
-                         "results_wanted": 5, "hours_old": 720})
+                         "results_wanted": 10, "hours_old": 720})
         searches.append({"sites": ["google"], "search_term": role,
                          "google_search_term": f"{role} jobs at {company} Delhi NCR",
                          "results_wanted": 5})
@@ -124,10 +131,32 @@ def _build_ncr_searches(cfg) -> list:
 # ─────────────────────── cross-run dedup cache ──────────────────────
 
 def _cache_path(mode):
+    return os.path.join(HERE, f"seen_fp_v2_{mode}.json")
+
+
+def _legacy_cache_path(mode):
     return os.path.join(HERE, f"seen_fp_{mode}.json")
 
 
 def load_seen(mode):
+    """v8 — cache v2. Every run before the v7 dedup fix wrote EVERY candidate
+    (not just reported ones) into the old seen_fp_<mode>.json, so that file is
+    poisoned: it blocks exactly the jobs a v7+ run most wants to see (they passed
+    prefilter once already). Rather than trust it, the legacy file is deleted
+    outright on first load under the new path — a one-time loss of the handful of
+    genuinely-reported v7 fingerprints it might also contain, traded for not
+    silently re-inheriting months of over-marking. seen_fp_v2_<mode>.json (this
+    function's actual cache) is written only from reported jobs, per pipeline.run.
+    """
+    legacy = _legacy_cache_path(mode)
+    if os.path.exists(legacy):
+        try:
+            os.remove(legacy)
+            print(f"  🧹 cleared legacy seen-cache ({os.path.basename(legacy)}) — it was written by "
+                  f"pre-v7 runs that marked every CANDIDATE seen, not just reported ones; "
+                  f"that was blocking your best jobs. Only reported jobs are remembered from now on.")
+        except OSError:
+            pass
     p = _cache_path(mode)
     if not os.path.exists(p):
         return {}
@@ -135,7 +164,11 @@ def load_seen(mode):
         with open(p) as f:
             data = json.load(f)
         cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat()
-        return {fp: ts for fp, ts in data.items() if ts >= cutoff}
+        seen = {fp: ts for fp, ts in data.items() if ts >= cutoff}
+        if seen:
+            print(f"  seen-cache: {len(seen)} previously-REPORTED job(s) will be skipped this run "
+                  f"(use --fresh to ignore)")
+        return seen
     except Exception:
         return {}
 
@@ -506,7 +539,10 @@ def run(mode, dry_run=False, fresh=False):
             for j in jobs:
                 f.write(json.dumps(j, default=str) + "\n")
 
-    print(f"\n🔬 PHASE V — deterministic pre-filter ({len(jobs)} jobs)...")
+    bracket_max = filters.candidate_bracket(cfg)
+    print(f"\n🔬 PHASE V — deterministic pre-filter ({len(jobs)} jobs, "
+          f"bracket {bracket_max} = experience {cfg.experience_years} + yoe_slack {cfg.yoe_slack} — "
+          f"raise yoe_slack in config to widen)...")
     candidates, rejected = filters.prefilter(jobs, cfg, cross_run_seen, mode)
     print(f"  ✓ {len(candidates)} candidates | ✗ {len(rejected)} filtered")
 
@@ -548,11 +584,12 @@ def run(mode, dry_run=False, fresh=False):
 
     n_eval_companies = len({c.get("company_token") or c.get("company", "") for c in to_eval}) if not dry_run else 0
     _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path,
-             n_evaluated=len(to_eval) if not dry_run else 0, n_eval_companies=n_eval_companies)
+             n_evaluated=len(to_eval) if not dry_run else 0, n_eval_companies=n_eval_companies,
+             eval_audit=eval_audit if not dry_run else [])
 
 
 def _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path,
-            n_evaluated=0, n_eval_companies=0):
+            n_evaluated=0, n_eval_companies=0, eval_audit=None):
     print(f"\n{'='*64}\n📊 RUN SUMMARY — {mode}\n{'='*64}")
     if funnel:
         print(f"  per-source jobs     : {funnel.get('per_source', {})}")
@@ -592,6 +629,30 @@ def _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, a
     if not dry_run:
         print(f"  evaluated           : {n_evaluated} candidates across {n_eval_companies} distinct companies "
               f"(max per company enforced — no single board can flood the eval budget)")
+        # v8 — the eval stage was previously a black box: a candidate could clear
+        # every deterministic gate and still vanish with its reason visible only
+        # inside audit_*.json. A row can carry multiple ";"-joined reasons
+        # (evaluate_and_draft), each tallied separately; numeric specifics (an
+        # exact score or year count) are normalized to a category so "score 41<50"
+        # and "score 30<50" group together instead of each being its own bucket.
+        if eval_audit:
+            eval_reasons = Counter()
+            for a in eval_audit:
+                for part in (a.get("rejection_reason") or "").split(";"):
+                    part = part.strip()
+                    if not part:
+                        continue
+                    if part.startswith("score"):
+                        key = "score below threshold"
+                    elif part.startswith("needs") and "yrs" in part:
+                        key = "needs more years than bracket"
+                    elif part.startswith("eval failed"):
+                        key = "eval failed (LLM/parse error)"
+                    else:
+                        key = part[:50]
+                    eval_reasons[key] += 1
+            print(f"  eval rejections     : {len(eval_audit)}  top reasons: "
+                  f"{', '.join(f'{k}={v}' for k, v in eval_reasons.most_common(5))}")
         print(f"  ✅ REPORTED (>=min)  : {len(report)}")
         if not report:
             print("     (No matches cleared the bar this run — that's an honest result,\n"
