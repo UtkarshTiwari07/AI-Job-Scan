@@ -81,6 +81,13 @@ _GENERIC = {
     "eval_slots_per_company": 2,   # max eval slots any one company can claim in the
                                     # top-N — structurally prevents one big board from
                                     # flooding the LLM eval budget (e.g. Binance/OKX).
+    # v7 (real job-board volume) defaults
+    "jobspy_searches": [],       # [{sites/site_name, search_term, location, ...}] —
+                                   # each is one job/jobspy_source.py call (Indeed/
+                                   # Naukri/LinkedIn/Google/...). Empty = net is off.
+    "ncr_target_companies": [],  # Delhi NCR companies with no clean ATS API (most of
+                                   # them) — used to build company-targeted jobspy
+                                   # searches ("ai engineer <company>"), a few per run.
 }
 
 # Which company registry file each mode reads (v2). Freelance keeps the old
@@ -173,6 +180,15 @@ def load_config(mode: str) -> "Config":
     cfg.experience_years = int(_years) if isinstance(_years, (int, float)) else 0
     cfg.target_roles = profile_raw.get("target_roles") or []
 
+    # v7 — optional home-city preference (e.g. a Delhi NCR candidate wants an NCR
+    # onsite/hybrid role ranked above one in a distant city, without hard-filtering
+    # anything else out). `city_aliases` lets a metro area list its own tokens
+    # (Delhi/Gurgaon/Gurugram/Noida/Faridabad all count as "NCR"); falls back to a
+    # single token derived from `city` if aliases aren't given.
+    cfg.city = (profile_raw.get("city") or "").strip()
+    city_aliases = profile_raw.get("city_aliases") or ([cfg.city] if cfg.city else [])
+    cfg.preferred_city_tokens = [str(t).strip().lower() for t in city_aliases if str(t).strip()]
+
     # ── thresholds ───────────────────────────────────────────────────
     cfg.max_posting_age_days = int(g("max_posting_age_days"))
     cfg.report_min_score = int(g("report_min_score"))
@@ -187,6 +203,8 @@ def load_config(mode: str) -> "Config":
     cfg.serper_job_queries = g("serper_job_queries")
     cfg.watchlist_cap_per_board = int(g("watchlist_cap_per_board"))
     cfg.eval_slots_per_company = int(g("eval_slots_per_company"))
+    cfg.jobspy_searches = g("jobspy_searches")
+    cfg.ncr_target_companies = g("ncr_target_companies")
     cfg.sources = {**_GENERIC["sources"], **(g("sources") or {})}
 
     # Freelance pay floor: the profile's salary_min overrides the mode default.

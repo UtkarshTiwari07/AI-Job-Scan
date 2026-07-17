@@ -321,6 +321,12 @@ INDIA_CANDIDATES = [
     ("Simpplr", "greenhouse", "simpplr", ["india", "saas"]),
     ("Gong", "greenhouse", "gong", ["india", "ai"]),
     ("Sprinklr", "lever", "sprinklr", ["india", "ai"]),
+    # v7 — Delhi NCR companies verified live to have a clean ATS (a probe of 40 NCR
+    # tech companies found only these 3/40 — see ncr_target_companies in
+    # config/india_mnc.yaml for the other 37, reached via JobSpy instead).
+    ("Paytm", "lever", "paytm", ["india", "ncr", "fintech"]),
+    ("Zomato", "lever", "eternal", ["india", "ncr", "foodtech"]),
+    ("Info Edge (Naukri)", "greenhouse", "naukri", ["india", "ncr", "internet"]),
 ]
 
 # v5 — FAANG/GCC entries REMOVED. The 21 Tier-3 `ats: serper` GCCs (Google,

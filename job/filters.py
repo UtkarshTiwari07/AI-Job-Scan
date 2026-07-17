@@ -113,10 +113,20 @@ def _geo_ok_india(job, cfg):
 
 
 def prefilter(jobs, cfg, cross_run_seen, mode):
-    """Return (candidates, rejected). Rejected items carry 'rejection_reason'."""
+    """Return (candidates, rejected). Rejected items carry 'rejection_reason'.
+
+    `cross_run_seen` is READ here (to skip jobs already REPORTED in a prior run)
+    but never WRITTEN — v6 marked every candidate as seen the moment it passed
+    prefilter, which meant a job that was merely a candidate (never reported, maybe
+    not even reached by the eval cap) became permanently invisible to the next run.
+    Repeated runs — exactly what a user does while tuning the tool — silently drained
+    the whole candidate pool to nothing. The caller (pipeline.run) now marks a
+    fingerprint seen ONLY once that job is actually written to report_*.json, so
+    cross-run dedup means what it always should have: "don't show me the same job
+    twice," not "don't show me any job I've merely seen before."
+    """
     candidates, rejected = [], []
     session_seen = set()
-    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
     bracket_max = candidate_bracket(cfg)
     min_jd = int(getattr(cfg, "min_jd_chars", 200))
     max_age = int(getattr(cfg, "max_posting_age_days", 0))  # 0 = disabled (listed == open)
@@ -197,11 +207,6 @@ def prefilter(jobs, cfg, cross_run_seen, mode):
                 reject(j, f"Per-company cap ({cap})")
         candidates = kept
 
-    # Mark accepted in the cross-run cache
-    for j in candidates:
-        if j.get("_fingerprint"):
-            cross_run_seen[j["_fingerprint"]] = now_iso
-
     return candidates, rejected
 
 
@@ -264,6 +269,15 @@ def rank(jobs: list, cfg) -> list:
                 score += 2
             elif foreign_scope:
                 score -= 2
+
+        # v7 — home-city preference (india_mnc only): a job onsite/hybrid in the
+        # candidate's own metro (e.g. Delhi NCR) ranks above one in a distant city.
+        # A soft boost, not a filter — a great worldwide-remote or another-city role
+        # still competes; this only breaks ties toward what the candidate can
+        # actually commute to.
+        city_tokens = getattr(cfg, "preferred_city_tokens", None) or []
+        if mode == "india_mnc" and city_tokens and any(t in loc_l for t in city_tokens):
+            score += 2
 
         scored.append((score, j.get("posted_date") or "", j))
     scored.sort(key=lambda t: (t[0], t[1]), reverse=True)

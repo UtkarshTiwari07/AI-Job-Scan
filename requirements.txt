@@ -4,6 +4,11 @@ litellm>=1.40         # one interface to OpenAI/Anthropic/Gemini/DeepSeek/Groq/.
 PyYAML>=6.0           # read config/*.yaml + the company registry
 python-dotenv>=1.0    # load .env
 
+# v7 — PRIMARY discovery volume: Indeed/Naukri/LinkedIn/Google Jobs/Glassdoor/
+# ZipRecruiter/Bayt/BDJobs via one uniform API. Without this, discovery is limited
+# to the ATS registry + guest-scrape sources (see README's Honest limits).
+python-jobspy>=1.1
+
 # Used by the (deferred) freelance mode's older scrape path
 pydantic>=2
 

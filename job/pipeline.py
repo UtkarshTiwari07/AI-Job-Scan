@@ -31,12 +31,14 @@ import filters
 import discovery
 import sources
 import jobscan_llm
+import jobspy_source
 
 EVAL_BATCH = 4
 SEARCH_TEXT = "AI engineer OR machine learning engineer OR LLM engineer"
 LINKEDIN_MAX_NEW_COMPANIES = 40  # cap company_resolve probes per run
 SERPER_JOB_FETCH_CAP = 250       # bound worst-case per-job network calls per run
 BOARD_ROOT_SELECT_CAP = 3        # cap on jobs kept from a D1 board-root hit
+NCR_BATCH_SIZE = 10              # v7: NCR companies targeted per run (rotates daily)
 
 # v6 — the PRIMARY discovery net: job-level (not board-level) Serper queries, built
 # at runtime from the candidate's own target roles. A live probe this session
@@ -83,6 +85,40 @@ def _guess_company_from_hit(hit: dict):
             if 2 <= len(candidate) <= 60:
                 return candidate, domain
     return domain, domain
+
+
+def _ncr_search_batch(companies: list, batch_size: int = NCR_BATCH_SIZE) -> list:
+    """v7 — most Delhi NCR tech companies (Housing.com-class) have no clean ATS API
+    (live probe this session: 3/40 did) — the only way to reach them is a
+    company-targeted board search. Rotates through the full list a bounded batch
+    at a time (deterministic by day-of-year, no extra state file needed) so a run
+    issues ~10 targeted searches, not one per company every time."""
+    n = len(companies)
+    if not n:
+        return []
+    start = (datetime.date.today().toordinal() * batch_size) % n
+    if start + batch_size <= n:
+        return companies[start:start + batch_size]
+    return companies[start:] + companies[:(start + batch_size) - n]
+
+
+def _build_ncr_searches(cfg) -> list:
+    """Company-targeted JobSpy searches for the NCR companies with no clean ATS —
+    the user's exact ask ('ai engineer job company name = housing.com'). Indeed
+    supports the company name directly in its own search box; Google Jobs'
+    `google_search_term` is a natural-language query built the same way — both are
+    tried per company since either can miss depending on how each board indexed it."""
+    batch = _ncr_search_batch(cfg.ncr_target_companies)
+    role = (cfg.target_roles or DEFAULT_TARGET_ROLES)[0]
+    searches = []
+    for company in batch:
+        searches.append({"sites": ["indeed"], "search_term": f"{role} {company}",
+                         "location": "Delhi, India", "country_indeed": "India",
+                         "results_wanted": 5, "hours_old": 720})
+        searches.append({"sites": ["google"], "search_term": role,
+                         "google_search_term": f"{role} jobs at {company} Delhi NCR",
+                         "results_wanted": 5})
+    return searches
 
 
 # ─────────────────────── cross-run dedup cache ──────────────────────
@@ -188,6 +224,11 @@ def evaluate_and_draft(candidates, cfg):
                 entry.pop("drafted_proposal", None)
                 audit.append(entry)
             else:
+                # Carry the fingerprint through so pipeline.run can mark ONLY this
+                # reported job seen for next run — popped again before the report
+                # is written to disk (see _pop_fingerprints), so it never appears
+                # in report_*.json.
+                entry["_fingerprint"] = cand.get("_fingerprint")
                 report.append(entry)
         for c in batch:  # any candidate the model silently dropped → audit
             if c["url"] not in matched_urls:
@@ -202,6 +243,21 @@ def _slim(c):
     return {"job_title": c["title"], "company": c["company"], "application_url": c["url"],
             "location": c["location_text"], "source": c.get("source", ""),
             "tier": c.get("tier"), "posted_date": c.get("posted_date", "")}
+
+
+def _pop_reported_fingerprints(report: list) -> set:
+    """v7 dedup fix: extract the fingerprint of every REPORTED job (popping the key
+    so it never appears in report_*.json) — this is the only set that should ever
+    be written to the cross-run seen-cache. Marking every candidate as seen (the
+    v6-and-earlier behaviour) meant re-running the tool while tuning it silently
+    drained the whole candidate pool; a job the user never actually saw stays
+    eligible next run."""
+    fps = set()
+    for r in report:
+        fp = r.pop("_fingerprint", None)
+        if fp:
+            fps.add(fp)
+    return fps
 
 
 # ─────────────────────────── run ────────────────────────────────────
@@ -277,15 +333,16 @@ def _run_serper_job_discovery(mode, cfg, serper_key, known_tokens):
 
 
 def discover_and_fetch(mode, cfg, serper_key):
-    """Phase D (v6) — job-first, not company-first: D1 job-level Serper search is
-    the primary net; the watchlist registry, LinkedIn resolution, RemoteOK and HN
-    are secondary and now all selection-gated (never whole-board ingestion). Merges
-    every source into one pool, tagged by source (funnel['per_source']) so an empty
-    report is diagnosable, not a mystery."""
+    """Phase D (v7) — job-first, not company-first: D0 (JobSpy — Indeed/Naukri/
+    LinkedIn/Google, the actual market volume) and D1 (job-level Serper search)
+    are the primary nets; the watchlist registry, LinkedIn-name resolution,
+    RemoteOK and HN are secondary and all selection-gated (never whole-board
+    ingestion). Merges every source into one pool, tagged by source
+    (funnel['per_source']) so an empty report is diagnosable, not a mystery."""
     all_jobs = []
     funnel = {"per_source": {}, "dead_boards": [], "no_ai_roles_boards": [],
               "linkedin_companies_found": 0, "linkedin_companies_resolved": [],
-              "serper_d1": {}}
+              "serper_d1": {}, "jobspy_error": None, "jobspy_searches_run": 0}
 
     def add(jobs, label):
         all_jobs.extend(jobs)
@@ -293,7 +350,24 @@ def discover_and_fetch(mode, cfg, serper_key):
 
     known_tokens = {c.get("token") or c.get("tenant") for c in cfg.companies}
 
-    # D1 — primary: job-level Serper discovery (see _run_serper_job_discovery).
+    # D0 — primary VOLUME source: real job boards (Indeed/Naukri/LinkedIn/Google)
+    # via python-jobspy. This reaches the actual market — including companies with
+    # no clean ATS API at all (most of Delhi NCR, live-verified: 37/40 probed) —
+    # which no amount of registry curation or ATS-only discovery ever could.
+    searches = list(cfg.jobspy_searches or [])
+    if mode == "india_mnc" and cfg.ncr_target_companies:
+        searches += _build_ncr_searches(cfg)
+    if searches:
+        by_site, jobspy_err = jobspy_source.fetch_jobspy(searches)
+        funnel["jobspy_searches_run"] = len(searches)
+        if jobspy_err:
+            funnel["jobspy_error"] = jobspy_err
+            print(f"  ⚠️  {jobspy_err}")
+        for site_label, site_jobs in by_site.items():
+            registry.tag_multi_company_jobs(site_jobs, tier=2, tags=["jobspy", site_label])
+            add(site_jobs, site_label)
+
+    # D1 — job-level Serper discovery (see _run_serper_job_discovery).
     if serper_key:
         d1_jobs, d1_stats = _run_serper_job_discovery(mode, cfg, serper_key, known_tokens)
         add(d1_jobs, "serper_job_discovery")
@@ -387,7 +461,7 @@ def _cap_eval_slots(ranked: list, cfg) -> tuple:
     return to_eval, over_cap
 
 
-def run(mode, dry_run=False):
+def run(mode, dry_run=False, fresh=False):
     cfg = load_config(mode)
     ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
     rdir = os.path.join(HERE, f"reports_{mode}")
@@ -396,9 +470,12 @@ def run(mode, dry_run=False):
     report_path = os.path.join(rdir, f"report_{mode}_{ts}.json")
     audit_path = os.path.join(rdir, f"audit_{mode}_{ts}.json")
 
-    print(f"\n{'='*64}\n🚀 {mode.upper()} scan v3  {'[DRY RUN]' if dry_run else '[LIVE]'}\n{'='*64}")
+    print(f"\n{'='*64}\n🚀 {mode.upper()} scan v3  {'[DRY RUN]' if dry_run else '[LIVE]'}"
+          f"{'  [--fresh: ignoring seen-cache]' if fresh else ''}\n{'='*64}")
 
-    cross_run_seen = load_seen(mode)
+    # --fresh ignores the on-disk seen-cache for THIS run (useful while tuning) but
+    # still gets overwritten below with whatever's actually reported this run.
+    cross_run_seen = {} if fresh else load_seen(mode)
     funnel = {}
     if dry_run:
         print("[DRY RUN] using mock ATS data (no network, no LLM)")
@@ -406,7 +483,8 @@ def run(mode, dry_run=False):
     else:
         serper_key = os.getenv("SERPER_API_KEY", "")
         print(f"\n📡 PHASE D — discovery ("
-              f"{'job-first Serper search' if serper_key else 'NO SERPER_API_KEY — primary net disabled'}"
+              f"{'JobSpy (Indeed/Naukri/LinkedIn/Google)' if cfg.jobspy_searches or cfg.ncr_target_companies else 'JobSpy OFF (no jobspy_searches configured)'}"
+              f" + {'job-first Serper search' if serper_key else 'NO SERPER_API_KEY — Serper net disabled'}"
               f" + {len(cfg.companies)} watchlist companies (selection-gated)"
               f"{' + LinkedIn' if cfg.sources.get('linkedin') and cfg.linkedin_queries else ''}"
               f"{' + RemoteOK' if cfg.sources.get('remoteok') else ''}"
@@ -452,6 +530,12 @@ def run(mode, dry_run=False):
 
         report, eval_audit = evaluate_and_draft(to_eval, cfg)
         audit = rejected + over_cap_audit + eval_audit
+        # Mark ONLY reported jobs seen — never a merely-evaluated or merely-fetched
+        # one (see filters.prefilter's docstring and _pop_reported_fingerprints).
+        newly_seen = _pop_reported_fingerprints(report)
+        now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+        for fp in newly_seen:
+            cross_run_seen[fp] = now_iso
         save_seen(mode, cross_run_seen)
         with open(report_path, "w") as f:
             json.dump({"mode": mode, "generated_at": ts, "count": len(report),
@@ -472,6 +556,12 @@ def _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, a
     print(f"\n{'='*64}\n📊 RUN SUMMARY — {mode}\n{'='*64}")
     if funnel:
         print(f"  per-source jobs     : {funnel.get('per_source', {})}")
+        if funnel.get("jobspy_error"):
+            print(f"  ⚠️  JobSpy (primary volume net): {funnel['jobspy_error']}")
+        elif funnel.get("jobspy_searches_run"):
+            jobspy_total = sum(v for k, v in funnel.get("per_source", {}).items() if k.startswith("jobspy_"))
+            print(f"  JobSpy: {funnel['jobspy_searches_run']} searches run → {jobspy_total} real job-board postings "
+                  f"(Indeed/Naukri/LinkedIn/Google — full descriptions, not thin cards)")
         d1 = funnel.get("serper_d1") or {}
         if d1.get("hits"):
             print(f"  Serper D1 (job-first): {d1['hits']} URL hits → "
