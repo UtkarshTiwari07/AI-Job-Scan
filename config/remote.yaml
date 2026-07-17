@@ -17,7 +17,9 @@ jd_eval_chars: 12000        # JD length sent to the LLM — full raw text, not a
                             # location/remote/experience are verified by the LLM from this
                             # text (+ the structured location field), not from hard-coded
                             # token lists; a 3k truncation used to hide eligibility clauses.
-enrich_max_crawls: 30       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
+enrich_max_crawls: 60       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
+                            # (v7: raised 30->60 — JobSpy/Naukri rows sometimes arrive thin
+                            # and their detail pages are crawlable)
 eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
 eval_slots_per_company: 2   # v6: max eval slots ANY one company can claim in that top N
                             # — structurally prevents one big board from flooding the eval
@@ -41,6 +43,39 @@ sources:
   linkedin: true      # discovery only, see above
   remoteok: true      # remoteok.com/api, tag-filtered — full JD already included
   hn: true            # HN "Ask HN: Who is hiring" monthly thread — full JD already included
+
+# v7 — PRIMARY VOLUME source: real job boards via python-jobspy (one call fans out
+# to Indeed/LinkedIn/Glassdoor/Google/ZipRecruiter — live-verified: full markdown
+# descriptions, and job_url_direct gives the company's OWN careers page when the
+# board resolved it). Each entry is one jobspy.scrape_jobs(...) call; `sites` maps
+# to jobspy's site_name. Requires `pip install python-jobspy`; if absent the run
+# prints a loud warning instead of silently losing this net. Add more searches to
+# widen the query surface — this list is intentionally short by default.
+jobspy_searches:
+  - sites: ["indeed"]
+    search_term: '"machine learning engineer" junior OR "entry level"'
+    is_remote: true
+    country_indeed: "India"
+    results_wanted: 25
+    hours_old: 168
+  - sites: ["indeed"]
+    search_term: '"AI engineer" junior OR "entry level"'
+    is_remote: true
+    country_indeed: "India"
+    results_wanted: 25
+    hours_old: 168
+  - sites: ["linkedin"]
+    search_term: "AI engineer junior"
+    is_remote: true
+    linkedin_fetch_description: true
+    results_wanted: 25
+    hours_old: 168
+  - sites: ["linkedin"]
+    search_term: "machine learning engineer entry level"
+    is_remote: true
+    linkedin_fetch_description: true
+    results_wanted: 25
+    hours_old: 168
 
 linkedin_queries:
   - {keywords: "AI engineer", f_e: "1,2", f_wt: "2"}        # entry+junior, worldwide remote

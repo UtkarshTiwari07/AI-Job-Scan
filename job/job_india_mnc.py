@@ -7,6 +7,7 @@ Tuning:  config/india_mnc.yaml  ·  Profile: config/profile.yaml
 
   python job/job_india_mnc.py            # live scan
   python job/job_india_mnc.py --dry-run  # mock data, no network / no LLM
+  python job/job_india_mnc.py --fresh    # ignore the seen-cache for this run (tuning)
 """
 import os
 import sys
@@ -15,4 +16,4 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from pipeline import run
 
 if __name__ == "__main__":
-    run("india_mnc", dry_run="--dry-run" in sys.argv)
+    run("india_mnc", dry_run="--dry-run" in sys.argv, fresh="--fresh" in sys.argv)

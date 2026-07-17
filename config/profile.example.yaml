@@ -30,6 +30,12 @@ metrics: >-
 # and worldwide-remote checks.
 location: "India"
 
+# Optional: your metro area, for india_mnc mode's onsite/hybrid job search
+# (JobSpy location queries) and rank boost — an NCR role ranks above a
+# far-city one, without excluding anything else. Leave blank to skip.
+city: "Delhi NCR"
+city_aliases: ["delhi", "new delhi", "gurgaon", "gurugram", "noida", "faridabad", "ncr"]
+
 # Years of professional experience (integer). Informs seniority framing.
 experience_years: 2
 
@@ -37,7 +43,8 @@ experience_years: 2
 # Set to null to disable the pay filter.
 salary_min_usd_per_hour: 30
 
-# Roles you want to target. Used for reference / future tuning.
+# Roles you want to target — drives the primary job-level Serper search AND
+# the JobSpy (Indeed/Naukri/LinkedIn/Google) search terms. Be specific.
 target_roles:
   - "LLM engineer"
   - "RAG engineer"

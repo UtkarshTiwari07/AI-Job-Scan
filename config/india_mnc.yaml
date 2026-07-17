@@ -15,7 +15,9 @@ jd_eval_chars: 12000        # full raw JD to the LLM (not a 3k snippet) — loca
                             # remote-eligibility and experience are verified by the LLM
                             # from this text + the structured location field, not from
                             # hard-coded token lists.
-enrich_max_crawls: 30       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
+enrich_max_crawls: 60       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
+                            # (v7: raised 30->60 — JobSpy/Naukri rows sometimes arrive thin
+                            # and their detail pages are crawlable)
 eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
 eval_slots_per_company: 2   # v6: max eval slots ANY one company can claim in that top N
                             # — structurally prevents one big board from flooding the eval
@@ -40,6 +42,86 @@ linkedin_queries:
   - {keywords: "machine learning engineer", location: "India", f_e: "1,2"}
   - {keywords: "LLM engineer", location: "India"}
   - {keywords: "generative AI engineer", location: "India", f_e: "1,2"}
+
+# v7 — PRIMARY VOLUME source: real job boards via python-jobspy. Delhi NCR is
+# STRUCTURALLY invisible to an ATS-only design — a live probe of 40 NCR tech
+# companies (Housing.com/REA India, MakeMyTrip, PolicyBazaar, Lenskart, Delhivery,
+# Urban Company, Cars24, OYO, Blinkit, BharatPe, ...) found only 3/40 expose a
+# clean Greenhouse/Lever/Ashby API (Paytm, Zomato/Eternal, Info Edge — added to
+# config/companies_india.yaml). The other 37 post on Naukri/Indeed/their own
+# portals; JobSpy is what reaches them. `sites` maps to jobspy's site_name.
+# Requires `pip install python-jobspy`; if absent the run prints a loud warning
+# instead of silently losing this net.
+jobspy_searches:
+  - sites: ["indeed"]
+    search_term: "AI engineer OR machine learning engineer junior OR fresher"
+    location: "Delhi, India"
+    country_indeed: "India"
+    results_wanted: 25
+    hours_old: 336
+  - sites: ["indeed"]
+    search_term: "AI engineer OR machine learning engineer junior OR fresher"
+    location: "Bengaluru, India"
+    country_indeed: "India"
+    results_wanted: 25
+    hours_old: 336
+  - sites: ["naukri"]
+    search_term: "AI engineer"
+    location: "Delhi NCR"
+    results_wanted: 25
+    hours_old: 336
+  - sites: ["naukri"]
+    search_term: "machine learning engineer"
+    location: "Delhi NCR"
+    results_wanted: 25
+    hours_old: 336
+  - sites: ["linkedin"]
+    search_term: "AI engineer junior"
+    location: "Delhi, India"
+    linkedin_fetch_description: true
+    results_wanted: 25
+    hours_old: 336
+
+# Delhi NCR companies with NO clean ATS API (live-probed this session; only Paytm/
+# Zomato/Info Edge had one — see companies_india.yaml). Each name below is a
+# company confidently HQ'd/hub'd in Gurgaon/Noida/Delhi (not a guess-padded list —
+# a few probed candidates turned out to be Mumbai/Bangalore/Pune-based on closer
+# check and were dropped rather than included just to inflate the count).
+# pipeline.py rotates a ~10-company batch per run through company-targeted
+# searches (the user's exact ask: "ai engineer, company name = housing.com") so
+# every company gets covered over a handful of runs, not 30+ extra searches at once.
+ncr_target_companies:
+  - "Housing.com"
+  - "MakeMyTrip"
+  - "PolicyBazaar"
+  - "Lenskart"
+  - "Delhivery"
+  - "Urban Company"
+  - "Cars24"
+  - "Spinny"
+  - "Ixigo"
+  - "OYO"
+  - "Blinkit"
+  - "MobiKwik"
+  - "Pine Labs"
+  - "RateGain"
+  - "Tata 1mg"
+  - "HealthKart"
+  - "Leena AI"
+  - "Attentive.ai"
+  - "SirionLabs"
+  - "Mercer Mettl"
+  - "Wingify VWO"
+  - "Staqu"
+  - "Classplus"
+  - "Physics Wallah"
+  - "BharatPe"
+  - "MapmyIndia"
+  - "Josh Talks"
+  - "Times Internet"
+  - "Rio.money"
+  - "Battery Smart"
+  - "Shiprocket"
 
 # v6 — PRIMARY discovery net is now job-level, not board-level: pipeline.py builds
 # ~15 Serper queries at runtime from config/profile.yaml's target_roles x junior
