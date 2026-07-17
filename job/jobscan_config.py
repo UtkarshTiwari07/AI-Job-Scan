@@ -71,8 +71,16 @@ _GENERIC = {
     "eval_max_candidates": 60,  # rank, then LLM-evaluate only the top N per run
     "junior_tokens": [],        # JD phrases that boost rank (falls back to filters.DEFAULT_JUNIOR_TOKENS)
     "linkedin_queries": [],     # [{keywords, location, f_e, f_wt}, ...] for discovery
-    "serper_discovery_queries": [],  # broad (non-site-restricted) Serper queries
     "sources": {"ats": True, "linkedin": True, "remoteok": False, "hn": False},
+    # v6 (query-first discovery) defaults
+    "serper_job_queries": [],     # EXTRA job-level Serper queries, appended to the
+                                   # runtime-built set (profile.target_roles x junior
+                                   # variants x ATS sites) — the PRIMARY discovery net.
+    "watchlist_cap_per_board": 5,  # sources.select_relevant cap per watchlist board —
+                                    # a board contributes its AI/ML roles or nothing.
+    "eval_slots_per_company": 2,   # max eval slots any one company can claim in the
+                                    # top-N — structurally prevents one big board from
+                                    # flooding the LLM eval budget (e.g. Binance/OKX).
 }
 
 # Which company registry file each mode reads (v2). Freelance keeps the old
@@ -176,7 +184,9 @@ def load_config(mode: str) -> "Config":
     cfg.eval_max_candidates = int(g("eval_max_candidates"))
     cfg.junior_tokens = g("junior_tokens")
     cfg.linkedin_queries = g("linkedin_queries")
-    cfg.serper_discovery_queries = g("serper_discovery_queries")
+    cfg.serper_job_queries = g("serper_job_queries")
+    cfg.watchlist_cap_per_board = int(g("watchlist_cap_per_board"))
+    cfg.eval_slots_per_company = int(g("eval_slots_per_company"))
     cfg.sources = {**_GENERIC["sources"], **(g("sources") or {})}
 
     # Freelance pay floor: the profile's salary_min overrides the mode default.

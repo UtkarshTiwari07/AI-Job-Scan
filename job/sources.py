@@ -311,6 +311,172 @@ def fetch_workable(account: str, max_detail: int = 40) -> list:
     return out
 
 
+def fetch_greenhouse_job(token: str, job_id) -> dict:
+    """v6 — per-job Greenhouse endpoint (verified live: a single job's full JD,
+    no board download). Used for Serper D1 job-level hits."""
+    data = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{job_id}")
+    if not data:
+        return None
+    loc = (data.get("location") or {}).get("name", "")
+    depts = data.get("departments") or []
+    return _job(
+        title=data.get("title"),
+        url=data.get("absolute_url"),
+        location_text=loc,
+        department=depts[0].get("name") if depts else "",
+        posted_date=_iso_date(data.get("first_published") or data.get("updated_at")),
+        jd_text=strip_html(data.get("content")),
+        source="greenhouse",
+    )
+
+
+def fetch_lever_job(token: str, job_id) -> dict:
+    """v6 — per-job Lever endpoint (verified live). Used for Serper D1 job-level hits."""
+    data = _get_json(f"https://api.lever.co/v0/postings/{token}/{job_id}")
+    if not isinstance(data, dict) or not data:
+        return None
+    cats = data.get("categories") or {}
+    body = data.get("descriptionPlain") or strip_html(data.get("description"))
+    extra = "\n".join(
+        (lst.get("text", "") + "\n" + strip_html(lst.get("content", "")))
+        for lst in (data.get("lists") or []) if isinstance(lst, dict)
+    )
+    jd = (body + "\n\n" + extra).strip()
+    return _job(
+        title=data.get("text"),
+        url=data.get("hostedUrl"),
+        location_text=cats.get("location", ""),
+        employment_type=cats.get("commitment", ""),
+        team=cats.get("team", ""),
+        workplace_type=cats.get("workplaceType", ""),
+        posted_date=_iso_date(data.get("createdAt")),
+        jd_text=jd,
+        source="lever",
+    )
+
+
+def fetch_ashby_job(token: str, job_id) -> dict:
+    """v6 — Ashby has no per-job endpoint, so this fetches the board ONCE and
+    returns only the one job whose URL contains the discovered job_id — a single
+    board GET, but nothing else from that board ever enters the caller's pool."""
+    try:
+        jobs = fetch_ashby(token)
+    except Exception:
+        return None
+    for j in jobs:
+        if job_id and job_id in (j.get("url") or ""):
+            return j
+    return None
+
+
+def fetch_workable_job(account: str, shortcode: str) -> dict:
+    """v6 — per-job Workable endpoint (v2 detail; verified live). Used for Serper
+    D1 job-level hits, so no listing call is needed at all."""
+    d = _get_json(f"https://apply.workable.com/api/v2/accounts/{account}/jobs/{shortcode}")
+    if not d:
+        return None
+    loc = d.get("location") or {}
+    city = (loc.get("city") or "").strip()
+    country = (loc.get("country") or "").strip()
+    workplace = (d.get("workplace") or "").strip().lower()
+    is_remote = bool(d.get("remote")) or workplace == "remote"
+    loc_text = ", ".join(x for x in (city, country) if x)
+    if is_remote:
+        loc_text = f"Remote{' - ' + loc_text if loc_text else ''}"
+    return _job(
+        title=d.get("title"),
+        url=f"https://apply.workable.com/{account}/j/{shortcode}/",
+        location_text=loc_text,
+        is_remote=is_remote,
+        workplace_type=workplace,
+        employment_type=d.get("type", ""),
+        posted_date=_iso_date(d.get("published")),
+        jd_text=strip_html(d.get("description")),
+        source="workable",
+    )
+
+
+def fetch_job_by_ref(ats: str, token: str, job_id, url: str = None) -> dict:
+    """v6 — dispatch a per-job fetch for a job discovered by URL (Phase D1). Returns
+    a normalised job dict or None. Greenhouse/Lever hit their own per-job endpoint
+    (a single job's full JD, no board download); Ashby/Workable select the one job
+    out of a board/list fetch — still never adding the rest of that board to the
+    caller's pool."""
+    try:
+        if ats == "greenhouse":
+            return fetch_greenhouse_job(token, job_id)
+        if ats == "lever":
+            return fetch_lever_job(token, job_id)
+        if ats == "ashby":
+            return fetch_ashby_job(token, job_id)
+        if ats == "workable":
+            return fetch_workable_job(token, job_id)
+    except Exception:
+        return None
+    return None
+
+
+def select_relevant(jobs: list, cfg, cap: int = None) -> list:
+    """v6 — the core anti-flooding gate: select ONLY AI/ML-relevant, non-off-stack,
+    non-senior-title jobs out of a whole board/feed BEFORE it ever enters the
+    candidate pool. This is what stops a company-first source (a giant board, a
+    LinkedIn-resolved company, a Serper board-root hit) from flooding the funnel
+    with thousands of sales/support/senior postings that could never have matched —
+    exactly what turned 12,276 fetched jobs into only 76 real candidates in a live
+    run. A board contributes its AI/ML roles or nothing.
+
+    Uses the SAME compiled patterns as filters.prefilter's Phase-V gates
+    (title_include_re / title_reject_re / seniority_reject_re / ai_relevance_re), so
+    a job kept here would also survive those gates — this only moves the decision
+    earlier, before the pool is built, instead of after.
+    """
+    title_inc = getattr(cfg, "title_include_re", None)
+    title_rej = getattr(cfg, "title_reject_re", None)
+    sen_rej = getattr(cfg, "seniority_reject_re", None)
+    ai_rel = getattr(cfg, "ai_relevance_re", None)
+    kept = []
+    for j in jobs:
+        title = j.get("title") or ""
+        if title_rej and title_rej.search(title):
+            continue
+        if sen_rej and sen_rej.search(title):
+            continue
+        title_hit = title_inc and title_inc.search(title)
+        jd_hit = ai_rel and ai_rel.search((j.get("jd_text") or "").lower())
+        if not (title_hit or jd_hit):
+            continue
+        kept.append(j)
+    if cap and len(kept) > cap:
+        kept.sort(key=lambda j: j.get("posted_date") or "", reverse=True)
+        kept = kept[:cap]
+    return kept
+
+
+_ATS_JOB_URL_PATTERNS = (
+    ("greenhouse", re.compile(r"(?:job-boards|boards)\.greenhouse\.io/([a-z0-9\-_]+)/jobs/(\d+)", re.I)),
+    ("lever", re.compile(r"jobs\.lever\.co/([a-z0-9\-_]+)/([0-9a-f\-]{8,36})", re.I)),
+    ("ashby", re.compile(r"jobs\.ashbyhq\.com/([a-z0-9\-_]+)/([0-9a-f\-]{8,36})", re.I)),
+    ("workable", re.compile(r"apply\.workable\.com/([a-z0-9\-_]+)/j/([A-Za-z0-9]+)", re.I)),
+)
+
+
+def ats_job_from_url(url: str):
+    """v6 — extract (ats, token, job_id) from a PER-JOB posting URL (as opposed to
+    ats_from_url below, which only extracts a board token from any ATS URL,
+    including a board root). This is the D1 discovery primitive: a Serper hit that
+    matches here is a single, already-role-targeted job — fetched directly via
+    fetch_job_by_ref, never its whole board. Returns None if the URL isn't a
+    recognised per-job pattern — ats_from_url (board root) or a crawl4ai fallback
+    then take over."""
+    if not url:
+        return None
+    for ats, pattern in _ATS_JOB_URL_PATTERNS:
+        m = pattern.search(url)
+        if m:
+            return ats, m.group(1), m.group(2)
+    return None
+
+
 def fetch_serper_domain(domain: str, terms: str, serper_key: str,
                         num: int = 10, enrich: bool = True) -> list:
     """Tier-3 fallback: Serper `site:<domain>` discovery of real JD pages.

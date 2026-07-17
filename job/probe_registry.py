@@ -192,10 +192,17 @@ _REMOTE_BASE = [
     ("Rubrik", "greenhouse", "rubrik", ["infra", "security"]),
 ]
 
-# v5 — mega / DSA-driven / prestige-US flooders. Live audit: huge senior-heavy,
-# US-centric boards (OpenAI 707 jobs, Databricks 780, Airbnb, Pinterest, Reddit…)
-# that flood the funnel with volume but convert ~0 early-career remote roles. Dropped
-# per the user's "remove the big DSA companies" decision.
+# v5/v6 — mega / DSA-driven / prestige-US / giant-generic flooders. Live audit: huge
+# senior-heavy, US-centric boards (OpenAI 707 jobs, Databricks 780, Airbnb, Pinterest,
+# Reddit…) and, discovered live during a v5 user run, giant crypto-exchange + generic
+# SaaS boards (Binance 278 jobs, OKX 310, Bybit 128, Crypto.com 115, Veeva 800, Okta
+# 343, Remote.com 226, Payoneer 142, Bitpanda 51) that ATE the top-60 eval budget via
+# rank()'s structured-source/pay_text bonus, leaving almost no room for smaller,
+# genuinely-junior boards — the LLM correctly rejected nearly all of them, so the
+# report stayed near-empty despite a "full" eval batch. v6 adds a per-company
+# eval-slot cap (pipeline._cap_eval_slots) as a structural safeguard too, but these
+# are removed from the registry outright per the user's explicit "remove the big
+# DSA/flooder companies" instruction — named here, not guessed.
 REMOVE_REMOTE_TOKENS = {
     "anthropic", "openai", "databricks", "snowflakecomputing", "confluent",
     "reddit", "pinterest", "airbnb", "discord", "dropbox",
@@ -205,24 +212,22 @@ REMOVE_REMOTE_TOKENS = {
     "palantir", "vannevarlabs", "nuro", "zipline", "applied", "verkada",
     "cerebrassystems", "sambanovasystems", "groq", "lambdalabs", "coreweave", "nebius",
     "attentivemobile", "ironcladinc",
+    # v6 removals — user-named + giant generic boards, see comment above
+    "scaleai", "remotecom",
 }
 
-# v5 — genuinely remote-first companies from the user's two attached lists, each
-# token VERIFIED live this session (job counts noted). Includes crypto/Web3 (highest
-# remote AI/ML volume), remote-first infra/devtools, and Hugging Face via Workable.
+# v5/v6 — genuinely remote-first companies from the user's two attached lists, each
+# token VERIFIED live this session (job counts noted). Crypto-exchange GIANTS
+# (Binance/OKX/Bybit/Crypto.com) and giant generic boards (Veeva/Okta/Payoneer/
+# Bitpanda) were removed here in v6 — see REMOVE_REMOTE_TOKENS comment; small
+# crypto/security names with real, modest-sized AI/ML-relevant boards stay.
 ADD_REMOTE = [
-    # crypto / Web3 (remote-native, heavy AI/ML hiring)
-    ("Binance", "lever", "binance", ["crypto", "remote-first"]),            # 278 jobs / 50 ML
-    ("OKX", "greenhouse", "okx", ["crypto", "remote-first"]),               # 310 / 44
-    ("Bybit", "greenhouse", "bybit", ["crypto", "remote-first"]),           # 128 / 3
-    ("Crypto.com", "lever", "crypto", ["crypto", "remote-first"]),          # 119 / 9
+    # crypto / Web3 (small, real AI/security roles — not giant boards)
     ("Fireblocks", "greenhouse", "fireblocks", ["crypto"]),                 # 61 / 3
     ("BitGo", "greenhouse", "bitgo", ["crypto"]),                           # 37 / 1
     ("Anchorage Digital", "lever", "anchorage", ["crypto"]),                # 44 jobs
     # remote-first infra / devtools / SaaS (confirmed India-friendly in the doc)
     ("Canonical", "greenhouse", "canonical", ["remote-first", "india"]),    # 301 / 5
-    ("Veeva", "lever", "veeva", ["remote-first", "india"]),                 # 800 / 15
-    ("Okta / Auth0", "greenhouse", "okta", ["security", "remote-first"]),   # 343 / 14
     ("Mozilla", "greenhouse", "mozilla", ["remote-first"]),                 # 77 / 11
     ("JFrog", "greenhouse", "jfrog", ["devtools", "india"]),                # 42 / 2
     ("Hex", "greenhouse", "hextechnologies", ["data"]),                     # 26 / 3
@@ -239,10 +244,8 @@ ADD_REMOTE = [
     ("Toptal", "lever", "toptal", ["talent", "remote-first", "india"]),     # 19 / 3
     ("Andela", "ashby", "andela", ["talent", "remote-first", "india"]),     # 14 / 3
     ("Superside", "lever", "superside", ["remote-first", "india"]),         # 18 / 7
-    # remote-first fintech / hr / payments
-    ("Payoneer", "greenhouse", "payoneer", ["fintech", "india"]),           # 142 / 8
+    # remote-first fintech / hr
     ("Alpaca", "greenhouse", "alpaca", ["fintech", "remote-first"]),        # 53 / 2
-    ("Bitpanda", "greenhouse", "bitpanda", ["fintech"]),                    # 51 jobs
     ("Oyster HR", "ashby", "oyster", ["hr", "remote-first"]),               # 10 / 1
     ("RemoFirst", "lever", "remofirst", ["hr", "remote-first"]),            # 17 / 1
 ]

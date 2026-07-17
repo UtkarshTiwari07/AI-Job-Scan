@@ -17,46 +17,67 @@ never provides the link you'd apply through.
 
 ---
 
-## How it works (v3)
+## How it works (v6)
 
-Earlier versions taught two hard lessons, both still visible in the design:
+Earlier versions taught three hard lessons, all still visible in the design:
 
 - **v1** searched broadly (Google + LinkedIn/aggregator listing pages) and found
   the right *kinds* of jobs, but scraped thin, login-walled cards — the
   extraction step then **fabricated** filler text for what it couldn't read.
   ~95% noise.
-- **v2** fixed the fabrication by fetching only from a curated list of elite
-  companies' own ATS APIs (full JD, no scraping) — but that pool skewed senior
-  and US-centric, so a junior/India-based profile matched **zero** jobs. Correct
-  filtering on the wrong pool.
+- **v2–v5** fixed the fabrication by fetching only real ATS APIs (full JD, no
+  scraping) — but stayed **company-first**: pick companies, download their whole
+  boards, hope the right jobs are inside. A live run showed that fails even with
+  a curated, non-prestige registry: 12,000+ jobs fetched, 0.6% were ever
+  candidates, because a company's board is dominated by sales/support/senior
+  roles no filter can turn into AI/ML matches — the net was pointed at
+  organizations, not at the rare kind of job being searched for.
+- **v6 inverts it: hunt jobs, not companies.** The primary discovery signal is
+  now **query-first** — site-restricted searches for your actual target roles —
+  so a hit is typically already a role-matched posting *before anything is
+  fetched* (measured live: 70-90% of hits were direct per-job postings). Every
+  remaining company-first source (the watchlist registry, LinkedIn-resolved
+  boards) is now **selection-gated**: it contributes its AI/ML-relevant jobs or
+  nothing, never a whole board. Measured effect of the inversion on a live run:
+  pool size fetched dropped ~95%, candidate density rose from ~1% to 20–40%, and
+  the LLM eval batch went from 3–4 companies dominating it to 60 distinct
+  companies with a hard 2-per-company cap.
 
-**v3 combines both lessons**: discover broadly, but never evaluate or report
-anything without its real, full description in hand.
-
-1. **Discover** — merge several sources: a curated company registry (Greenhouse /
-   Lever / Ashby / Workday JSON APIs), RemoteOK, HN's monthly "Who is hiring"
-   thread, and **LinkedIn's public job-search results** (title/company/location
-   only — no login, and its detail pages carry no apply-method info without one,
-   verified live). Every company LinkedIn surfaces is resolved to its **own** ATS
-   board or dropped — so a LinkedIn-discovered job is never itself the reported
-   link, and Easy-Apply-flooded listings never enter the pool at all.
-2. **Filter (deterministic Python — no LLM)** — drop thin JDs, off-stack titles,
-   senior/lead titles, roles requiring more years than your bracket, and cap per
-   company so one big board can't dominate. A remote job is treated as
-   accessible unless something *explicit* restricts it — silence about
-   geography no longer causes a false rejection.
+1. **Discover** — the searches, most job-targeted first:
+   - **Job-level search** (primary): Serper queries built from your
+     `profile.target_roles`, restricted to `jobs.lever.co` / `jobs.ashbyhq.com` /
+     `boards.greenhouse.io` / `apply.workable.com`. A per-job hit is fetched as
+     ONE job via that ATS's own per-job endpoint — never its whole board.
+   - **Watchlist registry** (Greenhouse/Lever/Ashby/Workday/Workable) — every
+     board is fetched, then only its AI/ML-relevant, non-senior jobs survive
+     (capped per board) before joining the pool.
+   - **LinkedIn's public job-search results** (title/company/location only — no
+     login, and its detail pages carry no apply-method info without one, verified
+     live) resolves each company to its **own** ATS board and keeps only that
+     board's matching jobs — a LinkedIn-discovered job is never itself the
+     reported link, and Easy-Apply-flooded listings never enter the pool.
+   - **RemoteOK + HN's "Who is hiring"** — already job-targeted feeds with full
+     JDs included.
+   - Anything discovered by URL that matches no known ATS pattern is enriched via
+     **crawl4ai** on its own detail page (never a search/listing page — that was
+     v1's fabrication source) before it's ever evaluated.
+2. **Filter (deterministic Python — no LLM)** — a guardrail now, not the primary
+   selector: drop thin JDs, off-stack titles, senior/lead titles, roles requiring
+   more years than your bracket, and cap per company. A remote job is treated as
+   accessible unless something *explicit* restricts it — silence about geography
+   no longer causes a false rejection.
 3. **Rank** — score every surviving candidate on junior-language density, title
-   match, source reliability, and recency; only the top N (default 60) go to
-   the LLM, so a big discovery run doesn't burn unlimited API budget.
-4. **Evaluate (your LLM)** — read the **full raw JD** (not a truncated snippet;
-   fetched with crawl4ai when a source only gave a link) plus the structured
-   location field, and **verify** the things a token list can't: is this role
-   actually accessible from *your* country (a remote job scoped to another country
-   — e.g. "Remote, United States" or one requiring foreign work authorization — is
-   *not*), does the stated experience fit, is it a genuine stack match. Then score
-   the fit 0-100 and draft a proposal. Location, remote-eligibility and experience
-   are judged by the model from the real text — never inferred from hard-coded
-   keyword lists.
+   match, source reliability, and recency; the top N (default 60) go to the LLM,
+   with a **hard cap on eval slots per company** so one big board can never
+   dominate the budget the way it did before the inversion.
+4. **Evaluate (your LLM)** — read the **full raw JD** (not a truncated snippet)
+   plus the structured location field, and **verify** the things a token list
+   can't: is this role actually accessible from *your* country (a remote job
+   scoped to another country — e.g. "Remote, United States" or one requiring
+   foreign work authorization — is *not*), does the stated experience fit, is it
+   a genuine stack match. Then score the fit 0-100 and draft a proposal. Location,
+   remote-eligibility and experience are judged by the model from the real text —
+   never inferred from hard-coded keyword lists.
 5. **Report** — a job reaches `report_*.json` **only if** it's a match, scores
    ≥ your threshold, is within your experience bracket, and is location-
    accessible. Everything else lands in `audit_*.json` with a reason, and a
@@ -66,7 +87,7 @@ anything without its real, full description in hand.
 That report/audit split is enforced in Python, not left to the model — so
 **every job in your report is a genuine match within your experience range.**
 The trade-off is honest: this is precision over volume, and coverage still
-depends on which companies/feeds you configure — see Honest limits below.
+depends on the market and your `target_roles`/companies — see Honest limits below.
 
 ---
 
@@ -103,9 +124,10 @@ One env var picks the model for evaluation, in [litellm](https://docs.litellm.ai
 | Anthropic | `anthropic/claude-sonnet-4-...`      | `ANTHROPIC_API_KEY` |
 | Groq      | `groq/llama-3.3-70b-versatile`       | `GROQ_API_KEY`      |
 
-`SERPER_API_KEY` powers the broad-discovery queries (`serper_discovery_queries`)
+`SERPER_API_KEY` powers the primary job-level discovery search (built at runtime
+from your `profile.target_roles`; extend it with `serper_job_queries` per mode)
 and the Tier-3 company-domain fallback; the registry/RemoteOK/HN/LinkedIn sources
-don't need it.
+don't need it, though discovery is far weaker without it.
 
 ---
 
@@ -123,13 +145,16 @@ companies:
     tags: [ai-lab]
 ```
 
-On top of that, each mode's YAML (`sources:` block) turns on additional discovery:
-**LinkedIn** (public job-search results — company names only, resolved to the
-company's own ATS board via `job/company_resolve.py`; never a reported URL),
-**RemoteOK** and **HN "Who is hiring"** (both give full descriptions directly),
-and broad **Serper** queries that extract a company token straight from a
-Greenhouse/Lever/Ashby URL in the results. Tune `linkedin_queries` /
-`serper_discovery_queries` per mode to widen or narrow what gets discovered.
+The registry is now a **secondary, selection-gated** source: every board is
+fetched, but only its AI/ML-relevant, non-senior jobs survive (capped per board
+by `watchlist_cap_per_board`) before joining the pool — a giant board contributes
+a handful of matching roles or nothing, never its whole size. On top of it, each
+mode's YAML (`sources:` block) turns on additional discovery: **LinkedIn** (public
+job-search results — company names only, resolved to the company's own ATS board
+via `job/company_resolve.py`, then selection-gated the same way; never a reported
+URL), and **RemoteOK** / **HN "Who is hiring"** (both give full descriptions
+directly, already job-targeted). Tune `linkedin_queries` / `serper_job_queries`
+per mode to widen or narrow what gets discovered.
 
 For a LinkedIn-surfaced company whose ATS token can't be guessed from its name,
 `company_resolve.py` falls back to a targeted Serper search for its **own** board
@@ -161,8 +186,8 @@ re-running it, or by hand-adding a verified entry to the YAML.
   discovery sources + LLM prompt for each mode: `title_include_terms`,
   `ai_relevance_keywords`, `title_reject_terms`, `seniority_reject_terms`,
   `report_min_score`, `per_company_cap`, `yoe_slack`, `eval_max_candidates`,
-  `sources`, `linkedin_queries`, `serper_discovery_queries`. Tune to narrow or
-  widen the net.
+  `eval_slots_per_company`, `watchlist_cap_per_board`, `sources`,
+  `linkedin_queries`, `serper_job_queries`. Tune to narrow or widen the net.
 
 ---
 

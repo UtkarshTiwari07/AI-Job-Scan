@@ -12,10 +12,12 @@ reported job is a genuine >=50% match within my experience bracket" true.
 """
 
 import os
+import re
 import sys
 import json
 import datetime
 from collections import Counter
+from urllib.parse import urlparse
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -33,6 +35,54 @@ import jobscan_llm
 EVAL_BATCH = 4
 SEARCH_TEXT = "AI engineer OR machine learning engineer OR LLM engineer"
 LINKEDIN_MAX_NEW_COMPANIES = 40  # cap company_resolve probes per run
+SERPER_JOB_FETCH_CAP = 250       # bound worst-case per-job network calls per run
+BOARD_ROOT_SELECT_CAP = 3        # cap on jobs kept from a D1 board-root hit
+
+# v6 — the PRIMARY discovery net: job-level (not board-level) Serper queries, built
+# at runtime from the candidate's own target roles. A live probe this session
+# showed these return per-job posting URLs 70-90% of the time — the pool is
+# role-matched before anything is fetched, instead of hoping the right job is
+# buried in a 300-job board.
+ATS_JOB_SITES = ["boards.greenhouse.io", "job-boards.greenhouse.io", "jobs.lever.co",
+                 "jobs.ashbyhq.com", "apply.workable.com"]
+JUNIOR_QUERY_VARIANTS = [
+    '"junior" OR "entry level" OR "0-2 years"',
+    '"entry level" OR "fresher" OR "early career"',
+    '"0-1 year" OR "new grad" OR "graduate"',
+]
+DEFAULT_TARGET_ROLES = ["AI engineer", "machine learning engineer", "LLM engineer", "RAG engineer"]
+
+
+def _build_serper_job_queries(cfg, mode):
+    """Runtime job-level Serper queries: profile.target_roles x junior-phrasing
+    variants x ATS site restriction x mode geo. Extended by any queries the user
+    adds under config/<mode>.yaml's `serper_job_queries`."""
+    roles = cfg.target_roles or DEFAULT_TARGET_ROLES
+    role_clause = "(" + " OR ".join(f'"{r}"' for r in roles[:5]) + ")"
+    geo = "India" if mode == "india_mnc" else "remote"
+    queries = [f"{role_clause} ({jv}) {geo} site:{site}"
+               for site in ATS_JOB_SITES for jv in JUNIOR_QUERY_VARIANTS]
+    return queries + list(cfg.serper_job_queries or [])
+
+
+def _company_name_from_token(token: str) -> str:
+    """Best-effort display name for a company only known by its ATS token (D1
+    per-job / board-root hits don't carry a real company name)."""
+    return re.sub(r"[-_]+", " ", token or "").strip().title() or token
+
+
+def _guess_company_from_hit(hit: dict):
+    """Best-effort (name, token) for a Serper hit whose URL matched no known ATS
+    pattern — used only as a display label for the crawl4ai-enrichment stub; the
+    reported link is always the hit's own URL, never a guess."""
+    domain = urlparse(hit["url"]).netloc.replace("www.", "") or "unknown"
+    title = hit.get("title") or ""
+    for sep in (" at ", " - ", " | "):
+        if sep in title:
+            candidate = title.rsplit(sep, 1)[-1].strip()
+            if 2 <= len(candidate) <= 60:
+                return candidate, domain
+    return domain, domain
 
 
 # ─────────────────────── cross-run dedup cache ──────────────────────
@@ -168,12 +218,74 @@ def _enrichable(cfg):
     return ok
 
 
+def _run_serper_job_discovery(mode, cfg, serper_key, known_tokens):
+    """Phase D1 (v6, PRIMARY net) — job-level Serper discovery. Returns (jobs, stats).
+    Three hit shapes, each handled to avoid ever ingesting a whole board blind:
+      * per-job hit  → sources.fetch_job_by_ref: ONE job, full JD, no board download.
+      * board-root hit → fetch that one board, keep only sources.select_relevant
+        (cap BOARD_ROOT_SELECT_CAP) — never the whole board.
+      * unresolved URL → a thin stub; Phase E's crawl4ai enrichment (already wired
+        in run()) fetches its real detail-page text, or it's honestly dropped as
+        unverifiable — this is the "why aren't you scraping" answer: we do, on the
+        job's own detail page, never on a search/listing page.
+    """
+    stats = {"hits": 0, "per_job": 0, "board_root": 0, "unresolved_stub": 0, "fetch_calls": 0}
+    if not serper_key:
+        return [], stats
+    queries = _build_serper_job_queries(cfg, mode)
+    hits = discovery.serper_job_discover(queries, serper_key)
+    stats["hits"] = len(hits)
+
+    jobs = []
+    seen_job_urls, board_done = set(), set()
+    for h in hits:
+        if h.get("job_id"):
+            if h["url"] in seen_job_urls or stats["fetch_calls"] >= SERPER_JOB_FETCH_CAP:
+                continue
+            seen_job_urls.add(h["url"])
+            stats["fetch_calls"] += 1
+            job = sources.fetch_job_by_ref(h["ats"], h["token"], h["job_id"], h["url"])
+            if job:
+                name = _company_name_from_token(h["token"])
+                registry.tag_jobs([job], name, h["token"], tier=1, tags=["serper-job"])
+                jobs.append(job)
+                stats["per_job"] += 1
+        elif h.get("ats"):
+            board_key = (h["ats"], h["token"])
+            if board_key in board_done or h["token"] in known_tokens:
+                continue
+            board_done.add(board_key)
+            try:
+                board_jobs = sources.ADAPTERS[h["ats"]]({"token": h["token"]})
+            except Exception:
+                board_jobs = []
+            selected = sources.select_relevant(board_jobs, cfg, cap=BOARD_ROOT_SELECT_CAP)
+            if selected:
+                name = _company_name_from_token(h["token"])
+                registry.tag_jobs(selected, name, h["token"], tier=1, tags=["serper-board"])
+                jobs.extend(selected)
+                stats["board_root"] += 1
+        else:
+            if cfg.title_reject_re and cfg.title_reject_re.search(h.get("title") or ""):
+                continue  # obviously off-stack even from the search snippet — skip
+            name, token = _guess_company_from_hit(h)
+            stub = sources._job(title=h.get("title") or "", url=h["url"], jd_text="", source="serper_unresolved")
+            registry.tag_jobs([stub], name, token, tier=3, tags=["serper-unresolved"])
+            jobs.append(stub)
+            stats["unresolved_stub"] += 1
+    return jobs, stats
+
+
 def discover_and_fetch(mode, cfg, serper_key):
-    """Phase D — merge every enabled source into one job pool, tagged with which
-    source found it (funnel['per_source']) so an empty report is diagnosable."""
+    """Phase D (v6) — job-first, not company-first: D1 job-level Serper search is
+    the primary net; the watchlist registry, LinkedIn resolution, RemoteOK and HN
+    are secondary and now all selection-gated (never whole-board ingestion). Merges
+    every source into one pool, tagged by source (funnel['per_source']) so an empty
+    report is diagnosable, not a mystery."""
     all_jobs = []
-    funnel = {"per_source": {}, "dead_boards": [], "linkedin_companies_found": 0,
-              "linkedin_companies_resolved": []}
+    funnel = {"per_source": {}, "dead_boards": [], "no_ai_roles_boards": [],
+              "linkedin_companies_found": 0, "linkedin_companies_resolved": [],
+              "serper_d1": {}}
 
     def add(jobs, label):
         all_jobs.extend(jobs)
@@ -181,25 +293,39 @@ def discover_and_fetch(mode, cfg, serper_key):
 
     known_tokens = {c.get("token") or c.get("tenant") for c in cfg.companies}
 
+    # D1 — primary: job-level Serper discovery (see _run_serper_job_discovery).
+    if serper_key:
+        d1_jobs, d1_stats = _run_serper_job_discovery(mode, cfg, serper_key, known_tokens)
+        add(d1_jobs, "serper_job_discovery")
+        funnel["serper_d1"] = d1_stats
+
+    # D4 — watchlist registry: registry.fetch_all now applies select_relevant per
+    # board (cfg.watchlist_cap_per_board), so a giant board can contribute at most
+    # a handful of AI/ML roles, never its whole size.
     if cfg.sources.get("ats", True) and cfg.companies:
-        reg_jobs, reg_summary = registry.fetch_all(cfg.companies, search_text=SEARCH_TEXT,
+        reg_jobs, reg_summary = registry.fetch_all(cfg.companies, cfg, search_text=SEARCH_TEXT,
                                                     serper_key=serper_key)
         add(reg_jobs, "ats_registry")
         funnel["dead_boards"] = reg_summary.get("dead", [])
+        funnel["no_ai_roles_boards"] = reg_summary.get("no_ai_roles", [])
+        funnel["ats_raw_fetched"] = reg_summary.get("raw_fetched", 0)
     elif not cfg.companies:
         print(f"  ⚠️  No companies in config/{cfg.companies_file} — run: python job/probe_registry.py")
 
+    # D2 — LinkedIn: company names only; resolve_and_fetch_new now selects only
+    # title-matching jobs per resolved board (cap 3), never the whole board.
     if cfg.sources.get("linkedin", True) and cfg.linkedin_queries:
         print("  🔎 LinkedIn discovery (company names only — never a reported URL)...")
         by_company = discovery.linkedin_discover_companies(cfg.linkedin_queries, max_pages_per_query=2)
         funnel["linkedin_companies_found"] = len(by_company)
         li_jobs, li_summary = discovery.resolve_and_fetch_new(
-            set(by_company.keys()), known_tokens, cap=LINKEDIN_MAX_NEW_COMPANIES,
-            serper_key=serper_key)
+            set(by_company.keys()), known_tokens, cfg, cap=LINKEDIN_MAX_NEW_COMPANIES,
+            serper_key=serper_key, select_cap=3)
         add(li_jobs, "linkedin_resolved")
         funnel["linkedin_companies_resolved"] = li_summary["resolved"]
         known_tokens |= {r.split("->", 1)[1].split(":", 1)[1] for r in li_summary["resolved"]}
 
+    # D3 — RemoteOK + HN: already job-targeted feeds with full JDs, unchanged.
     if cfg.sources.get("remoteok", False):
         rok = registry.tag_multi_company_jobs(sources.fetch_remoteok(), tier=2, tags=["remoteok"])
         add(rok, "remoteok")
@@ -208,16 +334,57 @@ def discover_and_fetch(mode, cfg, serper_key):
         hn = registry.tag_multi_company_jobs(sources.fetch_hn_whoishiring(), tier=2, tags=["hn"])
         add(hn, "hn_whoishiring")
 
-    if cfg.serper_discovery_queries and serper_key:
-        hits = discovery.serper_broad_discover(cfg.serper_discovery_queries, serper_key)
-        new_hits = [(a, t) for a, t in hits if t not in known_tokens]
-        for ats, token in new_hits:
-            jobs = registry.tag_jobs(sources.ADAPTERS[ats]({"token": token}), token, token, tier=1,
-                                     tags=["serper-discovered"])
-            add(jobs, "serper_discovered")
-            known_tokens.add(token)
-
     return all_jobs, funnel
+
+
+def _cap_eval_slots(ranked: list, cfg) -> tuple:
+    """Phase R structural anti-flooding: at most `cfg.eval_slots_per_company` of the
+    top eval slots go to any one company, so the LLM eval budget can never be
+    dominated by a few giant boards — this is what let a handful of companies eat
+    a live run's entire top-60 while the LLM correctly rejected all of them.
+
+    Round-robin fill: each company gets its best-ranked job first, one round at a
+    time, up to the per-company cap; only once every company has hit the cap do
+    later rounds widen it — and even then, EVERY company with remaining supply gets
+    its next slot before any company gets a second "over-cap" slot. This matters:
+    a naive "fill the cap, then backfill leftovers in rank order" approach dumps
+    every overflow slot on whichever company is ranked highest — usually the very
+    flooder the cap exists to stop (its leftover jobs sit first in the list simply
+    because it has so many of them). Round-robin only lets a company exceed the cap
+    when the market genuinely lacks enough OTHER companies to fill the budget.
+    Returns (to_eval, over_cap) — over_cap keeps the original rank order for audit.
+    """
+    per_company = max(1, int(getattr(cfg, "eval_slots_per_company", 2)))
+    budget = int(cfg.eval_max_candidates)
+
+    by_company, order = {}, []
+    for j in ranked:
+        token = j.get("company_token") or j.get("company", "")
+        if token not in by_company:
+            by_company[token] = []
+            order.append(token)
+        by_company[token].append(j)
+
+    to_eval = []
+    counts = {t: 0 for t in order}
+    round_cap = per_company
+    while len(to_eval) < budget:
+        progressed = False
+        for token in order:
+            if len(to_eval) >= budget:
+                break
+            bucket = by_company[token]
+            if counts[token] < round_cap and counts[token] < len(bucket):
+                to_eval.append(bucket[counts[token]])
+                counts[token] += 1
+                progressed = True
+        if not progressed:
+            break
+        round_cap += 1
+
+    to_eval_ids = {id(j) for j in to_eval}
+    over_cap = [j for j in ranked if id(j) not in to_eval_ids]
+    return to_eval, over_cap
 
 
 def run(mode, dry_run=False):
@@ -238,7 +405,9 @@ def run(mode, dry_run=False):
         jobs = _mock_jobs(mode)
     else:
         serper_key = os.getenv("SERPER_API_KEY", "")
-        print(f"\n📡 PHASE D — discovery ({len(cfg.companies)} registry companies"
+        print(f"\n📡 PHASE D — discovery ("
+              f"{'job-first Serper search' if serper_key else 'NO SERPER_API_KEY — primary net disabled'}"
+              f" + {len(cfg.companies)} watchlist companies (selection-gated)"
               f"{' + LinkedIn' if cfg.sources.get('linkedin') and cfg.linkedin_queries else ''}"
               f"{' + RemoteOK' if cfg.sources.get('remoteok') else ''}"
               f"{' + HN' if cfg.sources.get('hn') else ''})...")
@@ -271,11 +440,15 @@ def run(mode, dry_run=False):
             json.dump(result, f, indent=2, default=str)
     else:
         print(f"\n📶 PHASE R — ranking {len(candidates)} candidates "
-              f"(evaluating top {cfg.eval_max_candidates})...")
+              f"(evaluating top {cfg.eval_max_candidates}, "
+              f"max {cfg.eval_slots_per_company}/company)...")
         ranked = filters.rank(candidates, cfg)
-        to_eval, over_cap = ranked[:cfg.eval_max_candidates], ranked[cfg.eval_max_candidates:]
-        over_cap_audit = [{**_slim(c), "rejection_reason": f"not evaluated (rank #{i}, over cap {cfg.eval_max_candidates})"}
-                          for i, c in enumerate(over_cap, start=cfg.eval_max_candidates + 1)]
+        to_eval, over_cap = _cap_eval_slots(ranked, cfg)
+        rank_pos = {id(j): i + 1 for i, j in enumerate(ranked)}
+        over_cap_audit = [{**_slim(c), "rejection_reason":
+                           f"not evaluated (rank #{rank_pos[id(c)]}; over cap {cfg.eval_max_candidates} "
+                           f"or per-company eval limit {cfg.eval_slots_per_company})"}
+                          for c in over_cap]
 
         report, eval_audit = evaluate_and_draft(to_eval, cfg)
         audit = rejected + over_cap_audit + eval_audit
@@ -289,27 +462,46 @@ def run(mode, dry_run=False):
                     "company": a.get("company"), "reason": a.get("rejection_reason")}
                    for a in audit], f, indent=2, default=str)
 
-    _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path)
+    n_eval_companies = len({c.get("company_token") or c.get("company", "") for c in to_eval}) if not dry_run else 0
+    _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path,
+             n_evaluated=len(to_eval) if not dry_run else 0, n_eval_companies=n_eval_companies)
 
 
-def _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path):
+def _summary(mode, dry_run, funnel, candidates, rejected, report, report_path, audit_path,
+            n_evaluated=0, n_eval_companies=0):
     print(f"\n{'='*64}\n📊 RUN SUMMARY — {mode}\n{'='*64}")
     if funnel:
         print(f"  per-source jobs     : {funnel.get('per_source', {})}")
+        d1 = funnel.get("serper_d1") or {}
+        if d1.get("hits"):
+            print(f"  Serper D1 (job-first): {d1['hits']} URL hits → "
+                  f"{d1.get('per_job', 0)} per-job fetches, {d1.get('board_root', 0)} board-root selections, "
+                  f"{d1.get('unresolved_stub', 0)} unresolved (→ crawl4ai or dropped honestly)")
+        ats_raw = funnel.get("ats_raw_fetched")
+        ats_kept = funnel.get("per_source", {}).get("ats_registry", 0)
+        if ats_raw:
+            print(f"  ATS watchlist selection: {ats_raw} raw jobs fetched → {ats_kept} AI/ML-selected "
+                  f"({ats_kept*100//max(ats_raw,1)}% kept per board, capped)")
         dead = funnel.get("dead_boards", [])
         if dead:
             print(f"  registry boards w/ 0 jobs : {len(dead)}  (e.g. {', '.join(dead[:5])}{'…' if len(dead) > 5 else ''})")
+        no_ai = funnel.get("no_ai_roles_boards", [])
+        if no_ai:
+            print(f"  registry boards w/ 0 AI/ML roles now : {len(no_ai)}  (e.g. {', '.join(no_ai[:3])}{'…' if len(no_ai) > 3 else ''})")
         if funnel.get("linkedin_companies_found"):
             print(f"  LinkedIn: {funnel['linkedin_companies_found']} companies found, "
                   f"{len(funnel.get('linkedin_companies_resolved', []))} resolved to a live board")
         if funnel.get("crawl4ai_enriched"):
             print(f"  crawl4ai enriched  : {funnel['crawl4ai_enriched']} thin-JD job(s) from their page text")
-    print(f"  passed pre-filter   : {len(candidates)}")
+    print(f"  passed pre-filter   : {len(candidates)}"
+          f"{f' ({len(candidates)*100//max(len(candidates)+len(rejected),1)}% of fetched pool)' if (candidates or rejected) else ''}")
     top_reasons = Counter(r.get("rejection_reason", "?").split(":")[0].split("(")[0].strip()
                           for r in rejected)
     print(f"  filtered out        : {len(rejected)}  top reasons: "
           f"{', '.join(f'{k}={v}' for k, v in top_reasons.most_common(5))}")
     if not dry_run:
+        print(f"  evaluated           : {n_evaluated} candidates across {n_eval_companies} distinct companies "
+              f"(max per company enforced — no single board can flood the eval budget)")
         print(f"  ✅ REPORTED (>=min)  : {len(report)}")
         if not report:
             print("     (No matches cleared the bar this run — that's an honest result,\n"
