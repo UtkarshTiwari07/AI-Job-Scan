@@ -44,37 +44,51 @@ sources:
   remoteok: true      # remoteok.com/api, tag-filtered — full JD already included
   hn: true            # HN "Ask HN: Who is hiring" monthly thread — full JD already included
 
-# v7 — PRIMARY VOLUME source: real job boards via python-jobspy (one call fans out
-# to Indeed/LinkedIn/Glassdoor/Google/ZipRecruiter — live-verified: full markdown
-# descriptions, and job_url_direct gives the company's OWN careers page when the
-# board resolved it). Each entry is one jobspy.scrape_jobs(...) call; `sites` maps
-# to jobspy's site_name. Requires `pip install python-jobspy`; if absent the run
-# prints a loud warning instead of silently losing this net. Add more searches to
-# widen the query surface — this list is intentionally short by default.
+# v7/v8 — PRIMARY VOLUME source: real job boards via python-jobspy (one call fans
+# out to Indeed/LinkedIn/Glassdoor/Google/ZipRecruiter — live-verified: full
+# markdown descriptions, and job_url_direct gives the company's OWN careers page
+# when the board resolved it). Each entry is one jobspy.scrape_jobs(...) call;
+# `sites` maps to jobspy's site_name. Requires `pip install python-jobspy`; if
+# absent the run prints a loud warning instead of silently losing this net.
+# v8: `results_wanted` 25->40 — a live run showed jobspy_indeed pinned at exactly
+# the request cap (50 = 2 searches x 25), meaning Indeed had MORE supply than we
+# asked for; two more search-term variants added for coverage.
 jobspy_searches:
   - sites: ["indeed"]
     search_term: '"machine learning engineer" junior OR "entry level"'
     is_remote: true
     country_indeed: "India"
-    results_wanted: 25
+    results_wanted: 40
     hours_old: 168
   - sites: ["indeed"]
     search_term: '"AI engineer" junior OR "entry level"'
     is_remote: true
     country_indeed: "India"
-    results_wanted: 25
+    results_wanted: 40
+    hours_old: 168
+  - sites: ["indeed"]
+    search_term: '"generative AI engineer" OR "LLM engineer" junior OR "entry level"'
+    is_remote: true
+    country_indeed: "India"
+    results_wanted: 40
     hours_old: 168
   - sites: ["linkedin"]
     search_term: "AI engineer junior"
     is_remote: true
     linkedin_fetch_description: true
-    results_wanted: 25
+    results_wanted: 40
     hours_old: 168
   - sites: ["linkedin"]
     search_term: "machine learning engineer entry level"
     is_remote: true
     linkedin_fetch_description: true
-    results_wanted: 25
+    results_wanted: 40
+    hours_old: 168
+  - sites: ["linkedin"]
+    search_term: "generative AI engineer entry level"
+    is_remote: true
+    linkedin_fetch_description: true
+    results_wanted: 40
     hours_old: 168
 
 linkedin_queries:

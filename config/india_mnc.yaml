@@ -43,44 +43,71 @@ linkedin_queries:
   - {keywords: "LLM engineer", location: "India"}
   - {keywords: "generative AI engineer", location: "India", f_e: "1,2"}
 
-# v7 — PRIMARY VOLUME source: real job boards via python-jobspy. Delhi NCR is
+# v7/v8 — PRIMARY VOLUME source: real job boards via python-jobspy. Delhi NCR is
 # STRUCTURALLY invisible to an ATS-only design — a live probe of 40 NCR tech
 # companies (Housing.com/REA India, MakeMyTrip, PolicyBazaar, Lenskart, Delhivery,
 # Urban Company, Cars24, OYO, Blinkit, BharatPe, ...) found only 3/40 expose a
 # clean Greenhouse/Lever/Ashby API (Paytm, Zomato/Eternal, Info Edge — added to
 # config/companies_india.yaml). The other 37 post on Naukri/Indeed/their own
-# portals; JobSpy is what reaches them. `sites` maps to jobspy's site_name.
-# Requires `pip install python-jobspy`; if absent the run prints a loud warning
-# instead of silently losing this net.
+# portals. `sites` maps to jobspy's site_name. Requires `pip install python-jobspy`;
+# if absent the run prints a loud warning instead of silently losing this net.
+#
+# v8 — Naukri REMOVED: a live run showed `406 recaptcha required` even from the
+# user's own residential IP (my earlier assumption that only datacenter IPs get
+# blocked was wrong — verified live). A Serper `site:naukri.com` fallback was
+# probed too: only ~2/10 hits are per-job URLs, and a Naukri detail page is a JS
+# shell to a plain fetch (no JD text without a browser). No viable route today —
+# Naukri-listed NCR employers are reached instead via the Indeed/Google/
+# company-targeted searches below. Also v8: `results_wanted` 25->40 (a live run
+# showed jobspy_indeed pinned at exactly 25 = the request cap, not real supply —
+# Indeed had more to give) and more search-term/location variants for coverage.
 jobspy_searches:
   - sites: ["indeed"]
     search_term: "AI engineer OR machine learning engineer junior OR fresher"
     location: "Delhi, India"
     country_indeed: "India"
-    results_wanted: 25
+    results_wanted: 40
     hours_old: 336
   - sites: ["indeed"]
     search_term: "AI engineer OR machine learning engineer junior OR fresher"
+    location: "Gurgaon, India"
+    country_indeed: "India"
+    results_wanted: 40
+    hours_old: 336
+  - sites: ["indeed"]
+    search_term: "AI engineer OR machine learning engineer junior OR fresher"
+    location: "Noida, India"
+    country_indeed: "India"
+    results_wanted: 40
+    hours_old: 336
+  - sites: ["indeed"]
+    search_term: "generative AI engineer OR data scientist fresher OR entry level"
     location: "Bengaluru, India"
     country_indeed: "India"
-    results_wanted: 25
+    results_wanted: 40
     hours_old: 336
-  - sites: ["naukri"]
-    search_term: "AI engineer"
-    location: "Delhi NCR"
-    results_wanted: 25
-    hours_old: 336
-  - sites: ["naukri"]
-    search_term: "machine learning engineer"
-    location: "Delhi NCR"
-    results_wanted: 25
+  - sites: ["indeed"]
+    search_term: "machine learning engineer 0-2 years"
+    location: "Bengaluru, India"
+    country_indeed: "India"
+    results_wanted: 40
     hours_old: 336
   - sites: ["linkedin"]
     search_term: "AI engineer junior"
     location: "Delhi, India"
     linkedin_fetch_description: true
-    results_wanted: 25
+    results_wanted: 40
     hours_old: 336
+  - sites: ["linkedin"]
+    search_term: "generative AI engineer fresher"
+    location: "India"
+    linkedin_fetch_description: true
+    results_wanted: 40
+    hours_old: 336
+  - sites: ["google"]
+    search_term: "AI engineer"
+    google_search_term: "ai engineer jobs delhi ncr fresher"
+    results_wanted: 20
 
 # Delhi NCR companies with NO clean ATS API (live-probed this session; only Paytm/
 # Zomato/Info Edge had one — see companies_india.yaml). Each name below is a
