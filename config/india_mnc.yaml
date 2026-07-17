@@ -17,6 +17,13 @@ jd_eval_chars: 12000        # full raw JD to the LLM (not a 3k snippet) — loca
                             # hard-coded token lists.
 enrich_max_crawls: 30       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
 eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
+eval_slots_per_company: 2   # v6: max eval slots ANY one company can claim in that top N
+                            # — structurally prevents one big board from flooding the eval
+                            # budget (a live run let a handful of companies eat all 60 slots).
+watchlist_cap_per_board: 5  # v6: config/companies_india.yaml boards are SELECTED, not
+                            # ingested whole — keep only this many AI/ML-relevant, non-senior
+                            # jobs per board (sources.select_relevant). A board contributes
+                            # its matching roles or nothing; its raw size no longer matters.
 
 # ── Phase D sources (v3) ─────────────────────────────────────────────
 # LinkedIn is DISCOVERY-ONLY (see config/remote.yaml for why): each company
@@ -34,10 +41,14 @@ linkedin_queries:
   - {keywords: "LLM engineer", location: "India"}
   - {keywords: "generative AI engineer", location: "India", f_e: "1,2"}
 
-serper_discovery_queries:
-  - '("AI engineer" OR "LLM engineer" OR "ML engineer") India ("junior" OR "entry level" OR "fresher" OR "0-2 years") site:boards.greenhouse.io'
-  - '("AI engineer" OR "LLM engineer" OR "ML engineer") India ("junior" OR "fresher") site:jobs.lever.co'
-  - '("AI engineer" OR "LLM engineer" OR "ML engineer") India ("junior" OR "fresher") site:jobs.ashbyhq.com'
+# v6 — PRIMARY discovery net is now job-level, not board-level: pipeline.py builds
+# ~15 Serper queries at runtime from config/profile.yaml's target_roles x junior
+# phrasing x ATS site restriction x "India". A hit is usually already a per-job
+# posting URL (verified live: 7/10 hits on an India multi-site query), fetched as
+# ONE job via its ATS's own per-job endpoint — never a whole board.
+# `serper_job_queries` below is only EXTRA queries appended to that runtime-built
+# set; leave empty to use the defaults, or add your own site:-restricted queries.
+serper_job_queries: []
 
 junior_tokens: ["junior", "entry level", "entry-level", "0-2 years", "0-1 year",
                 "1-2 years", "early career", "fresher", "new grad", "graduate", "intern"]

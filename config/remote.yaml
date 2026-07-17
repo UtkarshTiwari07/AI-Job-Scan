@@ -19,6 +19,13 @@ jd_eval_chars: 12000        # JD length sent to the LLM — full raw text, not a
                             # token lists; a 3k truncation used to hide eligibility clauses.
 enrich_max_crawls: 30       # v4: max thin-JD, link-only jobs to backfill via crawl4ai per run
 eval_max_candidates: 60     # rank, then LLM-evaluate only the top N (cost control)
+eval_slots_per_company: 2   # v6: max eval slots ANY one company can claim in that top N
+                            # — structurally prevents one big board from flooding the eval
+                            # budget (a live run let a handful of companies eat all 60 slots).
+watchlist_cap_per_board: 5  # v6: config/companies_remote.yaml boards are SELECTED, not
+                            # ingested whole — keep only this many AI/ML-relevant, non-senior
+                            # jobs per board (sources.select_relevant). A board contributes
+                            # its matching roles or nothing; its raw size no longer matters.
 
 # ── Phase D sources (v3) ─────────────────────────────────────────────
 # LinkedIn is DISCOVERY-ONLY: its guest search page has no login wall and
@@ -41,14 +48,15 @@ linkedin_queries:
   - {keywords: "LLM engineer", f_wt: "2"}
   - {keywords: "RAG engineer", f_wt: "2"}
 
-# Broad (non-site-restricted) Serper queries used only to discover NEW
-# companies' OWN ATS boards (a hit's token is parsed straight from the URL —
-# see sources.ats_from_url). Never returns an aggregator or listing URL as a
-# reported job.
-serper_discovery_queries:
-  - '("AI engineer" OR "LLM engineer" OR "ML engineer") ("junior" OR "entry level" OR "0-2 years") remote site:boards.greenhouse.io'
-  - '("AI engineer" OR "LLM engineer" OR "ML engineer") ("junior" OR "entry level") remote site:jobs.lever.co'
-  - '("AI engineer" OR "LLM engineer" OR "ML engineer") ("junior" OR "entry level") remote site:jobs.ashbyhq.com'
+# v6 — PRIMARY discovery net is now job-level, not board-level: pipeline.py builds
+# ~15 Serper queries at runtime from config/profile.yaml's target_roles x junior
+# phrasing x ATS site restriction (jobs.lever.co, jobs.ashbyhq.com, boards.
+# greenhouse.io, apply.workable.com) x "remote". A hit is usually already a
+# per-job posting URL (verified live: 7-9/10 hits per query), fetched as ONE job
+# via its ATS's own per-job endpoint — never a whole board. `serper_job_queries`
+# below is only EXTRA queries appended to that runtime-built set; leave empty to
+# use the defaults, or add your own site:-restricted queries here.
+serper_job_queries: []
 
 junior_tokens: ["junior", "entry level", "entry-level", "0-2 years", "0-1 year",
                 "1-2 years", "early career", "new grad", "graduate", "fresher", "intern"]

@@ -1,19 +1,23 @@
 """
-discovery.py — find NEW companies to fetch from, beyond the static registry.
+discovery.py — find INDIVIDUAL JOBS first, companies second (v6).
 
-Two discovery signals, both cheap and both DISCOVERY-ONLY (they never become the
-reported application URL — see the module docstring in company_resolve.py for why):
+v5 and earlier fetched whole company boards and hoped the right jobs were inside
+— a live run showed that fails: 12,276 jobs fetched, 76 candidates (0.6%), because
+company boards are dominated by sales/senior/off-stack roles no filter tuning can
+fix. v6 inverts this: the PRIMARY discovery signal (D1, serper_job_discover) is a
+query-first Serper search restricted to ATS sites + junior/role terms, so a hit is
+typically already a role-matched posting BEFORE anything is fetched (verified live:
+7-9/10 hits per query were per-job posting URLs, not board roots). Company-first
+signals survive only as SECONDARY, selection-gated sources:
 
-  * LinkedIn guest job search — the public, unauthenticated search-results page.
-    Gives title + company + location + date per card with NO login and NO
-    per-job detail fetch. We mine it purely for COMPANY NAMES + a sense of what
-    roles are open, then resolve each new name to its own ATS board.
-  * Serper broad search — a non-site-restricted search for junior AI/ML roles.
-    When a hit is itself a Greenhouse/Lever/Ashby URL, the token is extracted
-    directly from the URL (no name-guessing needed); otherwise the hit is
-    discarded (Tier-3 fetching a company's own marketing site reliably enough
-    to get a full JD needs crawl4ai, which isn't available in every environment
-    — see sources.fetch_serper_domain for that best-effort path used elsewhere).
+  * D1 Serper job-level search (this module, serper_job_discover) — per-job URL hits
+    go straight to sources.fetch_job_by_ref (one job, full JD, no board download);
+    a board-root hit falls back to selection at fetch time (never blind ingestion).
+  * D2 LinkedIn guest job search — the public, unauthenticated search-results page.
+    Gives title + company + location + date per card with NO login and NO per-job
+    detail fetch. We mine it for COMPANY NAMES, resolve each new name to its own ATS
+    board, then keep ONLY that board's title-matching jobs (resolve_and_fetch_new
+    applies sources.select_relevant) — never the whole board.
 
 Every company discovered here is resolved through company_resolve.py, which
 fetches its jobs through the SAME sources.py adapters as the static registry —
@@ -92,13 +96,24 @@ def linkedin_discover_companies(query_sets: list, max_pages_per_query: int = 2) 
     return by_company
 
 
-def serper_broad_discover(queries: list, serper_key: str, num: int = 20) -> set:
-    """Non-site-restricted Serper search; returns a set of (ats, token) tuples
-    extracted directly from ATS URLs in the results. Never returns raw non-ATS
-    URLs — those would need enrichment we can't reliably verify here."""
-    found = set()
+def serper_job_discover(queries: list, serper_key: str, num: int = 20) -> list:
+    """v6 D1 — the PRIMARY discovery net: job-level, site-restricted Serper search.
+    Each query targets an ATS site + role/junior terms, so a hit is typically
+    already a role-matched posting (verified live this session: 7-9/10 hits per
+    query were per-job posting URLs, not board roots). Returns a list of hit dicts:
+      * per-job hit: {ats, token, job_id, url, title} — fetched as ONE job via
+        sources.fetch_job_by_ref, never its whole board.
+      * board-root hit (URL names a board but no job id parses): {ats, token,
+        job_id: None, url, title} — the caller applies sources.select_relevant to
+        that one board, never blind whole-board ingestion.
+      * unresolved hit (URL matches neither ATS pattern): {ats: None, token: None,
+        job_id: None, url, title} — the caller's crawl4ai fallback (Phase E) can
+        still enrich it from the DETAIL page; nothing is ever fabricated.
+    """
+    hits = []
     if not serper_key:
-        return found
+        return hits
+    seen = set()
     for q in queries:
         r = sources._request(
             "POST", "https://google.serper.dev/search",
@@ -111,17 +126,31 @@ def serper_broad_discover(queries: list, serper_key: str, num: int = 20) -> set:
         except ValueError:
             continue
         for o in organic:
-            hit = sources.ats_from_url(o.get("link", ""))
-            if hit:
-                found.add(hit)
-    return found
+            url = o.get("link", "")
+            if not url or url in seen:
+                continue
+            seen.add(url)
+            title = o.get("title", "")
+            job_ref = sources.ats_job_from_url(url)
+            if job_ref:
+                ats, token, job_id = job_ref
+                hits.append({"ats": ats, "token": token, "job_id": job_id, "url": url, "title": title})
+                continue
+            board_ref = sources.ats_from_url(url)
+            if board_ref:
+                ats, token = board_ref
+                hits.append({"ats": ats, "token": token, "job_id": None, "url": url, "title": title})
+                continue
+            hits.append({"ats": None, "token": None, "job_id": None, "url": url, "title": title})
+    return hits
 
 
-def resolve_and_fetch_new(company_names: set, known_tokens: set, cap: int = 40,
-                          serper_key: str = None) -> tuple:
+def resolve_and_fetch_new(company_names: set, known_tokens: set, cfg, cap: int = 40,
+                          serper_key: str = None, select_cap: int = 3) -> tuple:
     """Resolve each NEW company name (not already in known_tokens) to a live ATS
-    board and fetch its jobs. Returns (jobs, summary). Bounded by `cap` resolve
-    attempts per run (each is a few HTTP probes) to keep runtime sane. When a
+    board and keep ONLY its title-matching jobs (sources.select_relevant, capped at
+    `select_cap`) — never the whole board. Returns (jobs, summary). Bounded by `cap`
+    resolve attempts per run (each is a few HTTP probes) to keep runtime sane. When a
     `serper_key` is given, company_resolve falls back to a Serper board lookup for
     names whose ATS slug can't be guessed — lifting the resolve yield."""
     jobs, resolved, unresolved = [], [], []
@@ -133,8 +162,11 @@ def resolve_and_fetch_new(company_names: set, known_tokens: set, cap: int = 40,
         if entry.get("token") in known_tokens:
             continue  # already covered by the static registry
         company_jobs = company_resolve.fetch_jobs_for(entry)
-        registry.tag_jobs(company_jobs, name, entry["token"], tier=1, tags=["discovered"])
-        jobs.extend(company_jobs)
+        selected = sources.select_relevant(company_jobs, cfg, cap=select_cap)
+        if not selected:
+            continue
+        registry.tag_jobs(selected, name, entry["token"], tier=1, tags=["discovered"])
+        jobs.extend(selected)
         resolved.append(f"{name}->{entry['ats']}:{entry['token']}")
     return jobs, {"resolved": resolved, "unresolved": unresolved,
                   "attempted": min(len(company_names), cap)}

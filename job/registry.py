@@ -75,10 +75,20 @@ def tag_multi_company_jobs(jobs: list, tier: int, tags: list) -> list:
     return jobs
 
 
-def fetch_all(companies: list, search_text: str = "", serper_key: str = "") -> tuple:
-    """Fetch + normalize + tag jobs from every company. Returns (jobs, summary)."""
-    all_jobs, dead = [], []
+def fetch_all(companies: list, cfg, search_text: str = "", serper_key: str = "") -> tuple:
+    """Fetch every watchlist company's board, then SELECT only its AI/ML-relevant,
+    non-senior jobs (sources.select_relevant) before anything joins the pool — v6's
+    anti-flooding fix. A board contributes its matching jobs (capped at
+    `cfg.watchlist_cap_per_board`) or nothing; the raw board size no longer decides
+    how much of the eval budget it can claim. Returns (jobs, summary); `dead` is a
+    token that returned 0 jobs at all (likely rot), `no_ai_roles` is a live board
+    with 0 jobs that passed selection right now — two different, both honest,
+    reasons for "this board contributed nothing this run."
+    """
+    all_jobs, dead, no_ai_roles = [], [], []
     per_tier = {1: 0, 2: 0, 3: 0}
+    raw_fetched = 0
+    cap = int(getattr(cfg, "watchlist_cap_per_board", 5))
 
     for c in companies:
         adapter = sources.ADAPTERS.get(c.get("ats"))
@@ -89,20 +99,27 @@ def fetch_all(companies: list, search_text: str = "", serper_key: str = "") -> t
         except Exception as e:
             print(f"    ⚠️  {c.get('name')} ({c.get('ats')}) fetch error: {e}")
             jobs = []
+        raw_fetched += len(jobs)
         tier = int(c.get("tier", 1))
         token = c.get("token") or c.get("tenant") or c.get("domain") or c.get("name")
         if not jobs:
             dead.append(f"{c.get('name')} [{c.get('ats')}:{token}]")
             continue
-        tag_jobs(jobs, c.get("name", ""), token, tier, c.get("tags", []))
-        all_jobs.extend(jobs)
-        per_tier[tier] = per_tier.get(tier, 0) + len(jobs)
+        selected = sources.select_relevant(jobs, cfg, cap=cap)
+        if not selected:
+            no_ai_roles.append(f"{c.get('name')} [{len(jobs)} jobs, 0 AI/ML-matching now]")
+            continue
+        tag_jobs(selected, c.get("name", ""), token, tier, c.get("tags", []))
+        all_jobs.extend(selected)
+        per_tier[tier] = per_tier.get(tier, 0) + len(selected)
 
     summary = {
         "companies": len(companies),
-        "companies_with_jobs": len(companies) - len(dead),
+        "companies_with_jobs": len(companies) - len(dead) - len(no_ai_roles),
         "dead": dead,
+        "no_ai_roles": no_ai_roles,
         "per_tier": per_tier,
         "total_jobs": len(all_jobs),
+        "raw_fetched": raw_fetched,
     }
     return all_jobs, summary
