@@ -8,11 +8,3 @@ output/
 *.docx
 *.txt
 !requirements.txt
-
-# Personal profile (generated from the example — keep yours out of git)
-config/profile.yaml
-
-# Generated run artifacts and cross-run dedup caches
-job/reports_*/
-job/seen_fp_*.json
-job/.company_resolve_cache.json

@@ -1,0 +1,22 @@
+[
+  {
+    "job_title": "AI Engineer",
+    "company": "MockUSco",
+    "reason": "Not India-accessible"
+  },
+  {
+    "job_title": "Principal AI Scientist",
+    "company": "MockIndiaAI",
+    "reason": "Senior/lead title: Principal AI Scientist"
+  },
+  {
+    "job_title": "Data Analyst",
+    "company": "MockIndiaAI",
+    "reason": "Not AI/ML relevant: Data Analyst"
+  },
+  {
+    "job_title": "AI Engineer",
+    "company": "ThinCo",
+    "reason": "Thin/empty JD (0 chars)"
+  }
+]
