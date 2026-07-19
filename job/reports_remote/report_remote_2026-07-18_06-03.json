@@ -1,0 +1,51 @@
+{
+  "dry_run": true,
+  "candidates_passed_prefilter": 3,
+  "candidates": [
+    {
+      "title": "AI Voice Engineer",
+      "company": "Remote-First AI Co",
+      "url": "https://jobs.ashbyhq.com/ai-voice-123",
+      "site": "jobs.ashbyhq.com",
+      "posted_date": "2 hours ago",
+      "location_text": "Worldwide Remote",
+      "is_remote": true,
+      "job_type": "full-time",
+      "pay_text": "$80-120k/yr",
+      "experience_text": "1-2 years",
+      "description_snippet": "Build voice pipelines with LiveKit, Deepgram, ElevenLabs. FastAPI backend.",
+      "_fingerprint": "5d6f2c57743bfc662dcd9b6856a2af84",
+      "_scraped_at": "2026-07-18T06:03:34.890662Z"
+    },
+    {
+      "title": "LLM Platform Engineer",
+      "company": "Cohere",
+      "url": "https://cohere.com/careers/llm",
+      "site": "cohere.com",
+      "posted_date": "5 hours ago",
+      "location_text": "Remote \u2014 Worldwide",
+      "is_remote": true,
+      "job_type": "full-time",
+      "pay_text": "$90-130k/yr",
+      "experience_text": "1-2 years",
+      "description_snippet": "Production LLM APIs, RAG, fine-tuning pipelines.",
+      "_fingerprint": "1748c31c8e2b85e59579d1fdca8c6de5",
+      "_scraped_at": "2026-07-18T06:03:34.890680Z"
+    },
+    {
+      "title": "AI Agent Engineer",
+      "company": "Replicate",
+      "url": "https://replicate.com/careers/ai-agent",
+      "site": "replicate.com",
+      "posted_date": "1 day ago",
+      "location_text": "Fully Remote",
+      "is_remote": true,
+      "job_type": "full-time",
+      "pay_text": "$100k/yr",
+      "experience_text": "0-3 years",
+      "description_snippet": "Agentic workflows using LangChain, CrewAI. Python backend. Entry-level welcome.",
+      "_fingerprint": "288d010eb7cba2bfe4ac4dd6a4aee537",
+      "_scraped_at": "2026-07-18T06:03:34.890683Z"
+    }
+  ]
+}

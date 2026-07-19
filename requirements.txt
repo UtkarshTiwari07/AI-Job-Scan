@@ -1,20 +1,8 @@
-# Core (v2 ATS-registry pipeline)
-requests>=2.28        # ATS JSON APIs (Greenhouse/Lever/Ashby/Workday) + Serper
-litellm>=1.40         # one interface to OpenAI/Anthropic/Gemini/DeepSeek/Groq/... (LLM eval)
-PyYAML>=6.0           # read config/*.yaml + the company registry
-python-dotenv>=1.0    # load .env
+# Dependencies for the v1 job-search agents (job/job_remote.py, job_freelance.py,
+# job_india_mnc.py). Pipeline: Serper search -> Crawl4AI scrape -> DeepSeek eval.
 
-# v7 — PRIMARY discovery volume: Indeed/Naukri/LinkedIn/Google Jobs/Glassdoor/
-# ZipRecruiter/Bayt/BDJobs via one uniform API. Without this, discovery is limited
-# to the ATS registry + guest-scrape sources (see README's Honest limits).
-python-jobspy>=1.1
-
-# Used by the (deferred) freelance mode's older scrape path
-pydantic>=2
-
-# Optional — only for the Tier-3 `serper` fallback (crawling a company's own
-# careers domain) and the legacy freelance scrape. Not needed for Tier-1/2 ATS.
-# crawl4ai>=0.4
-
-# Optional — only to read a PDF résumé in `python job/init_profile.py resume.pdf`
-# pypdf>=4.0
+crawl4ai>=0.4          # Phase 2 scrape + LLM extraction of job pages
+openai>=1.0            # DeepSeek client (OpenAI-compatible, base_url=api.deepseek.com)
+requests>=2.28         # Serper search API calls
+pydantic>=2            # structured job models for crawl4ai extraction
+python-dotenv>=1.0     # load DEEPSEEK_API_KEY / SERPER_API_KEY from .env

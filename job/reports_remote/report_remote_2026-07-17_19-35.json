@@ -1,0 +1,15 @@
+{
+  "dry_run": true,
+  "candidates_passed_prefilter": 1,
+  "candidates": [
+    {
+      "job_title": "AI Engineer",
+      "company": "MockAI",
+      "application_url": "https://example.com/122a85ba",
+      "location": "Remote - Worldwide",
+      "source": "mock",
+      "tier": 1,
+      "posted_date": "2026-07-10"
+    }
+  ]
+}

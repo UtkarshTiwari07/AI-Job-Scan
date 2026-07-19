@@ -1,0 +1,15 @@
+{
+  "dry_run": true,
+  "candidates_passed_prefilter": 1,
+  "candidates": [
+    {
+      "job_title": "ML Engineer",
+      "company": "MockIndiaAI",
+      "application_url": "https://example.com/b2fa8c11",
+      "location": "Bengaluru, India",
+      "source": "mock",
+      "tier": 1,
+      "posted_date": "2026-07-10"
+    }
+  ]
+}

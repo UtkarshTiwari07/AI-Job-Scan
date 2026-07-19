@@ -1,0 +1,27 @@
+[
+  {
+    "job_title": "Senior Machine Learning Engineer",
+    "company": "MockAI2",
+    "reason": "Senior/lead title: Senior Machine Learning Engineer"
+  },
+  {
+    "job_title": "AI Engineer",
+    "company": "ThinCo",
+    "reason": "Thin/empty JD (0 chars)"
+  },
+  {
+    "job_title": "Data Analyst",
+    "company": "AnalyticsCo",
+    "reason": "Off-stack title: Data Analyst"
+  },
+  {
+    "job_title": "LLM Engineer",
+    "company": "USOnlyCo",
+    "reason": "Geo-locked (region-restricted remote)"
+  },
+  {
+    "job_title": "AI Engineer",
+    "company": "SeniorCo",
+    "reason": "Requires 8+ yrs (bracket 3)"
+  }
+]

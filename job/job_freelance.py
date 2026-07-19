@@ -20,34 +20,272 @@ warnings.filterwarnings("ignore", message="urllib3 .* doesn't match a supported 
 
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from jobscan_config import load_config
-import jobscan_llm
+from openai import OpenAI
 
 # ══════════════════════════════════════════════════════════════════
 # CONFIG
 # ══════════════════════════════════════════════════════════════════
 
-cfg = load_config("freelance")
-
+DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 SERPER_API_KEY   = os.getenv("SERPER_API_KEY")
 SEEN_FP_FILE     = os.path.join(os.path.dirname(__file__), "seen_fp_freelance.json")
-MAX_POSTING_AGE_DAYS = cfg.max_posting_age_days
-MIN_PAY_PER_HOUR_USD = cfg.min_pay_per_hour_usd
+MAX_POSTING_AGE_DAYS = 3   # Serper qdr:w, then Phase 3 enforces 3 days
+MIN_PAY_PER_HOUR_USD = 30  # Reject freelance gigs below this
 
-QUERY_CLUSTERS = cfg.query_clusters
-DIRECT_URLS    = cfg.direct_urls
-SERPER_EXTRA   = cfg.serper_extra
-SITE_ALLOWLIST = cfg.site_allowlist
+# ── Core freelance platforms for Serper site: queries ────────────
+TARGET_SITES = [
+    "braintrust.us", "contra.com", "lemon.io", "gun.io", "malt.com",
+    "toptal.com", "wellfound.com", "arc.dev", "upwork.com", "freelancer.com",
+]
 
-CANDIDATE_PROFILE = cfg.profile
+# ── Domain allowlist ─────────────────────────────────────────────
+# ONLY jobs scraped from these domains pass Phase 3.
+# Blocks glassdoor.co.in, jobstreet.com, jooble.org, random sites.
+SITE_ALLOWLIST = {
+    # Tier 1: AI-specialized freelance platforms
+    "arc.dev", "braintrust.us", "contra.com", "gun.io", "lemon.io",
+    "malt.com", "toptal.com", "wellfound.com", "turing.com",
+    # Tier 2: Mainstream but useful for AI contracts
+    "upwork.com", "freelancer.com",
+    # Tier 3: Niche AI/ML platforms
+    "pangea.ai", "loopp.com", "workwall.com", "botpool.ai",
+    "jobbers.io", "kolabtree.com",
+    # Tier 4: Direct company / ATS portals
+    "boards.greenhouse.io", "jobs.lever.co", "jobs.ashbyhq.com",
+    "smartrecruiters.com", "jobs.smartrecruiters.com",
+    # Tier 5: Remote job boards with AI contracts
+    "weworkremotely.com", "remoteok.com", "flexjobs.com",
+    "ziprecruiter.com",
+    "linkedin.com", "lnkd.in",
+    # Tier 6: AI training / gig platforms
+    "alignerr.com", "scale.com", "outlier.ai",
+}
 
-RECRUITER_PATTERN       = cfg.recruiter_re
-TITLE_REJECT_PATTERNS   = cfg.title_reject_re
-AI_RELEVANCE_KEYWORDS   = cfg.ai_relevance_re
-EXPERIENCE_TITLE_REJECT = cfg.seniority_reject_re
-EXPERIENCE_YEARS_REJECT = cfg.experience_years_reject
-EDUCATION_REJECT_TOKENS = cfg.education_reject_tokens
+# ── AI-relevance keyword filter ──────────────────────────────────
+# If NEITHER title NOR description contains any of these keywords,
+# the job is hard-rejected before reaching DeepSeek.
+# Blocks: IoT boards, CAD, logo design, wedding sites, PCB hardware.
+AI_RELEVANCE_KEYWORDS = re.compile(
+    r"(llm|rag|langchain|crewai|fastapi|openai|pinecone|"
+    r"generative.?ai|gen.?ai|ai.?agent|voice.?ai|"
+    r"chatbot|gpt|gemini|llama|lora|fine.?tun|"
+    r"machine.?learn|deep.?learn|neural|pytorch|"
+    r"nlp|natural.?language|transformer|embedding|"
+    r"ai.?engineer|ml.?engineer|ai.?develop|"
+    r"artificial.?intelligence|"
+    r"hugging.?face|vector.?db|chromadb|weaviate|"
+    r"livek|deepgram|elevenlabs|whisper|"
+    r"python.?ai|ai.?consult|ai.?automat|"
+    r"prompt.?engineer|ai.?model|ai.?train|"
+    r"ai.?ops|ai.?platform|ai.?solution)", re.IGNORECASE
+)
+
+# ── Direct platform URL injection ────────────────────────────────
+# Pre-built search URLs injected directly into Phase 1 (no Serper needed).
+# Each URL is a pre-filtered search on a freelance platform for AI roles.
+UPWORK_DIRECT_URLS = [
+    "https://www.upwork.com/nx/search/jobs/?q=LLM+engineer&sort=recency",
+    "https://www.upwork.com/nx/search/jobs/?q=AI+agent+developer&sort=recency",
+    "https://www.upwork.com/nx/search/jobs/?q=voice+AI+engineer&sort=recency",
+    "https://www.upwork.com/nx/search/jobs/?q=RAG+engineer+Python&sort=recency",
+    "https://www.upwork.com/nx/search/jobs/?q=LangChain+FastAPI&sort=recency",
+    "https://www.upwork.com/nx/search/jobs/?q=generative+AI+developer&sort=recency",
+    "https://www.upwork.com/nx/search/jobs/?q=AI+chatbot+developer&sort=recency",
+]
+WELLFOUND_DIRECT_URLS = [
+    "https://wellfound.com/jobs?q=LLM+engineer&remote=true",
+    "https://wellfound.com/jobs?q=AI+agent&remote=true",
+    "https://wellfound.com/jobs?q=voice+AI&remote=true",
+    "https://wellfound.com/jobs?q=generative+AI&remote=true",
+]
+DIRECT_PLATFORM_URLS = [
+    # ── Turing (AI talent marketplace) ──
+    "https://www.turing.com/remote-developer-jobs/remote-python-developer-jobs",
+    "https://www.turing.com/remote-developer-jobs/remote-ai-ml-developer-jobs",
+    # ── Arc.dev (remote dev jobs) ──
+    "https://arc.dev/remote-jobs?disciplines=Engineering&skills=AI&skills=Python&skills=Machine+Learning",
+    "https://arc.dev/remote-jobs?disciplines=Engineering&skills=LLM&skills=NLP",
+    # ── Contra (commission-free freelance) ──
+    "https://contra.com/opportunity?query=AI+engineer",
+    "https://contra.com/opportunity?query=LLM+developer",
+    # ── Gun.io (vetted devs) ──
+    "https://gun.io/find-work/?q=AI+engineer",
+    "https://gun.io/find-work/?q=Python+AI",
+    # ── Braintrust (Web3 freelance) ──
+    "https://app.usebraintrust.com/jobs?search=AI+engineer",
+    "https://app.usebraintrust.com/jobs?search=LLM",
+    # ── Toptal (elite freelance) ──
+    "https://www.toptal.com/freelance-jobs/developers/python",
+    # ── We Work Remotely (remote job board) ──
+    "https://weworkremotely.com/remote-jobs/search?term=AI+engineer",
+    "https://weworkremotely.com/remote-jobs/search?term=machine+learning",
+    "https://weworkremotely.com/remote-jobs/search?term=LLM",
+    # ── RemoteOK (remote job board) ──
+    "https://remoteok.com/remote-ai-jobs",
+    "https://remoteok.com/remote-machine-learning-jobs",
+    "https://remoteok.com/remote-python-jobs",
+    # ── BotPool (AI freelance marketplace) ──
+    "https://botpool.ai/jobs",
+    # ── Pangea.ai (AI dev network) ──
+    "https://pangea.ai/talents?skill=AI",
+    # ── Lemon.io (startup devs) ──
+    "https://lemon.io/for-developers",
+    # ── FlexJobs (vetted remote) ──
+    "https://www.flexjobs.com/remote-jobs/ai",
+    "https://www.flexjobs.com/remote-jobs/machine-learning",
+    # ── Greenhouse ATS boards (AI startups) ──
+    "https://boards.greenhouse.io/cohere",
+    "https://boards.greenhouse.io/huggingface",
+    "https://boards.greenhouse.io/together",
+    "https://boards.greenhouse.io/anyscale",
+    "https://boards.greenhouse.io/wandb",
+    "https://boards.greenhouse.io/clarifai",
+    "https://boards.greenhouse.io/modal",
+    # ── Lever ATS boards ──
+    "https://jobs.lever.co/turing",
+    "https://jobs.lever.co/scale",
+    # ── Ashby ATS ──
+    "https://jobs.ashbyhq.com/sarvam",
+    # ── SmartRecruiters ──
+    "https://jobs.smartrecruiters.com/?keyword=LLM+engineer&location=Remote",
+    "https://jobs.smartrecruiters.com/?keyword=AI+engineer&location=Remote",
+    # ── Alignerr / Scale (AI training gigs) ──
+    "https://www.alignerr.com/",
+    "https://scale.com/careers",
+]
+
+# ── Serper query clusters ────────────────────────────────────────
+QUERY_CLUSTERS = [
+    # ── GROUP A: Site-restricted (core freelance platforms) ──────
+    {
+        "name": "A1 — Voice AI / LLM Freelance [per-site]",
+        "terms": '("voice AI" OR "LLM engineer" OR "AI agent developer") ("contract" OR "freelance" OR "hourly") -senior -lead',
+        "num": 20, "sites": TARGET_SITES, "broad": False,
+    },
+    {
+        "name": "A2 — RAG / LangChain / FastAPI Freelance [per-site]",
+        "terms": '("RAG" OR "LangChain" OR "CrewAI" OR "FastAPI" OR "Pinecone") ("contract" OR "freelance" OR "project") "AI engineer" -senior',
+        "num": 20, "sites": TARGET_SITES, "broad": False,
+    },
+    {
+        "name": "A3 — GenAI Entry Freelance [per-site]",
+        "terms": '"generative AI" OR "LLM developer" OR "AI chatbot" ("freelance" OR "contract") ("junior" OR "entry" OR "0-2 years")',
+        "num": 20, "sites": TARGET_SITES, "broad": False,
+    },
+    # ── GROUP B: Broad free-text with garbage-site exclusions ────
+    {
+        "name": "B1 — Voice AI / Agents Gigs [broad]",
+        "terms": (
+            '"voice AI freelance" OR "LiveKit developer" OR "Deepgram developer" '
+            'OR "ElevenLabs developer" contract OR hourly -senior -lead '
+            '-site:glassdoor.co.in -site:id.jobstreet.com -site:jooble.org '
+            '-site:jobgether.com -site:founditgulf.com'
+        ),
+        "num": 20, "sites": ["_broad_"], "broad": True,
+    },
+    {
+        "name": "B2 — LLM / RAG Project Work [broad]",
+        "terms": (
+            '"LLM engineer" OR "RAG developer" OR "AI agent freelance" OR "LangChain developer" '
+            '("freelance" OR "contract" OR "project-based") -senior -lead '
+            '-site:glassdoor.co.in -site:id.jobstreet.com -site:jooble.org'
+        ),
+        "num": 20, "sites": ["_broad_"], "broad": True,
+    },
+    {
+        "name": "B3 — AI Startup Contract [broad]",
+        "terms": (
+            '("fractional AI engineer" OR "AI consultant" OR "contract AI engineer") '
+            '("junior" OR "entry" OR "0-2 years") -senior '
+            '-site:glassdoor.co.in -site:id.jobstreet.com'
+        ),
+        "num": 20, "sites": ["_broad_"], "broad": True,
+    },
+    {
+        "name": "B4 — Python AI Backend Freelance [broad]",
+        "terms": (
+            '("FastAPI developer freelance" OR "Python AI developer" OR "AI API developer") '
+            '("contract" OR "remote freelance") -"data scientist" -"DevOps" '
+            '-site:glassdoor.co.in -site:id.jobstreet.com -site:jooble.org'
+        ),
+        "num": 20, "sites": ["_broad_"], "broad": True,
+    },
+    # ── GROUP C: Niche AI platforms (per-site) ──────────────────
+    {
+        "name": "C1 — Braintrust / Contra / Gun.io / Arc [per-site]",
+        "terms": '"AI engineer" OR "LLM" OR "voice AI" OR "RAG" OR "generative AI" contract OR freelance OR project',
+        "num": 20, "sites": ["braintrust.us", "contra.com", "gun.io", "lemon.io", "arc.dev"],
+        "broad": False,
+    },
+    {
+        "name": "C2 — Remote AI Job Boards [per-site]",
+        "terms": (
+            '("AI engineer" OR "LLM" OR "machine learning" OR "generative AI" OR "Python AI") '
+            '("remote" OR "freelance" OR "contract")'
+        ),
+        "num": 20,
+        "sites": ["weworkremotely.com", "remoteok.com", "flexjobs.com"],
+        "broad": False,
+    },
+    {
+        "name": "C3 — AI Training / Gig Platforms [per-site]",
+        "terms": '"AI trainer" OR "LLM trainer" OR "AI engineer" OR "Python" remote contract',
+        "num": 15,
+        "sites": ["turing.com", "alignerr.com", "scale.com", "outlier.ai", "pangea.ai", "botpool.ai"],
+        "broad": False,
+    },
+    {
+        "name": "C4 — Toptal / Malt Elite Freelance [per-site]",
+        "terms": '"AI" OR "machine learning" OR "LLM" OR "Python" freelance OR contract',
+        "num": 15,
+        "sites": ["toptal.com", "malt.com", "jobbers.io", "kolabtree.com"],
+        "broad": False,
+    },
+]
+
+CANDIDATE_PROFILE = {
+    "name": "Utkarsh Tiwari",
+    "stack": "AI Engineer (1 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
+    "metrics": "Built production voice AI for 2,000+ concurrent calls. Reduced LLM cold-start 10.4x (3.9s→378ms). Trained LightGBM on 716K+ records. Reduced AI-content detection 100%→30%.",
+    "min_rate": f"${MIN_PAY_PER_HOUR_USD}/hr minimum",
+}
+
+RECRUITER_PATTERN = re.compile(r"\b(recruit|staffing|placement agency|hr solutions|manpower)\b", re.IGNORECASE)
+
+# Hard-reject non-AI-stack job titles.
+# Expanded after live-run analysis: IoT/PCB/CAD/logo/wedding/WordPress/
+# hardware/marketing/graphic design noise observed in freelancer.com data.
+TITLE_REJECT_PATTERNS = re.compile(
+    r"(\bqa\b|quality ana|quality assur|manual test|software test|functional test|automation test|"
+    r"medical writer|medical editor|biostatistic|statistical programmer|clinical research|"
+    r"pharmacovigilance|regulatory affair|"
+    r"relationship officer|sales|telecall|tele sales|tele caller|"
+    r"business development|branch manager|delivery boy|customer service|client serv|"
+    r"hr \b|human resource|talent acqui|talent manag|"
+    r"marketing|social media|graphic design|content writer|digital content|"
+    r"data analyst|business analyst|data modeler|power bi|tableau|"
+    r"data engineer(?!.*ai)|data scientist|mlops|"
+    r"computer vision|cv engineer|robotics|"
+    r"\bjava\b|java developer|java engineer|\.net\b|angular|react native|mern|mean stack|"
+    r"php developer|php engineer|ruby on rails|node.?js developer|wordpress|"
+    r"android\b|ios developer|ios engineer|flutter|kotlin|swift|"
+    r"devops(?!.*ai)|sysadmin|network engineer|embedded|firmware|"
+    r"blockchain|solidity|web3(?!.*ai)|nft|"
+    r"full.?stack(?!.*ai|.*ml|.*python)|frontend(?!.*ai)|"
+    r"support consultant|technical support(?!.*ai)|it support|service desk|"
+    r"salesforce|oracle|powerbi|odoo|teamcenter|"
+    r"executive assistant|chief of staff|operations manager|scrum master|"
+    r"cyber security|cybersecurity|penetration test|"
+    r"pcb design|hardware design|circuit|cad design|autocad|solidworks|"
+    r"3d model|3d print|3d anim|revit|logo design|illustration|"
+    r"wedding|video edit|photo edit|retouching|power.?point|"
+    r"seo |google ads|meta ads|email market)",
+    re.IGNORECASE,
+)
+
+EXPERIENCE_TITLE_REJECT = re.compile(r"\b(senior|lead|principal|manager|director|vp |head of)\b", re.IGNORECASE)
+EXPERIENCE_YEARS_REJECT = ["4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+"]
+EDUCATION_REJECT_TOKENS = ["master's degree required", "masters degree required", "phd required", "ph.d", "doctorate"]
 
 def parse_pay_hourly(pay_str: str) -> Optional[float]:
     """Extract lowest hourly USD rate from pay string."""
@@ -98,7 +336,7 @@ def search_for_jobs() -> List[str]:
             print(f"     → [BROAD] {query[:110]}")
             try:
                 resp=requests.post(api_url,headers=headers,
-                    data=json.dumps({"q":query,"num":cluster["num"],"tbs":"qdr:w",**SERPER_EXTRA}),timeout=15)
+                    data=json.dumps({"q":query,"num":cluster["num"],"tbs":"qdr:w"}),timeout=15)
                 resp.raise_for_status()
                 found=sum(1 for r in resp.json().get("organic",[]) if (l:=r.get("link","").strip()) and l not in seen_urls and (seen_urls.add(l) or all_urls.append(l) or True))
                 print(f"       ✓ {found} new URLs")
@@ -109,7 +347,7 @@ def search_for_jobs() -> List[str]:
                 print(f"     → {query[:120]}")
                 try:
                     resp=requests.post(api_url,headers=headers,
-                        data=json.dumps({"q":query,"num":cluster["num"],"tbs":"qdr:w",**SERPER_EXTRA}),timeout=15)
+                        data=json.dumps({"q":query,"num":cluster["num"],"tbs":"qdr:w"}),timeout=15)
                     resp.raise_for_status()
                     found=0
                     for r in resp.json().get("organic",[]):
@@ -119,7 +357,7 @@ def search_for_jobs() -> List[str]:
                 except Exception as e: print(f"     ⚠️ Serper error ({site}): {e}")
 
     # ── Direct URL injection ─────────────────────────────────────
-    all_direct = DIRECT_URLS
+    all_direct = UPWORK_DIRECT_URLS + WELLFOUND_DIRECT_URLS + DIRECT_PLATFORM_URLS
     print(f"\n  🔗 Injecting {len(all_direct)} direct URLs (Upwork + Wellfound + 15 platforms)...")
     for url in all_direct:
         if url not in seen_urls: seen_urls.add(url); all_urls.append(url)
@@ -137,7 +375,14 @@ class ScrapedJob(BaseModel):
     job_type: str=""; pay_text: str=""; experience_text: str=""
     description_snippet: str=""
 
-SCRAPE_INSTRUCTION = cfg.scrape_instruction
+SCRAPE_INSTRUCTION="""Extract EVERY job/gig posting on this page. For each return:
+title, company (client/company name or "Unknown"), url (direct apply link), site (domain),
+posted_date (ISO or relative like '2 hours ago' — ALWAYS fill),
+location_text, is_remote (true/false), job_type (contract/freelance/full-time/part-time),
+pay_text (exact rate/salary shown — ALWAYS fill, e.g. '$50/hr', '$5000 project budget'),
+experience_text (ALWAYS fill — e.g. '1-2 years', 'entry level', 'any level'),
+description_snippet (first 400 chars — ALWAYS fill).
+Return [] if not a job listing."""
 
 async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
     from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, LLMConfig
@@ -145,7 +390,7 @@ async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
     import logging; logging.getLogger("crawl4ai").setLevel(logging.ERROR)
     print(f"\n🕷️  PHASE 2 — Crawl4AI scraping {len(urls)} URLs...")
     strategy=LLMExtractionStrategy(
-        llm_config=LLMConfig(provider=jobscan_llm.get_model(), api_token=jobscan_llm.resolve_token()),
+        llm_config=LLMConfig(provider="deepseek/deepseek-chat",api_token=DEEPSEEK_API_KEY),
         schema=ScrapedJob.model_json_schema(),extraction_type="schema",instruction=SCRAPE_INSTRUCTION)
     run_cfg=CrawlerRunConfig(extraction_strategy=strategy,cache_mode=CacheMode.BYPASS,magic=True)
     all_jobs: List[dict]=[]; seen_fp: Set[str]=set()
@@ -263,68 +508,63 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
 # PHASE 4 — DEEPSEEK V3
 # ══════════════════════════════════════════════════════════════════
 
-EVAL_SYSTEM = cfg.eval_system
+EVAL_SYSTEM="""You are {name}'s autonomous freelance AI job agent.
+Stack: {stack}
+Metrics: {metrics}
+Min rate: {min_rate}
 
-FORMAT_INSTRUCTIONS = cfg.format_instructions
+RULES:
+- Worldwide remote freelance/contract only. Reject onsite-only positions.
+- Reject if pay is specified and clearly below $30/hr equivalent.
+- Reject: pure data science, MLOps-only, Java/.NET, DevOps, unrelated to AI Voice/LLM/RAG/Python.
+- Empty description_snippet but clear AI title → is_match=true, score=60, note "description unavailable".
+- 1 YOE but production-scale — do not reject purely due to YOE.
+
+For is_match=true: drafted_proposal (3 tight paragraphs: achievement → stack fit → metric+CTA).
+For is_match=false: rejection_reason (1 sentence).
+{format_instructions}"""
+
+FORMAT_INSTRUCTIONS='Return ONLY valid JSON: {"evaluated_jobs":[{"is_match":true/false,"job_title":"string","company":"string","application_url":"string","match_score":0-100,"rejection_reason":"string or null","drafted_proposal":"string or null"}]}'
 
 def evaluate_and_draft(candidates: List[dict]) -> str:
-    if not candidates:
-        return json.dumps({"evaluated_jobs": []}, indent=2)
+    if not candidates: return json.dumps({"evaluated_jobs":[]},indent=2)
+    print(f"\n🧠 PHASE 4 — DeepSeek V3 evaluating {len(candidates)} candidates...")
+    client=OpenAI(api_key=DEEPSEEK_API_KEY,base_url="https://api.deepseek.com")
+    system_prompt=EVAL_SYSTEM.format(name=CANDIDATE_PROFILE["name"],stack=CANDIDATE_PROFILE["stack"],
+        metrics=CANDIDATE_PROFILE["metrics"],min_rate=CANDIDATE_PROFILE["min_rate"],
+        format_instructions=FORMAT_INSTRUCTIONS)
 
-    model = jobscan_llm.get_model()
-    print(f"\n🧠 PHASE 4 — {model} evaluating {len(candidates)} candidates...")
-
-    system_prompt = EVAL_SYSTEM.format(
-        name=CANDIDATE_PROFILE.get("name", ""),
-        stack=CANDIDATE_PROFILE.get("stack", ""),
-        metrics=CANDIDATE_PROFILE.get("metrics", ""),
-        location=CANDIDATE_PROFILE.get("location", ""),
-        min_rate=CANDIDATE_PROFILE.get("min_rate", ""),
-        format_instructions=FORMAT_INSTRUCTIONS,
-    )
-
-    def call_llm(batch: List[dict], batch_num: int, total: int) -> List[dict]:
-        print(f"  📦 Batch {batch_num}/{total} ({len(batch)} jobs)...")
-        text = ""
+    def call_ds(batch,bn,total):
+        print(f"  📦 Batch {bn}/{total}...")
+        text=""
         try:
-            text, reasoning = jobscan_llm.chat_completion(
-                messages=[
-                    {"role": "system", "content": system_prompt},
-                    {"role": "user", "content": f"Jobs:\n{json.dumps(batch, indent=2)}"},
-                ],
-                max_tokens=14000,
-            )
+            resp=client.chat.completions.create(model="deepseek-chat",max_tokens=14000,
+                messages=[{"role":"system","content":system_prompt},
+                          {"role":"user","content":f"Gigs:\n{json.dumps(batch,indent=2)}"}],
+                extra_body={"thinking":{"type":"enabled"}})
+            reasoning=getattr(resp.choices[0].message,"reasoning_content",None)
             if reasoning:
-                lines = reasoning.strip().splitlines()
-                print(f"  💭 Thinking (batch {batch_num}, {len(lines)} lines):")
-                for line in lines[:20]:
-                    print(f"  {line}")
-                if len(lines) > 20:
-                    print(f"  ... ({len(lines)-20} more)")
-            text = text or ""
-            if "```json" in text:
-                text = text.split("```json")[1].split("```")[0].strip()
-            elif "```" in text:
-                text = text.split("```")[1].split("```")[0].strip()
-            return json.loads(text).get("evaluated_jobs", [])
+                lines=reasoning.strip().splitlines()
+                print(f"  💭 Thinking ({bn}, {len(lines)} lines):")
+                for l in lines[:20]: print(f"  {l}")
+                if len(lines)>20: print(f"  ...({len(lines)-20} more)")
+            text=resp.choices[0].message.content or ""
+            if "```json" in text: text=text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text: text=text.split("```")[1].split("```")[0].strip()
+            return json.loads(text).get("evaluated_jobs",[])
         except Exception as e:
-            print(f"  ⚠️ Batch {batch_num} error: {e}")
-            if text:
-                print("  📄 Raw:", text[:400])
+            print(f"  ⚠️ Batch {bn} error: {e}")
+            if text: print("  Raw:",text[:400])
             return []
 
-    batches = [candidates[i:i+10] for i in range(0, len(candidates), 10)]
-    all_evaluated: List[dict] = []
-    for idx, batch in enumerate(batches, 1):
-        results = call_llm(batch, idx, len(batches))
-        all_evaluated.extend(results)
-        hits = sum(1 for j in results if j.get("is_match"))
-        print(f"  ✅ Batch {idx}/{len(batches)} — {hits}/{len(results)} matched, total: {len(all_evaluated)}")
-
-    # Report only genuine matches (>=50) — non-matches go nowhere near the report.
-    matches = [j for j in all_evaluated
-               if j.get("is_match") and (j.get("match_score") or 0) >= 50]
-    return json.dumps({"evaluated_jobs": matches}, indent=2)
+    batches=[candidates[i:i+10] for i in range(0,len(candidates),10)]
+    all_eval: List[dict]=[]
+    for idx,batch in enumerate(batches,1):
+        results=call_ds(batch,idx,len(batches))
+        all_eval.extend(results)
+        hits=sum(1 for j in results if j.get("is_match"))
+        print(f"  ✅ {idx}/{len(batches)} — {hits}/{len(results)} matched, total: {len(all_eval)}")
+    return json.dumps({"evaluated_jobs":all_eval},indent=2)
 
 # ══════════════════════════════════════════════════════════════════
 # MOCK + MAIN

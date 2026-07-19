@@ -1,0 +1,57 @@
+{
+  "dry_run": true,
+  "candidates_passed_prefilter": 3,
+  "candidates": [
+    {
+      "title": "AI Voice Agent Developer",
+      "company": "TechStartup Inc",
+      "url": "https://arc.dev/jobs/ai-voice-123",
+      "site": "arc.dev",
+      "posted_date": "2 hours ago",
+      "location_text": "Remote",
+      "is_remote": true,
+      "job_type": "contract",
+      "pay_text": "$50/hr",
+      "experience_text": "1-2 years",
+      "description_snippet": "Build LiveKit voice agents using Python and OpenAI APIs. Entry level welcome.",
+      "_fingerprint": "fc63ac0d954192c689550d782edb6db7",
+      "_scraped_at": "2026-07-18T06:03:45.977469Z",
+      "pay_hourly_usd": 50.0,
+      "pay_missing": false
+    },
+    {
+      "title": "LLM Engineer \u2014 RAG",
+      "company": "AI Startup",
+      "url": "https://wellfound.com/jobs/789",
+      "site": "wellfound.com",
+      "posted_date": "4 hours ago",
+      "location_text": "Remote / Worldwide",
+      "is_remote": true,
+      "job_type": "freelance",
+      "pay_text": "$4000 project budget",
+      "experience_text": "Entry level",
+      "description_snippet": "Build RAG pipeline using LangChain and Pinecone for document Q&A.",
+      "_fingerprint": "0d2ece48d394f3c6816917c2a300a85f",
+      "_scraped_at": "2026-07-18T06:03:45.977486Z",
+      "pay_hourly_usd": null,
+      "pay_missing": false
+    },
+    {
+      "title": "AI Agent Developer",
+      "company": "SaaS Co",
+      "url": "https://contra.com/jobs/ai-agent",
+      "site": "contra.com",
+      "posted_date": "2 days ago",
+      "location_text": "Remote",
+      "is_remote": true,
+      "job_type": "freelance",
+      "pay_text": "$60/hr",
+      "experience_text": "1-3 years",
+      "description_snippet": "Build multi-agent pipelines with CrewAI and LangChain. FastAPI backend.",
+      "_fingerprint": "ed5ab00566fad4f1ccc0e113625729f8",
+      "_scraped_at": "2026-07-18T06:03:45.977492Z",
+      "pay_hourly_usd": 60.0,
+      "pay_missing": false
+    }
+  ]
+}
