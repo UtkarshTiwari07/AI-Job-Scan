@@ -6,3 +6,4 @@ openai>=1.0            # DeepSeek client (OpenAI-compatible, base_url=api.deepse
 requests>=2.28         # Serper search API calls
 pydantic>=2            # structured job models for crawl4ai extraction
 python-dotenv>=1.0     # load DEEPSEEK_API_KEY / SERPER_API_KEY from .env
+PyYAML>=6.0            # job/companies_remote.yaml (200-company ATS/Serper registry)

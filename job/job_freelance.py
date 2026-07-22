@@ -205,7 +205,16 @@ QUERY_CLUSTERS = [
         "name": "B4 — Python AI Backend Freelance [broad]",
         "terms": (
             '("FastAPI developer freelance" OR "Python AI developer" OR "AI API developer") '
-            '("contract" OR "remote freelance") -"data scientist" -"DevOps" '
+            '("contract" OR "remote freelance") -"DevOps" '
+            '-site:glassdoor.co.in -site:id.jobstreet.com -site:jooble.org'
+        ),
+        "num": 20, "sites": ["_broad_"], "broad": True,
+    },
+    {
+        "name": "B5 — Data Scientist / Forward Deployed Engineer Freelance [broad]",
+        "terms": (
+            '("data scientist" OR "applied scientist" OR "forward deployed engineer") '
+            '("contract" OR "freelance" OR "hourly") ("junior" OR "entry" OR "0-2 years") -senior -lead '
             '-site:glassdoor.co.in -site:id.jobstreet.com -site:jooble.org'
         ),
         "num": 20, "sites": ["_broad_"], "broad": True,
@@ -245,9 +254,10 @@ QUERY_CLUSTERS = [
 
 CANDIDATE_PROFILE = {
     "name": "Utkarsh Tiwari",
-    "stack": "AI Engineer (1 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
+    "stack": "AI Engineer (1-2 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
     "metrics": "Built production voice AI for 2,000+ concurrent calls. Reduced LLM cold-start 10.4x (3.9s→378ms). Trained LightGBM on 716K+ records. Reduced AI-content detection 100%→30%.",
     "min_rate": f"${MIN_PAY_PER_HOUR_USD}/hr minimum",
+    "target_roles": "AI Engineer, ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused), Forward Deployed Engineer",
 }
 
 RECRUITER_PATTERN = re.compile(r"\b(recruit|staffing|placement agency|hr solutions|manpower)\b", re.IGNORECASE)
@@ -264,7 +274,7 @@ TITLE_REJECT_PATTERNS = re.compile(
     r"hr \b|human resource|talent acqui|talent manag|"
     r"marketing|social media|graphic design|content writer|digital content|"
     r"data analyst|business analyst|data modeler|power bi|tableau|"
-    r"data engineer(?!.*ai)|data scientist|mlops|"
+    r"data engineer(?!.*ai)|mlops|"
     r"computer vision|cv engineer|robotics|"
     r"\bjava\b|java developer|java engineer|\.net\b|angular|react native|mern|mean stack|"
     r"php developer|php engineer|ruby on rails|node.?js developer|wordpress|"
@@ -284,8 +294,20 @@ TITLE_REJECT_PATTERNS = re.compile(
 )
 
 EXPERIENCE_TITLE_REJECT = re.compile(r"\b(senior|lead|principal|manager|director|vp |head of)\b", re.IGNORECASE)
-EXPERIENCE_YEARS_REJECT = ["4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+"]
 EDUCATION_REJECT_TOKENS = ["master's degree required", "masters degree required", "phd required", "ph.d", "doctorate"]
+
+def min_years_required(exp_text: str) -> Optional[int]:
+    """Extract the MINIMUM years-of-experience a posting requires, from free text
+    like '3+ years', '1-2 yrs', '5 years', 'entry level'. Returns None when no number
+    is present (unspecified/entry-level language never blocks a candidate) — this
+    replaces a fixed token list, which missed band phrasing ('3-5 years') that wasn't
+    a literal '<n>+ years' substring. Candidate is 1-2 YOE; reject >2."""
+    if not exp_text: return None
+    t = exp_text.lower()
+    if any(w in t for w in ["fresher", "entry level", "entry-level", "no experience", "0 years", "any level"]):
+        return 0
+    m = re.search(r"(\d+)\s*\+", t) or re.search(r"(\d+)\s*(?:-|to)\s*\d+\s*year", t) or re.search(r"(\d+)\+?\s*year", t)
+    return int(m.group(1)) if m else None
 
 def parse_pay_hourly(pay_str: str) -> Optional[float]:
     """Extract lowest hourly USD rate from pay string."""
@@ -373,7 +395,7 @@ class ScrapedJob(BaseModel):
     title: str=""; company: str=""; url: str=""; site: str=""
     posted_date: str=""; location_text: str=""; is_remote: bool=False
     job_type: str=""; pay_text: str=""; experience_text: str=""
-    description_snippet: str=""
+    description: str=""
 
 SCRAPE_INSTRUCTION="""Extract EVERY job/gig posting on this page. For each return:
 title, company (client/company name or "Unknown"), url (direct apply link), site (domain),
@@ -381,7 +403,8 @@ posted_date (ISO or relative like '2 hours ago' — ALWAYS fill),
 location_text, is_remote (true/false), job_type (contract/freelance/full-time/part-time),
 pay_text (exact rate/salary shown — ALWAYS fill, e.g. '$50/hr', '$5000 project budget'),
 experience_text (ALWAYS fill — e.g. '1-2 years', 'entry level', 'any level'),
-description_snippet (first 400 chars — ALWAYS fill).
+description (the FULL job/gig description text — every requirement and
+responsibility, not a summary or excerpt — ALWAYS fill).
 Return [] if not a job listing."""
 
 async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
@@ -454,7 +477,7 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         title_l=title.lower()
         company=(job.get("company") or "").lower()
         exp    =(job.get("experience_text") or "").lower()
-        desc   =(job.get("description_snippet") or "").lower()
+        desc   =(job.get("description") or "").lower()
         fp     =job.get("_fingerprint","")
         site   =(job.get("site") or "").lower().strip()
 
@@ -486,9 +509,11 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         if RECRUITER_PATTERN.search(company): reject(f"Recruiter: {company}"); continue
         if any(tok in f"{exp} {desc}" for tok in EDUCATION_REJECT_TOKENS): reject("Advanced degree required"); continue
 
-        # 6. Experience: seniority in TITLE only; year ranges in experience_text only
+        # 6. Experience: candidate is 1-2 YOE. Seniority in TITLE only; minimum-years
+        # parsed from experience_text (catches band phrasing a literal token list would miss).
         if EXPERIENCE_TITLE_REJECT.search(title): reject(f"Senior/lead title: {title}"); continue
-        if any(tok in exp for tok in EXPERIENCE_YEARS_REJECT): reject(f"Too many YOE: {exp}"); continue
+        min_yrs = min_years_required(exp)
+        if min_yrs is not None and min_yrs > 2: reject(f"Requires {min_yrs}+ yrs (candidate: 1-2)"); continue
 
         # 7. Pay filter — only enforce for explicitly hourly pay; skip if pay not specified
         pay_text=job.get("pay_text","")
@@ -512,13 +537,18 @@ EVAL_SYSTEM="""You are {name}'s autonomous freelance AI job agent.
 Stack: {stack}
 Metrics: {metrics}
 Min rate: {min_rate}
+Target roles: {target_roles}
 
 RULES:
 - Worldwide remote freelance/contract only. Reject onsite-only positions.
+- Experience: candidate has 1-2 YOE. REJECT any gig requiring 3+ years, or titled
+  Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
 - Reject if pay is specified and clearly below $30/hr equivalent.
-- Reject: pure data science, MLOps-only, Java/.NET, DevOps, unrelated to AI Voice/LLM/RAG/Python.
-- Empty description_snippet but clear AI title → is_match=true, score=60, note "description unavailable".
-- 1 YOE but production-scale — do not reject purely due to YOE.
+- Accept AI/ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused —
+  modeling, LLMs, production ML — NOT pure BI/reporting/analytics), and Forward
+  Deployed Engineer gigs as in-scope matches.
+- Reject: MLOps-only, Java/.NET, DevOps, unrelated to AI/ML/LLM/RAG/Python/data science.
+- Empty description but clear AI/DS/FDE title → is_match=true, score=60, note "description unavailable".
 
 For is_match=true: drafted_proposal (3 tight paragraphs: achievement → stack fit → metric+CTA).
 For is_match=false: rejection_reason (1 sentence).
@@ -532,6 +562,7 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
     client=OpenAI(api_key=DEEPSEEK_API_KEY,base_url="https://api.deepseek.com")
     system_prompt=EVAL_SYSTEM.format(name=CANDIDATE_PROFILE["name"],stack=CANDIDATE_PROFILE["stack"],
         metrics=CANDIDATE_PROFILE["metrics"],min_rate=CANDIDATE_PROFILE["min_rate"],
+        target_roles=CANDIDATE_PROFILE["target_roles"],
         format_instructions=FORMAT_INSTRUCTIONS)
 
     def call_ds(batch,bn,total):
@@ -571,10 +602,12 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
 # ══════════════════════════════════════════════════════════════════
 
 MOCK_JOBS=[
-    {"title":"AI Voice Agent Developer","company":"TechStartup Inc","url":"https://arc.dev/jobs/ai-voice-123","site":"arc.dev","posted_date":"2 hours ago","location_text":"Remote","is_remote":True,"job_type":"contract","pay_text":"$50/hr","experience_text":"1-2 years","description_snippet":"Build LiveKit voice agents using Python and OpenAI APIs. Entry level welcome."},
-    {"title":"LLM Engineer — RAG","company":"AI Startup","url":"https://wellfound.com/jobs/789","site":"wellfound.com","posted_date":"4 hours ago","location_text":"Remote / Worldwide","is_remote":True,"job_type":"freelance","pay_text":"$4000 project budget","experience_text":"Entry level","description_snippet":"Build RAG pipeline using LangChain and Pinecone for document Q&A."},
-    {"title":"Data Scientist","company":"Analytics Co","url":"https://upwork.com/jobs/data-scientist-123","site":"upwork.com","posted_date":"1 hour ago","location_text":"Remote","is_remote":True,"job_type":"contract","pay_text":"$20/hr","experience_text":"2 years","description_snippet":"Statistical modeling, A/B testing, pandas."},
-    {"title":"AI Agent Developer","company":"SaaS Co","url":"https://contra.com/jobs/ai-agent","site":"contra.com","posted_date":"2 days ago","location_text":"Remote","is_remote":True,"job_type":"freelance","pay_text":"$60/hr","experience_text":"1-3 years","description_snippet":"Build multi-agent pipelines with CrewAI and LangChain. FastAPI backend."},
+    {"title":"AI Voice Agent Developer","company":"TechStartup Inc","url":"https://arc.dev/jobs/ai-voice-123","site":"arc.dev","posted_date":"2 hours ago","location_text":"Remote","is_remote":True,"job_type":"contract","pay_text":"$50/hr","experience_text":"1-2 years","description":"Build LiveKit voice agents using Python and OpenAI APIs. Entry level welcome."},
+    {"title":"LLM Engineer — RAG","company":"AI Startup","url":"https://wellfound.com/jobs/789","site":"wellfound.com","posted_date":"4 hours ago","location_text":"Remote / Worldwide","is_remote":True,"job_type":"freelance","pay_text":"$4000 project budget","experience_text":"Entry level","description":"Build RAG pipeline using LangChain and Pinecone for document Q&A."},
+    {"title":"Data Scientist","company":"Analytics Co","url":"https://upwork.com/jobs/data-scientist-123","site":"upwork.com","posted_date":"1 hour ago","location_text":"Remote","is_remote":True,"job_type":"contract","pay_text":"$20/hr","experience_text":"2 years","description":"Statistical modeling, A/B testing, pandas."},
+    {"title":"AI Agent Developer","company":"SaaS Co","url":"https://contra.com/jobs/ai-agent","site":"contra.com","posted_date":"2 days ago","location_text":"Remote","is_remote":True,"job_type":"freelance","pay_text":"$60/hr","experience_text":"1-3 years","description":"Build multi-agent pipelines with CrewAI and LangChain. FastAPI backend."},
+    {"title":"Forward Deployed Engineer","company":"Enterprise AI Co","url":"https://braintrust.us/jobs/fde-202","site":"braintrust.us","posted_date":"3 hours ago","location_text":"Remote / Worldwide","is_remote":True,"job_type":"contract","pay_text":"$70/hr","experience_text":"1-2 years","description":"Embed with enterprise clients to deploy and customize LLM-powered agent workflows."},
+    {"title":"Senior Data Scientist","company":"BigCorp Analytics","url":"https://upwork.com/jobs/senior-ds-321","site":"upwork.com","posted_date":"5 hours ago","location_text":"Remote","is_remote":True,"job_type":"contract","pay_text":"$80/hr","experience_text":"5+ years","description":"Lead statistical modeling team, mentor juniors."},
 ]
 
 async def main(dry_run: bool=False):

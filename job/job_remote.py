@@ -1,13 +1,16 @@
 """
-Autonomous Worldwide Remote Job Search Agent — v4
-=================================================
+Autonomous Worldwide Remote Job Search Agent — v10
+===================================================
+Phase 0: Company source — direct ATS fetch (full JD) + Serper-careers queries for
+         a persistent, never-repeating rotation across a 180+ company registry
 Phase 1: Serper multi-cluster (per-site + broad free-text) + direct URL injection
 Phase 2: Crawl4AI scrape
 Phase 3: Pre-filter (qdr:w in Serper, 3-day Phase 3 enforcement)
 Phase 4: DeepSeek V3 evaluation + proposal
 
 Run:
-  python job/job_remote.py           # full run
+  python job/job_remote.py                 # full run — prompts for company count
+  python job/job_remote.py --companies 20   # full run, skip the prompt
   python job/job_remote.py --dry-run
 """
 
@@ -19,6 +22,14 @@ warnings.filterwarnings("ignore", message="urllib3 .* doesn't match a supported 
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 from openai import OpenAI
+
+sys.path.insert(0, os.path.dirname(__file__))
+try:
+    import companies
+except ImportError as e:
+    companies = None
+    print(f"  ⚠️  job/companies.py unavailable ({e}) — the 200-company source is "
+          f"skipped this run. `pip install -r requirements.txt` to enable it.")
 
 # ══════════════════════════════════════════════════════════════════
 # CONFIG
@@ -32,12 +43,14 @@ MAX_POSTING_AGE_DAYS = 3   # Serper uses qdr:w, Phase 3 enforces 3 days
 TARGET_SITES = [
     "remoteok.com", "weworkremotely.com", "himalayas.app", "remotive.com",
     "wellfound.com", "arc.dev", "contra.com", "braintrust.us", "torre.ai", "linkedin.com",
+    "workingnomads.com", "jobspresso.co", "remoterocketship.com",
+    "cryptojobslist.com", "web3.career",
 ]
 PORTAL_SITES = [
     "site:boards.greenhouse.io", "site:jobs.lever.co", "site:jobs.ashbyhq.com",
     "site:huggingface.co/jobs", "site:cohere.com/careers", "site:mistral.ai/careers",
     "site:together.ai/careers", "site:modal.com/careers", "site:replicate.com/careers",
-    "site:anyscale.com/careers",
+    "site:anyscale.com/careers", "site:jobs.workable.com", "site:apply.workable.com",
 ]
 LINKEDIN_DIRECT_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&f_WT=2&f_TPR=r259200&f_E=2",
@@ -81,7 +94,7 @@ QUERY_CLUSTERS = [
     },
     {
         "name": "B3 — Remote-First AI Startups [broad]",
-        "terms": '("remote-first startup" OR "async company" OR "distributed team") "AI engineer" OR "LLM platform" ("junior" OR "entry") -"data scientist" -"DevOps"',
+        "terms": '("remote-first startup" OR "async company" OR "distributed team") "AI engineer" OR "LLM platform" ("junior" OR "entry") -"DevOps"',
         "num": 20, "sites": ["_broad_"], "broad": True,
     },
     {
@@ -91,42 +104,78 @@ QUERY_CLUSTERS = [
     },
     {
         "name": "D1 — Python AI Backend Remote [broad]",
-        "terms": '("AI infrastructure engineer" OR "LLM platform engineer" OR "AI backend engineer") ("fully remote" OR "worldwide") ("junior" OR "entry" OR "0-3 years") -"data scientist" -"DevOps" -"SRE"',
+        "terms": '("AI infrastructure engineer" OR "LLM platform engineer" OR "AI backend engineer") ("fully remote" OR "worldwide") ("junior" OR "entry" OR "0-3 years") -"DevOps" -"SRE"',
         "num": 20, "sites": ["_broad_"], "broad": True,
+    },
+    {
+        "name": "A4 — Data Scientist / Forward Deployed Engineer Remote [per-site]",
+        "terms": '("data scientist" OR "applied scientist" OR "forward deployed engineer") ("fully remote" OR "worldwide") ("junior" OR "entry" OR "0-2 years") -senior -lead',
+        "num": 20, "sites": TARGET_SITES, "broad": False,
     },
 ]
 
 CANDIDATE_PROFILE = {
     "name": "Utkarsh Tiwari",
-    "stack": "AI Engineer (1 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
+    "stack": "AI Engineer (1-2 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
     "metrics": "Built production voice AI for 2,000+ concurrent calls. Reduced LLM cold-start 10.4x (3.9s→378ms). Trained LightGBM on 716K+ records. Reduced AI-content detection from 100%→30%.",
+    "target_roles": "AI Engineer, ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused), Forward Deployed Engineer",
 }
 
 RECRUITER_PATTERN = re.compile(r"\b(recruit|staffing|placement agency|hr solutions|manpower)\b", re.IGNORECASE)
 TITLE_REJECT_PATTERNS = re.compile(
     r"(medical writer|medical editor|biostatistic|clinical research|"
-    r"data analyst|business analyst|data modeler|data scientist|mlops|"
+    r"data analyst|business analyst|data modeler|mlops|"
     r"data engineer(?!.*ai)|computer vision|cv engineer|"
     r"java\b|\.net\b|android\b|ios\b|devops(?!.*ai)|sysadmin|network engineer|"
     r"blockchain|solidity|frontend developer|support consultant|technical support(?!.*ai))",
     re.IGNORECASE,
 )
 EXPERIENCE_TITLE_REJECT = re.compile(r"\b(senior|lead|principal|manager|director|vp |head of|staff engineer)\b", re.IGNORECASE)
-EXPERIENCE_YEARS_REJECT = ["4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+"]
 REMOTE_PASS_TOKENS   = ["remote", "work from home", "wfh", "anywhere", "worldwide", "globally"]
 REMOTE_REJECT_TOKENS = ["on-site only", "onsite only", "must be in office", "must relocate"]
+# Region-LOCKED remote (requires residency in one specific country/region) — always
+# rejected. Distinct from GLOBAL remote (accepted) and from INDIA presence (accepted
+# below via INDIA_LOCATION_TOKENS) — the user wants worldwide-remote OR India, never
+# a remote role gated to living in the US/UK/EU/Canada/Australia.
 GEO_LOCK_TOKENS = [
     "united states only", "us only", "us-based", "us residents", "us citizens",
-    "must be in the us", "must be located in", "authorized to work in the us",
-    "right to work in the uk", "uk-based", "uk residents",
-    "canada only", "australia only", "eu only", "europe only",
-    "remote (us)", "remote (usa)", "remote (uk)", "remote (canada)",
-    "remote, united states", "remote, usa", "us permanent resident", "green card",
+    "must be in the us", "must reside in the us", "must be located in",
+    "authorized to work in the us", "right to work in the uk", "uk-based", "uk residents",
+    "canada only", "australia only", "eu only", "europe only", "emea only",
+    "eu residents", "eu-based", "must be eu based", "must reside in the eu",
+    "remote (us)", "remote (usa)", "remote (uk)", "remote (canada)", "remote (europe)",
+    "remote (eu)", "remote - us", "remote - usa", "remote - uk", "remote - europe",
+    "remote - emea", "remote, united states", "remote, usa", "remote, europe",
+    # Reversed word order — "<Country> (Remote)" — live-observed on a real ATS
+    # listing (Greenhouse) that the "remote (us)" phrasing above didn't catch.
+    "united states (remote)", "usa (remote)", "us (remote)", "uk (remote)",
+    "united kingdom (remote)", "canada (remote)", "australia (remote)",
+    "europe (remote)", "eu (remote)",
+    "us permanent resident", "green card",
+]
+# India presence (any of onsite/hybrid/remote-India) is accepted alongside worldwide
+# remote — see the location gate in prefilter().
+INDIA_LOCATION_TOKENS = [
+    "india", "bangalore", "bengaluru", "mumbai", "delhi", "gurgaon", "gurugram",
+    "noida", "hyderabad", "pune", "chennai", "kolkata", "ncr",
 ]
 EDUCATION_REJECT_TOKENS = [
     "master's degree required", "masters degree required", "m.s. required",
     "msc required", "phd required", "ph.d", "doctorate required",
 ]
+
+def min_years_required(exp_text: str) -> Optional[int]:
+    """Extract the MINIMUM years-of-experience a posting requires, from free text
+    like '3+ years', '1-2 yrs', '5 years', 'entry level'. Returns None when no
+    number is present (so unspecified/entry-level/fresher language never blocks a
+    candidate) — this replaces a fixed token list, which missed any band phrasing
+    ('3-5 years') that wasn't a literal '<n>+ years' substring."""
+    if not exp_text: return None
+    t = exp_text.lower()
+    if any(w in t for w in ["fresher", "entry level", "entry-level", "no experience", "0 years", "any level"]):
+        return 0
+    m = re.search(r"(\d+)\s*\+", t) or re.search(r"(\d+)\s*(?:-|to)\s*\d+\s*year", t) or re.search(r"(\d+)\+?\s*year", t)
+    return int(m.group(1)) if m else None
 
 # ══════════════════════════════════════════════════════════════════
 # CROSS-RUN DEDUP
@@ -208,14 +257,15 @@ class ScrapedJob(BaseModel):
     title: str = ""; company: str = ""; url: str = ""; site: str = ""
     posted_date: str = ""; location_text: str = ""; is_remote: bool = False
     job_type: str = ""; pay_text: str = ""; experience_text: str = ""
-    description_snippet: str = ""
+    description: str = ""
 
 SCRAPE_INSTRUCTION = """Extract EVERY job posting on this page. For each return:
 title, company, url (direct apply link), site (domain),
 posted_date (ISO or relative like '3 hours ago' — ALWAYS fill),
 location_text, is_remote (true/false), job_type,
 pay_text (salary or empty), experience_text (years/level — ALWAYS fill),
-description_snippet (first 400 chars — ALWAYS fill even if partial).
+description (the FULL job description text — every responsibility, requirement,
+and qualification on the page, not a summary or excerpt — ALWAYS fill even if partial).
 Return [] if not a job listing."""
 
 async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
@@ -275,7 +325,7 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         title_l = title.lower()
         company = (job.get("company") or "").lower()
         exp     = (job.get("experience_text") or "").lower()
-        desc    = (job.get("description_snippet") or "").lower()
+        desc    = (job.get("description") or "").lower()
         loc     = (job.get("location_text") or "").lower()
         combined= f"{title_l} {loc} {exp}"
         fp      = job.get("_fingerprint", "")
@@ -286,25 +336,39 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         if fp and fp in session_seen:   reject("Dup in run"); continue
         if fp: session_seen.add(fp)
 
-        age = parse_age_days(job.get("posted_date", ""))
-        if age is None: job["freshness_unknown"] = True
-        elif age > MAX_POSTING_AGE_DAYS: reject(f"Stale: {age}d ago"); continue
+        # The 3-day freshness window matches Serper's qdr:w "posted in the last
+        # week" search results. It does NOT apply to ATS-direct jobs (companies.py):
+        # a Greenhouse/Lever/Ashby board lists every CURRENTLY OPEN role regardless
+        # of its original post date — a live posting from 3 weeks ago is still a
+        # real, applicable job, not a stale one.
+        if job.get("_source") != "ats_direct":
+            age = parse_age_days(job.get("posted_date", ""))
+            if age is None: job["freshness_unknown"] = True
+            elif age > MAX_POSTING_AGE_DAYS: reject(f"Stale: {age}d ago"); continue
 
         if TITLE_REJECT_PATTERNS.search(title): reject(f"Off-stack title: {title}"); continue
         if RECRUITER_PATTERN.search(company): reject(f"Recruiter: {company}"); continue
         if any(tok in f"{exp} {desc}" for tok in EDUCATION_REJECT_TOKENS): reject("Advanced degree required"); continue
 
-        # Experience: seniority-words in TITLE only; year ranges in experience_text only
+        # Experience: candidate is 1-2 YOE — reject seniority-words in TITLE, and
+        # reject any posting whose MINIMUM year requirement (parsed from
+        # experience_text) exceeds 2.
         if EXPERIENCE_TITLE_REJECT.search(title): reject(f"Senior/lead title: {title}"); continue
-        if any(tok in exp for tok in EXPERIENCE_YEARS_REJECT): reject(f"Too many YOE: {exp}"); continue
+        min_yrs = min_years_required(exp)
+        if min_yrs is not None and min_yrs > 2: reject(f"Requires {min_yrs}+ yrs (candidate: 1-2)"); continue
 
-        # Remote check
+        # Location: ACCEPT iff (a) worldwide/location-agnostic remote, OR (b) India
+        # presence (onsite/hybrid/remote-India). REJECT region-locked remote (a role
+        # gated to residency in one specific country/region) unconditionally — India
+        # is a distinct accepted case, not a bypass for a US/UK/EU-only posting.
+        is_india  = any(t in combined for t in INDIA_LOCATION_TOKENS)
         has_remote = any(t in combined for t in REMOTE_PASS_TOKENS)
         has_onsite = any(t in combined for t in REMOTE_REJECT_TOKENS)
-        if has_onsite: reject("On-site required"); continue
-        if not job.get("is_remote") and not has_remote: reject("Not confirmed remote"); continue
-
-        if any(t in f"{loc} {desc}" for t in GEO_LOCK_TOKENS): reject("Geo-locked US/UK/EU"); continue
+        if any(t in f"{loc} {desc}" for t in GEO_LOCK_TOKENS):
+            reject("Region-locked remote (US/UK/EU/Canada/Australia-only)"); continue
+        if has_onsite and not is_india: reject("On-site required (non-India)"); continue
+        if not (is_india or job.get("is_remote") or has_remote):
+            reject("Not India-accessible and not confirmed worldwide-remote"); continue
 
         if fp: cross_run_seen[fp] = now_iso
         candidates.append(job)
@@ -319,13 +383,21 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
 EVAL_SYSTEM = """You are {name}'s worldwide-remote job agent. Candidate is India-based.
 Stack: {stack}
 Metrics: {metrics}
+Target roles: {target_roles}
 
 RULES:
-- Role MUST be 100% worldwide remote (reject if US/UK/EU residency required).
-- Any type (full-time/contract/freelance) is fine.
-- Reject: pure data science, MLOps-only, DevOps-only, Java/.NET, unrelated to AI/LLM.
-- Empty description_snippet but clear AI title → is_match=true, score=60, note "description unavailable".
-- 1 YOE but production-scale — don't reject purely due to YOE.
+- Experience: candidate has 1-2 YOE. REJECT any role that requires 3+ years, or is
+  titled Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
+- Location: ACCEPT only (a) 100% worldwide/location-agnostic remote, OR (b) an
+  India-based role (remote-India, hybrid-India, onsite-India). REJECT remote roles
+  locked to residency in one specific country/region (US-only, UK-only, EU/EMEA-only,
+  Canada-only, Australia-only, etc.) — those are neither worldwide nor India.
+- Any employment type (full-time/contract/freelance) is fine.
+- Accept AI/ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused —
+  modeling, LLMs, production ML pipelines — NOT pure BI/reporting/analytics), and
+  Forward Deployed Engineer roles as in-scope matches.
+- Reject: MLOps-only, DevOps-only, Java/.NET, roles unrelated to AI/ML/LLM/data science.
+- Empty description but clear AI/DS/FDE title → is_match=true, score=60, note "description unavailable".
 
 For is_match=true: drafted_proposal (3 paras: achievement → stack fit → metric + CTA).
 For is_match=false: rejection_reason (1 sentence).
@@ -338,7 +410,8 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
     print(f"\n🧠 PHASE 4 — DeepSeek V3 evaluating {len(candidates)} candidates...")
     client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
     system_prompt = EVAL_SYSTEM.format(name=CANDIDATE_PROFILE["name"], stack=CANDIDATE_PROFILE["stack"],
-        metrics=CANDIDATE_PROFILE["metrics"], format_instructions=FORMAT_INSTRUCTIONS)
+        metrics=CANDIDATE_PROFILE["metrics"], target_roles=CANDIDATE_PROFILE["target_roles"],
+        format_instructions=FORMAT_INSTRUCTIONS)
 
     def call_ds(batch, bn, total):
         print(f"  📦 Batch {bn}/{total}...")
@@ -377,11 +450,23 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
 # ══════════════════════════════════════════════════════════════════
 
 MOCK_JOBS = [
-    {"title":"AI Voice Engineer","company":"Remote-First AI Co","url":"https://jobs.ashbyhq.com/ai-voice-123","site":"jobs.ashbyhq.com","posted_date":"2 hours ago","location_text":"Worldwide Remote","is_remote":True,"job_type":"full-time","pay_text":"$80-120k/yr","experience_text":"1-2 years","description_snippet":"Build voice pipelines with LiveKit, Deepgram, ElevenLabs. FastAPI backend."},
-    {"title":"Senior ML Engineer","company":"BigCorp","url":"https://jobs.lever.co/senior-ml","site":"jobs.lever.co","posted_date":"2 days ago","location_text":"Remote (US Only)","is_remote":True,"job_type":"full-time","pay_text":"$180k/yr","experience_text":"5+ years","description_snippet":"Senior ML, US timezone required."},
-    {"title":"LLM Platform Engineer","company":"Cohere","url":"https://cohere.com/careers/llm","site":"cohere.com","posted_date":"5 hours ago","location_text":"Remote — Worldwide","is_remote":True,"job_type":"full-time","pay_text":"$90-130k/yr","experience_text":"1-2 years","description_snippet":"Production LLM APIs, RAG, fine-tuning pipelines."},
-    {"title":"AI Agent Engineer","company":"Replicate","url":"https://replicate.com/careers/ai-agent","site":"replicate.com","posted_date":"1 day ago","location_text":"Fully Remote","is_remote":True,"job_type":"full-time","pay_text":"$100k/yr","experience_text":"0-3 years","description_snippet":"Agentic workflows using LangChain, CrewAI. Python backend. Entry-level welcome."},
+    {"title":"AI Voice Engineer","company":"Remote-First AI Co","url":"https://jobs.ashbyhq.com/ai-voice-123","site":"jobs.ashbyhq.com","posted_date":"2 hours ago","location_text":"Worldwide Remote","is_remote":True,"job_type":"full-time","pay_text":"$80-120k/yr","experience_text":"1-2 years","description":"Build voice pipelines with LiveKit, Deepgram, ElevenLabs. FastAPI backend."},
+    {"title":"Senior ML Engineer","company":"BigCorp","url":"https://jobs.lever.co/senior-ml","site":"jobs.lever.co","posted_date":"2 days ago","location_text":"Remote (US Only)","is_remote":True,"job_type":"full-time","pay_text":"$180k/yr","experience_text":"5+ years","description":"Senior ML, US timezone required."},
+    {"title":"LLM Platform Engineer","company":"Cohere","url":"https://cohere.com/careers/llm","site":"cohere.com","posted_date":"5 hours ago","location_text":"Remote — Worldwide","is_remote":True,"job_type":"full-time","pay_text":"$90-130k/yr","experience_text":"1-2 years","description":"Production LLM APIs, RAG, fine-tuning pipelines."},
+    {"title":"AI Agent Engineer","company":"Replicate","url":"https://replicate.com/careers/ai-agent","site":"replicate.com","posted_date":"1 day ago","location_text":"Fully Remote","is_remote":True,"job_type":"full-time","pay_text":"$100k/yr","experience_text":"0-3 years","description":"Agentic workflows using LangChain, CrewAI. Python backend. Entry-level welcome."},
+    {"title":"Data Scientist","company":"Groww","url":"https://groww.in/careers/data-scientist","site":"groww.in","posted_date":"3 hours ago","location_text":"Bengaluru, India (Onsite)","is_remote":False,"job_type":"full-time","pay_text":"₹18-25 LPA","experience_text":"1-2 years","description":"Build ML models for credit risk and fraud detection using PyTorch and LightGBM."},
+    {"title":"Forward Deployed Engineer","company":"Palantir-style AI Co","url":"https://jobs.ashbyhq.com/fde-456","site":"jobs.ashbyhq.com","posted_date":"6 hours ago","location_text":"Remote — Worldwide","is_remote":True,"job_type":"full-time","pay_text":"$95-140k/yr","experience_text":"1-3 years","description":"Embed with customers to deploy LLM-powered workflows using Python and FastAPI."},
+    {"title":"ML Engineer","company":"EuroAI GmbH","url":"https://jobs.lever.co/euro-ml","site":"jobs.lever.co","posted_date":"1 day ago","location_text":"Remote (EU Only)","is_remote":True,"job_type":"full-time","pay_text":"€70k/yr","experience_text":"1-2 years","description":"Region-locked despite otherwise fitting the stack — should be rejected on location alone."},
 ]
+
+def _companies_arg() -> Optional[int]:
+    """--companies N on the command line skips the interactive prompt (for cron/CI)."""
+    if "--companies" in sys.argv:
+        i = sys.argv.index("--companies")
+        if i + 1 < len(sys.argv):
+            try: return int(sys.argv[i + 1])
+            except ValueError: pass
+    return None
 
 async def main(dry_run: bool = False):
     ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -392,7 +477,7 @@ async def main(dry_run: bool = False):
     report_out   = os.path.join(rdir, f"report_remote_{ts}.json")
 
     print(f"\n{'='*60}")
-    print(f"🚀 WORLDWIDE REMOTE JOB SEARCH v4  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"🚀 WORLDWIDE REMOTE JOB SEARCH v10  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
     print(f"{'='*60}")
 
     cross_run_seen = load_seen_fingerprints()
@@ -406,9 +491,28 @@ async def main(dry_run: bool = False):
                 j["_fingerprint"] = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
                 j["_scraped_at"] = datetime.datetime.utcnow().isoformat() + "Z"
     else:
-        urls = search_for_jobs()
-        if not urls: print("No URLs. Exiting."); return
-        raw_jobs = await scrape_jobs(urls, raw_ndjson)
+        # PHASE 0 — company source: ATS-direct (full JD already, no crawl needed) +
+        # Serper-careers (feeds the existing Crawl4AI path below). Selection is a
+        # persistent, never-repeating rotation across the whole registry — see
+        # companies.select_companies()'s docstring.
+        ats_jobs, company_urls = [], []
+        if companies:
+            n_companies = _companies_arg()
+            if n_companies is None:
+                n_companies = companies.prompt_company_count()
+            if n_companies:
+                ats_batch, serper_batch = companies.select_companies(n_companies)
+                print(f"\n🏢 PHASE 0 — Company source: {len(ats_batch)} ATS-direct + "
+                      f"{len(serper_batch)} via Serper-careers ({n_companies} requested)")
+                if ats_batch:
+                    ats_jobs = companies.fetch_ats_jobs(ats_batch)
+                if serper_batch:
+                    company_urls = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+
+        urls = search_for_jobs() + company_urls
+        if not urls and not ats_jobs: print("No URLs. Exiting."); return
+        scraped_jobs = await scrape_jobs(urls, raw_ndjson) if urls else []
+        raw_jobs = scraped_jobs + ats_jobs
 
     candidates, rejected = prefilter(raw_jobs, cross_run_seen)
     with open(rejected_out, "w") as f: json.dump(rejected, f, indent=2)
