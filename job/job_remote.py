@@ -32,12 +32,14 @@ MAX_POSTING_AGE_DAYS = 3   # Serper uses qdr:w, Phase 3 enforces 3 days
 TARGET_SITES = [
     "remoteok.com", "weworkremotely.com", "himalayas.app", "remotive.com",
     "wellfound.com", "arc.dev", "contra.com", "braintrust.us", "torre.ai", "linkedin.com",
+    "workingnomads.com", "jobspresso.co", "remoterocketship.com",
+    "cryptojobslist.com", "web3.career",
 ]
 PORTAL_SITES = [
     "site:boards.greenhouse.io", "site:jobs.lever.co", "site:jobs.ashbyhq.com",
     "site:huggingface.co/jobs", "site:cohere.com/careers", "site:mistral.ai/careers",
     "site:together.ai/careers", "site:modal.com/careers", "site:replicate.com/careers",
-    "site:anyscale.com/careers",
+    "site:anyscale.com/careers", "site:jobs.workable.com", "site:apply.workable.com",
 ]
 LINKEDIN_DIRECT_URLS = [
     "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&f_WT=2&f_TPR=r259200&f_E=2",

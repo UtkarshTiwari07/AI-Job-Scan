@@ -240,7 +240,7 @@ QUERY_CLUSTERS = [
         "terms": (
             '"generative AI engineer" OR "LLM engineer" OR "AI agent developer" '
             'India ("0-2 years" OR "freshers" OR "entry level" OR "junior") '
-            '-"data scientist" -"data analyst" -"business analyst" -"medical" '
+            '-"data analyst" -"business analyst" -"medical" '
             '-site:apna.co -site:talent.com -site:qureos.com -site:fresheroffcampus.com '
             '-site:simplyhired.co.in -site:ambitionbox.com -site:shine.com -site:monsterindia.com '
             '-site:glassdoor.co.in -site:jaabz.com -site:instagram.com'
@@ -303,9 +303,20 @@ QUERY_CLUSTERS = [
         "terms": (
             '("python AI engineer" OR "backend AI" OR "AI infrastructure" OR "LLM platform") '
             'India ("0-2 years" OR "junior" OR "fresher") '
-            '-"data scientist" -"data engineer" -"DevOps" -"SRE" '
+            '-"data engineer" -"DevOps" -"SRE" '
             '-site:apna.co -site:talent.com -site:qureos.com -site:glassdoor.co.in '
             '-site:fresheroffcampus.com -site:simplyhired.co.in'
+        ),
+        "num": 20,
+        "sites": ["_broad_"],
+        "broad": True,
+    },
+    {
+        "name": "D2 — Data Scientist / Forward Deployed Engineer India [broad]",
+        "terms": (
+            '("data scientist" OR "applied scientist" OR "forward deployed engineer") '
+            'India ("0-2 years" OR "junior" OR "fresher" OR "entry level") -senior -lead '
+            '-site:apna.co -site:talent.com -site:qureos.com -site:glassdoor.co.in'
         ),
         "num": 20,
         "sites": ["_broad_"],
@@ -316,7 +327,7 @@ QUERY_CLUSTERS = [
 CANDIDATE_PROFILE = {
     "name": "Utkarsh Tiwari",
     "stack": (
-        "AI Engineer (1 YOE). Python, PyTorch, LightGBM, RAG, "
+        "AI Engineer (1-2 YOE). Python, PyTorch, LightGBM, RAG, "
         "LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, "
         "FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone."
     ),
@@ -326,6 +337,7 @@ CANDIDATE_PROFILE = {
         "Trained LightGBM models on 716K+ records. "
         "Reduced AI-content detection from 100% to 30% in multi-agent architectures."
     ),
+    "target_roles": "AI Engineer, ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused), Forward Deployed Engineer",
 }
 
 # Pre-filter rules
@@ -343,7 +355,7 @@ TITLE_REJECT_PATTERNS = re.compile(
     r"hr \b|human resource|talent acqui|talent manag|"
     r"marketing|social media|graphic design|content writer|digital content|"
     r"data analyst|business analyst|data modeler|power bi|tableau|"
-    r"data engineer(?!.*ai)|data scientist|mlops|"
+    r"data engineer(?!.*ai)|mlops|"
     r"computer vision|cv engineer|nlp researcher|deep learning researcher|robotics|"
     r"\bjava\b|java developer|java engineer|\.net\b|angular|react native|mern|mean stack|"
     r"php developer|php engineer|ruby on rails|node.?js developer|wordpress|"
@@ -372,7 +384,19 @@ AI_RELEVANCE_KEYWORDS = re.compile(
 EXPERIENCE_TITLE_REJECT = re.compile(
     r"\b(senior|lead|principal|manager|director|vp |head of)\b", re.IGNORECASE
 )
-EXPERIENCE_YEARS_REJECT = ["3+ years", "4+ years", "5+ years", "6+ years", "7+ years", "8+ years", "10+ years", "10+"]
+
+def min_years_required(exp_text: str) -> Optional[int]:
+    """Extract the MINIMUM years-of-experience a posting requires, from free text
+    like '3+ years', '1-2 yrs', '5 years', 'fresher'. Returns None when no number
+    is present (unspecified/entry-level language never blocks a candidate) — this
+    replaces a fixed token list, which missed band phrasing ('3-5 years') that
+    wasn't a literal '<n>+ years' substring. Candidate is 1-2 YOE; reject >2."""
+    if not exp_text: return None
+    t = exp_text.lower()
+    if any(w in t for w in ["fresher", "entry level", "entry-level", "no experience", "0 years", "any level"]):
+        return 0
+    m = re.search(r"(\d+)\s*\+", t) or re.search(r"(\d+)\s*(?:-|to)\s*\d+\s*year", t) or re.search(r"(\d+)\+?\s*year", t)
+    return int(m.group(1)) if m else None
 
 # Geo-lock: US/UK/EU-only positions sneaking onto Indian boards
 GEO_LOCK_TOKENS = [
@@ -511,7 +535,7 @@ class ScrapedJob(BaseModel):
     job_type:            str = ""
     pay_text:            str = ""
     experience_text:     str = ""
-    description_snippet: str = ""
+    description:         str = ""
 
 SCRAPE_INSTRUCTION = """
 Extract EVERY job posting visible on this page.
@@ -522,7 +546,8 @@ For each job return:
   job_type (full-time / contract / part-time / unknown),
   pay_text (exact salary shown, or empty),
   experience_text (exact years/level shown, e.g. "0-2 years", "fresher", "3-5 yrs" — ALWAYS fill this),
-  description_snippet (first 400 chars of job description — ALWAYS fill even if partial).
+  description (the FULL job description text on the page — every responsibility,
+  requirement, and qualification, not a summary or excerpt — ALWAYS fill even if partial).
 If the page is NOT a job listing, return an empty list [].
 """.strip()
 
@@ -616,7 +641,7 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         title_l      = title.lower()
         company      = (job.get("company") or "").lower()
         experience   = (job.get("experience_text") or "").lower()
-        description  = (job.get("description_snippet") or "").lower()
+        description  = (job.get("description") or "").lower()
         location     = (job.get("location_text") or "").lower()
         site         = (job.get("site") or "").lower().strip()
         fp           = job.get("_fingerprint", "")
@@ -670,11 +695,14 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         if any(tok in edu_text for tok in EDUCATION_REJECT_TOKENS):
             reject("Requires advanced degree"); continue
 
-        # 8. Experience — seniority in TITLE only; years in experience_text only
+        # 8. Experience — candidate is 1-2 YOE. Seniority in TITLE only; minimum-years
+        # parsed from experience_text (catches band phrasing like "3-5 years" that a
+        # literal token list would miss).
         if EXPERIENCE_TITLE_REJECT.search(title):
             reject(f"Senior/lead title: {title}"); continue
-        if any(tok in experience for tok in EXPERIENCE_YEARS_REJECT):
-            reject(f"Too many YOE: {experience}"); continue
+        min_yrs = min_years_required(experience)
+        if min_yrs is not None and min_yrs > 2:
+            reject(f"Requires {min_yrs}+ yrs (candidate: 1-2)"); continue
 
         # 9. Geo-lock
         geo_text = f"{location} {description}"
@@ -699,16 +727,24 @@ EVAL_SYSTEM = """You are {name}'s autonomous India AI job matching agent.
 
 Candidate stack: {stack}
 Key metrics: {metrics}
+Target roles: {target_roles}
 
 RULES:
 - Target: well-funded India startups (Series A+), top MNCs, or high-growth AI companies.
 - The role must be geographically accessible in India (remote India, hybrid India, onsite India).
-- Reject: relocation to US/Europe, unpaid internships, pure data science (no LLM/agent work), DevOps-only, sales, roles entirely unrelated to AI/LLM/Python.
-- IMPORTANT: If description_snippet is empty but title and company clearly indicate an AI engineering role, set is_match=true with a best-effort match_score of 60 and note "description unavailable".
-- Candidate has 1 YOE but production-scale achievements — do NOT reject purely due to YOE if stack fits.
+- Experience: candidate has 1-2 YOE. REJECT any role that requires 3+ years, or is
+  titled Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
+- Accept AI/ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused —
+  modeling, LLMs, production ML pipelines — NOT pure BI/reporting/analytics), and
+  Forward Deployed Engineer roles as in-scope matches.
+- Reject: relocation to US/Europe, unpaid internships, DevOps-only, sales, roles
+  entirely unrelated to AI/ML/LLM/Python/data science.
+- IMPORTANT: If description is empty but title and company clearly indicate an
+  AI/ML/DS/FDE role, set is_match=true with a best-effort match_score of 60 and note
+  "description unavailable".
 
 For each job:
-1. is_match=true only if role matches AI Voice/LLM/RAG/FastAPI stack AND is India-accessible.
+1. is_match=true only if role matches the target roles AND is India-accessible AND fits the 1-2 YOE bracket.
 2. If is_match=true:
    - match_score (0-100): reward Voice AI, LLM optimization, RAG, LiveKit, production backend scale.
    - drafted_proposal: tight 3-paragraph technical cover letter.
@@ -737,6 +773,7 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
         name=CANDIDATE_PROFILE["name"],
         stack=CANDIDATE_PROFILE["stack"],
         metrics=CANDIDATE_PROFILE["metrics"],
+        target_roles=CANDIDATE_PROFILE["target_roles"],
         format_instructions=FORMAT_INSTRUCTIONS,
     )
 
@@ -794,7 +831,7 @@ MOCK_JOBS = [
         "site": "sarvam.ai", "posted_date": "3 hours ago",
         "location_text": "Bangalore, India (Hybrid)", "is_remote": False, "job_type": "full-time",
         "pay_text": "₹30-50 LPA", "experience_text": "0-2 years",
-        "description_snippet": "Build production LLM pipelines using LangChain & FastAPI for Indic language AI.",
+        "description": "Build production LLM pipelines using LangChain & FastAPI for Indic language AI.",
     },
     {
         "title": "Senior Data Scientist", "company": "Analytics Firm",
@@ -802,7 +839,7 @@ MOCK_JOBS = [
         "posted_date": "5 days ago", "location_text": "Mumbai",
         "is_remote": False, "job_type": "full-time",
         "pay_text": "₹15-20 LPA", "experience_text": "4+ years",
-        "description_snippet": "Statistical modeling and A/B testing.",
+        "description": "Statistical modeling and A/B testing.",
     },
     {
         "title": "AI Engineer — Voice & Agents", "company": "Razorpay",
@@ -810,7 +847,7 @@ MOCK_JOBS = [
         "site": "razorpay.com", "posted_date": "1 hour ago",
         "location_text": "Bangalore / Remote India", "is_remote": True, "job_type": "full-time",
         "pay_text": "₹40-60 LPA", "experience_text": "1-2 years",
-        "description_snippet": "We mention senior engineers in our team. Build voice AI agents using LiveKit and FastAPI for fintech automation. This is a junior role.",
+        "description": "We mention senior engineers in our team. Build voice AI agents using LiveKit and FastAPI for fintech automation. This is a junior role.",
     },
     {
         "title": "Gen AI Developer", "company": "ProAI Solutions",
@@ -818,7 +855,7 @@ MOCK_JOBS = [
         "site": "foundit.in", "posted_date": "2 days ago",
         "location_text": "Bengaluru", "is_remote": False, "job_type": "full-time",
         "pay_text": "", "experience_text": "Fresher",
-        "description_snippet": "Design and optimise GenAI features: RAG workflows, LangChain stacks, Pinecone vector stores. Python, FastAPI REST APIs.",
+        "description": "Design and optimise GenAI features: RAG workflows, LangChain stacks, Pinecone vector stores. Python, FastAPI REST APIs.",
     },
     {
         "title": "Medical Writer", "company": "Syneos Health",
@@ -826,7 +863,23 @@ MOCK_JOBS = [
         "site": "foundit.in", "posted_date": "1 hour ago",
         "location_text": "Remote", "is_remote": True, "job_type": "full-time",
         "pay_text": "", "experience_text": "3 years",
-        "description_snippet": "Write clinical study reports and regulatory documents.",
+        "description": "Write clinical study reports and regulatory documents.",
+    },
+    {
+        "title": "Data Scientist", "company": "Groww",
+        "url": "https://groww.in/careers/data-scientist",
+        "site": "groww.in", "posted_date": "4 hours ago",
+        "location_text": "Bengaluru, India (Onsite)", "is_remote": False, "job_type": "full-time",
+        "pay_text": "₹20-28 LPA", "experience_text": "1-2 years",
+        "description": "Build ML models for credit risk and fraud detection using PyTorch and LightGBM.",
+    },
+    {
+        "title": "Forward Deployed Engineer", "company": "Uniphore",
+        "url": "https://uniphore.com/careers/fde-101",
+        "site": "uniphore.com", "posted_date": "6 hours ago",
+        "location_text": "Bengaluru, India (Hybrid)", "is_remote": False, "job_type": "full-time",
+        "pay_text": "₹22-30 LPA", "experience_text": "0-2 years",
+        "description": "Embed with enterprise customers to deploy LLM-powered conversational AI workflows.",
     },
 ]
 
