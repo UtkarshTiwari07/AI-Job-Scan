@@ -1,13 +1,16 @@
 """
-Autonomous Worldwide Remote Job Search Agent — v4
-=================================================
+Autonomous Worldwide Remote Job Search Agent — v10
+===================================================
+Phase 0: Company source — direct ATS fetch (full JD) + Serper-careers queries for
+         a persistent, never-repeating rotation across a 180+ company registry
 Phase 1: Serper multi-cluster (per-site + broad free-text) + direct URL injection
 Phase 2: Crawl4AI scrape
 Phase 3: Pre-filter (qdr:w in Serper, 3-day Phase 3 enforcement)
 Phase 4: DeepSeek V3 evaluation + proposal
 
 Run:
-  python job/job_remote.py           # full run
+  python job/job_remote.py                 # full run — prompts for company count
+  python job/job_remote.py --companies 20   # full run, skip the prompt
   python job/job_remote.py --dry-run
 """
 
@@ -19,6 +22,14 @@ warnings.filterwarnings("ignore", message="urllib3 .* doesn't match a supported 
 from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 from openai import OpenAI
+
+sys.path.insert(0, os.path.dirname(__file__))
+try:
+    import companies
+except ImportError as e:
+    companies = None
+    print(f"  ⚠️  job/companies.py unavailable ({e}) — the 200-company source is "
+          f"skipped this run. `pip install -r requirements.txt` to enable it.")
 
 # ══════════════════════════════════════════════════════════════════
 # CONFIG
@@ -135,6 +146,11 @@ GEO_LOCK_TOKENS = [
     "remote (us)", "remote (usa)", "remote (uk)", "remote (canada)", "remote (europe)",
     "remote (eu)", "remote - us", "remote - usa", "remote - uk", "remote - europe",
     "remote - emea", "remote, united states", "remote, usa", "remote, europe",
+    # Reversed word order — "<Country> (Remote)" — live-observed on a real ATS
+    # listing (Greenhouse) that the "remote (us)" phrasing above didn't catch.
+    "united states (remote)", "usa (remote)", "us (remote)", "uk (remote)",
+    "united kingdom (remote)", "canada (remote)", "australia (remote)",
+    "europe (remote)", "eu (remote)",
     "us permanent resident", "green card",
 ]
 # India presence (any of onsite/hybrid/remote-India) is accepted alongside worldwide
@@ -320,9 +336,15 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         if fp and fp in session_seen:   reject("Dup in run"); continue
         if fp: session_seen.add(fp)
 
-        age = parse_age_days(job.get("posted_date", ""))
-        if age is None: job["freshness_unknown"] = True
-        elif age > MAX_POSTING_AGE_DAYS: reject(f"Stale: {age}d ago"); continue
+        # The 3-day freshness window matches Serper's qdr:w "posted in the last
+        # week" search results. It does NOT apply to ATS-direct jobs (companies.py):
+        # a Greenhouse/Lever/Ashby board lists every CURRENTLY OPEN role regardless
+        # of its original post date — a live posting from 3 weeks ago is still a
+        # real, applicable job, not a stale one.
+        if job.get("_source") != "ats_direct":
+            age = parse_age_days(job.get("posted_date", ""))
+            if age is None: job["freshness_unknown"] = True
+            elif age > MAX_POSTING_AGE_DAYS: reject(f"Stale: {age}d ago"); continue
 
         if TITLE_REJECT_PATTERNS.search(title): reject(f"Off-stack title: {title}"); continue
         if RECRUITER_PATTERN.search(company): reject(f"Recruiter: {company}"); continue
@@ -437,6 +459,15 @@ MOCK_JOBS = [
     {"title":"ML Engineer","company":"EuroAI GmbH","url":"https://jobs.lever.co/euro-ml","site":"jobs.lever.co","posted_date":"1 day ago","location_text":"Remote (EU Only)","is_remote":True,"job_type":"full-time","pay_text":"€70k/yr","experience_text":"1-2 years","description":"Region-locked despite otherwise fitting the stack — should be rejected on location alone."},
 ]
 
+def _companies_arg() -> Optional[int]:
+    """--companies N on the command line skips the interactive prompt (for cron/CI)."""
+    if "--companies" in sys.argv:
+        i = sys.argv.index("--companies")
+        if i + 1 < len(sys.argv):
+            try: return int(sys.argv[i + 1])
+            except ValueError: pass
+    return None
+
 async def main(dry_run: bool = False):
     ts = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
     rdir = os.path.join(os.path.dirname(__file__), "reports_remote")
@@ -446,7 +477,7 @@ async def main(dry_run: bool = False):
     report_out   = os.path.join(rdir, f"report_remote_{ts}.json")
 
     print(f"\n{'='*60}")
-    print(f"🚀 WORLDWIDE REMOTE JOB SEARCH v4  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"🚀 WORLDWIDE REMOTE JOB SEARCH v10  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
     print(f"{'='*60}")
 
     cross_run_seen = load_seen_fingerprints()
@@ -460,9 +491,28 @@ async def main(dry_run: bool = False):
                 j["_fingerprint"] = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
                 j["_scraped_at"] = datetime.datetime.utcnow().isoformat() + "Z"
     else:
-        urls = search_for_jobs()
-        if not urls: print("No URLs. Exiting."); return
-        raw_jobs = await scrape_jobs(urls, raw_ndjson)
+        # PHASE 0 — company source: ATS-direct (full JD already, no crawl needed) +
+        # Serper-careers (feeds the existing Crawl4AI path below). Selection is a
+        # persistent, never-repeating rotation across the whole registry — see
+        # companies.select_companies()'s docstring.
+        ats_jobs, company_urls = [], []
+        if companies:
+            n_companies = _companies_arg()
+            if n_companies is None:
+                n_companies = companies.prompt_company_count()
+            if n_companies:
+                ats_batch, serper_batch = companies.select_companies(n_companies)
+                print(f"\n🏢 PHASE 0 — Company source: {len(ats_batch)} ATS-direct + "
+                      f"{len(serper_batch)} via Serper-careers ({n_companies} requested)")
+                if ats_batch:
+                    ats_jobs = companies.fetch_ats_jobs(ats_batch)
+                if serper_batch:
+                    company_urls = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+
+        urls = search_for_jobs() + company_urls
+        if not urls and not ats_jobs: print("No URLs. Exiting."); return
+        scraped_jobs = await scrape_jobs(urls, raw_ndjson) if urls else []
+        raw_jobs = scraped_jobs + ats_jobs
 
     candidates, rejected = prefilter(raw_jobs, cross_run_seen)
     with open(rejected_out, "w") as f: json.dump(rejected, f, indent=2)

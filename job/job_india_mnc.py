@@ -403,6 +403,10 @@ GEO_LOCK_TOKENS = [
     "united states only", "us only", "us citizens", "us permanent resident", "green card",
     "uk residents", "uk-based", "canada only", "australia only", "europe only", "eu only",
     "must be located in the us", "authorized to work in the us",
+    # Reversed word order — "<Country> (Remote)" — live-observed on a real ATS
+    # listing that the "remote (us)"-style phrasing above didn't catch.
+    "united states (remote)", "usa (remote)", "us (remote)", "uk (remote)",
+    "united kingdom (remote)", "canada (remote)", "australia (remote)", "europe (remote)",
 ]
 
 EDUCATION_REJECT_TOKENS = [
