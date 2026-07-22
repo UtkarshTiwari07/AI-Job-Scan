@@ -8,3 +8,9 @@ output/
 *.docx
 *.txt
 !requirements.txt
+
+# Generated run artifacts — reports/raw dumps/dedup caches from actual or dry runs,
+# not source. companies_cursor.json (v10 unique-rotation state) is also run state.
+job/reports_*/
+job/seen_fp*.json
+job/companies_cursor.json
