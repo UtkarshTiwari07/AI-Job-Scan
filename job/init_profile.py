@@ -8,10 +8,10 @@ location instead of the original author's.
   pbpaste | python job/init_profile.py -          # paste résumé text via stdin
   python job/init_profile.py                      # no résumé — answer questions instead
 
-Either way this writes config/profile.yaml, which job/profile.py loads for all
+Either way this writes config/profile.yaml, which job/candidate_profile.py loads for all
 three job_*.py scripts. Review the written file and hand-edit anything the
 extraction got wrong — it's a best-effort starting point, not an authoritative
-record (see job/profile.py's DEFAULT_PROFILE for what a missing field falls
+record (see job/candidate_profile.py's DEFAULT_PROFILE for what a missing field falls
 back to).
 
 IMPORTANT — the AI/ML domain focus is fixed, not derived from your résumé.
@@ -43,7 +43,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(HERE), ".env"))
 
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 
-# Order + inline docs for the YAML we write. Matches job/profile.py's DEFAULT_PROFILE keys.
+# Order + inline docs for the YAML we write. Matches job/candidate_profile.py's DEFAULT_PROFILE keys.
 FIELD_ORDER = [
     "name", "headline", "stack", "metrics", "location", "home_cities",
     "years_experience", "yoe_slack", "target_role_families",

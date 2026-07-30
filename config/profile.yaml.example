@@ -1,8 +1,8 @@
 # Copy this to config/profile.yaml and edit, or run `python job/init_profile.py`
 # to generate it from your résumé (or a few interactive questions) instead.
 #
-# job/profile.py loads config/profile.yaml for all three job_*.py scripts. Any
-# field you leave out falls back to the built-in default in job/profile.py's
+# job/candidate_profile.py loads config/profile.yaml for all three job_*.py scripts. Any
+# field you leave out falls back to the built-in default in job/candidate_profile.py's
 # DEFAULT_PROFILE (India-based, 2 years experience) — this file only needs to
 # override what's actually different about you.
 #

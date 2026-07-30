@@ -45,7 +45,7 @@ except ImportError as e:
     print(f"  ⚠️  job/companies.py unavailable ({e}) — the India ATS company "
           f"source is skipped this run. `pip install -r requirements.txt` to enable it.")
 
-import profile as prof
+import candidate_profile as prof
 import requirements as req
 
 # ══════════════════════════════════════════════════════════════════
@@ -341,7 +341,7 @@ QUERY_CLUSTERS = [
     },
 ]
 
-# Candidate profile — generalized in v11 (see job/profile.py). Previously a
+# Candidate profile — generalized in v11 (see job/candidate_profile.py). Previously a
 # hardcoded dict duplicated (and already drifted — this one alone mentioned
 # Groq) across all three job_*.py scripts. Run `python job/init_profile.py`
 # once to personalize; a missing/partial config/profile.yaml degrades to the

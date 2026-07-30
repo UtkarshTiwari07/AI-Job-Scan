@@ -23,7 +23,7 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 from openai import OpenAI
 
 sys.path.insert(0, os.path.dirname(__file__))
-import profile as prof
+import candidate_profile as prof
 import requirements as req
 
 # ══════════════════════════════════════════════════════════════════
@@ -35,7 +35,7 @@ SERPER_API_KEY   = os.getenv("SERPER_API_KEY")
 SEEN_FP_FILE     = os.path.join(os.path.dirname(__file__), "seen_fp_freelance.json")
 MAX_POSTING_AGE_DAYS = 3   # Serper qdr:w, then Phase 3 enforces 3 days
 
-# Candidate profile — generalized in v11 (see job/profile.py). min_rate_usd_per_hour
+# Candidate profile — generalized in v11 (see job/candidate_profile.py). min_rate_usd_per_hour
 # replaces the old fixed MIN_PAY_PER_HOUR_USD constant.
 PROFILE = prof.load_profile()
 MIN_PAY_PER_HOUR_USD = PROFILE["min_rate_usd_per_hour"]  # Reject freelance gigs below this
