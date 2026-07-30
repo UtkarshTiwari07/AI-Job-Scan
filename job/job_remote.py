@@ -38,7 +38,7 @@ except ImportError as e:
     print(f"  ⚠️  job/companies.py unavailable ({e}) — the 200-company source is "
           f"skipped this run. `pip install -r requirements.txt` to enable it.")
 
-import profile as prof
+import candidate_profile as prof
 import requirements as req
 
 # ══════════════════════════════════════════════════════════════════

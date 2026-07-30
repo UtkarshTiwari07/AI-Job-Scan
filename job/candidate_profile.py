@@ -1,5 +1,5 @@
 """
-job/profile.py — the SINGLE candidate-profile loader for all three job_*.py
+job/candidate_profile.py — the SINGLE candidate-profile loader for all three job_*.py
 scripts and job/requirements.py.
 
 Generalizes what was previously ~18 hardcoded "1-2 YOE" / stack / geography
