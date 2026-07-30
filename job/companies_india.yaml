@@ -1,0 +1,285 @@
+# Revived from git history (commit 979065b) for v11 — every ATS token was
+# live-verified at the time of that probe. Re-run job/probe_companies.py
+# periodically to catch token rot. Converted to the ats:/serper: schema
+# job/companies.py expects (was a flat companies: list).
+ats:
+  - name: 'CResta'
+    ats: greenhouse
+    token: cresta
+  - name: 'Grafana Labs'
+    ats: greenhouse
+    token: grafanalabs
+  - name: 'Writer'
+    ats: ashby
+    token: writer
+  - name: 'Perplexity'
+    ats: ashby
+    token: perplexity
+  - name: 'Cloudflare'
+    ats: greenhouse
+    token: cloudflare
+  - name: 'Arize AI'
+    ats: greenhouse
+    token: arizeai
+  - name: 'ClickHouse'
+    ats: ashby
+    token: clickhouse
+  - name: 'Baseten'
+    ats: ashby
+    token: baseten
+  - name: 'Cohere'
+    ats: ashby
+    token: cohere
+  - name: 'MongoDB'
+    ats: greenhouse
+    token: mongodb
+  - name: 'Sarvam AI'
+    ats: ashby
+    token: sarvam
+  - name: 'Harvey'
+    ats: ashby
+    token: harvey
+  - name: 'GitLab'
+    ats: greenhouse
+    token: gitlab
+  - name: 'Ramp'
+    ats: ashby
+    token: ramp
+  - name: 'Canonical'
+    ats: greenhouse
+    token: canonical
+  - name: 'Deepgram'
+    ats: ashby
+    token: deepgram
+  - name: 'Turing'
+    ats: greenhouse
+    token: turing
+  - name: 'Cognition'
+    ats: ashby
+    token: cognition
+  - name: 'Decagon'
+    ats: ashby
+    token: decagon
+  - name: 'Mozilla'
+    ats: greenhouse
+    token: mozilla
+  - name: 'Paytm'
+    ats: lever
+    token: paytm
+  - name: 'Notion'
+    ats: ashby
+    token: notion
+  - name: 'Twilio'
+    ats: greenhouse
+    token: twilio
+  - name: 'Abnormal Security'
+    ats: greenhouse
+    token: abnormalsecurity
+  - name: 'Sardine'
+    ats: ashby
+    token: sardine
+  - name: 'Suno'
+    ats: ashby
+    token: suno
+  - name: 'Synthesia'
+    ats: ashby
+    token: synthesia
+  - name: 'Abridge'
+    ats: ashby
+    token: abridge
+  - name: 'HackerRank'
+    ats: greenhouse
+    token: hackerrank
+  - name: 'Replit'
+    ats: ashby
+    token: replit
+  - name: 'Rubrik India'
+    ats: greenhouse
+    token: rubrik
+  - name: 'Voleon'
+    ats: ashby
+    token: voleon
+  - name: 'Fireblocks'
+    ats: greenhouse
+    token: fireblocks
+  - name: 'Hightouch'
+    ats: greenhouse
+    token: hightouch
+  - name: 'LangChain'
+    ats: ashby
+    token: langchain
+  - name: 'Netradyne'
+    ats: greenhouse
+    token: netradyne
+  - name: 'Postman'
+    ats: greenhouse
+    token: postman
+  - name: 'Sigma Computing'
+    ats: greenhouse
+    token: sigmacomputing
+  - name: 'Superside'
+    ats: lever
+    token: superside
+  - name: 'Forter'
+    ats: greenhouse
+    token: forter
+  - name: 'InMobi'
+    ats: greenhouse
+    token: inmobi
+  - name: 'Mercury'
+    ats: greenhouse
+    token: mercury
+  - name: 'Anyscale'
+    ats: ashby
+    token: anyscale
+  - name: 'Benchling'
+    ats: ashby
+    token: benchling
+  - name: 'Gamma'
+    ats: ashby
+    token: gamma
+  - name: 'Hex'
+    ats: greenhouse
+    token: hextechnologies
+  - name: 'Komodo Health'
+    ats: greenhouse
+    token: komodohealth
+  - name: 'Meesho'
+    ats: lever
+    token: meesho
+  - name: 'Temporal'
+    ats: ashby
+    token: temporal
+  - name: 'Alpaca'
+    ats: greenhouse
+    token: alpaca
+  - name: 'Ambience Healthcare'
+    ats: ashby
+    token: ambiencehealthcare
+  - name: 'Elastic'
+    ats: greenhouse
+    token: elastic
+  - name: 'ElevenLabs'
+    ats: ashby
+    token: elevenlabs
+  - name: 'Ideogram'
+    ats: ashby
+    token: ideogram
+  - name: 'Lightning AI'
+    ats: greenhouse
+    token: lightningai
+  - name: 'Modal'
+    ats: ashby
+    token: modal
+  - name: 'Observe.AI'
+    ats: greenhouse
+    token: observeai
+  - name: 'Prolific'
+    ats: greenhouse
+    token: prolific
+  - name: 'Sierra'
+    ats: ashby
+    token: sierra
+  - name: 'Tavus'
+    ats: ashby
+    token: tavus
+  - name: 'Airbyte'
+    ats: ashby
+    token: airbyte
+  - name: 'Andela'
+    ats: ashby
+    token: andela
+  - name: 'Coursera'
+    ats: greenhouse
+    token: coursera
+  - name: 'OpenEvidence'
+    ats: ashby
+    token: openevidence
+  - name: 'Sigmoid'
+    ats: greenhouse
+    token: sigmoid
+  - name: 'Speak'
+    ats: ashby
+    token: speak
+  - name: 'Toptal'
+    ats: lever
+    token: toptal
+  - name: 'Apollo.io'
+    ats: greenhouse
+    token: apolloio
+  - name: 'Assembly AI'
+    ats: greenhouse
+    token: assemblyai
+  - name: 'Descript'
+    ats: greenhouse
+    token: descript
+  - name: 'Fivetran'
+    ats: greenhouse
+    token: fivetran
+  - name: 'Hugging Face'
+    ats: workable
+    token: huggingface
+  - name: 'JFrog'
+    ats: greenhouse
+    token: jfrog
+  - name: 'Lightricks'
+    ats: greenhouse
+    token: lightricks
+  - name: 'PhonePe'
+    ats: greenhouse
+    token: phonepe
+  - name: 'Vercel'
+    ats: greenhouse
+    token: vercel
+  - name: 'Atlan'
+    ats: ashby
+    token: atlan
+  - name: 'BitGo'
+    ats: greenhouse
+    token: bitgo
+  - name: 'Browserbase'
+    ats: ashby
+    token: browserbase
+  - name: 'Buildkite'
+    ats: greenhouse
+    token: buildkite
+  - name: 'Druva'
+    ats: greenhouse
+    token: druva
+  - name: 'Highspot'
+    ats: lever
+    token: highspot
+  - name: 'Linear'
+    ats: ashby
+    token: linear
+  - name: 'Mem0 / Embedchain'
+    ats: ashby
+    token: mem0
+  - name: 'Oyster HR'
+    ats: ashby
+    token: oyster
+  - name: 'PostHog'
+    ats: ashby
+    token: posthog
+  - name: 'RemoFirst'
+    ats: lever
+    token: remofirst
+  - name: 'Sourcegraph'
+    ats: greenhouse
+    token: sourcegraph91
+  - name: 'Stability AI'
+    ats: greenhouse
+    token: stabilityai
+  - name: 'Supabase'
+    ats: ashby
+    token: supabase
+  - name: 'Unstructured'
+    ats: ashby
+    token: unstructured
+  - name: 'Zapier'
+    ats: ashby
+    token: zapier
+  - name: 'Zilliz'
+    ats: lever
+    token: zilliz
+serper: []

@@ -1,7 +1,8 @@
 """
-job/companies.py — v10 200-company source for job_remote.py.
+job/companies.py — company source shared by job_remote.py (mode="remote") and
+job_india_mnc.py (mode="india").
 
-Two fetch paths, chosen per company by job/companies_remote.yaml (built once by
+Two fetch paths, chosen per company by the mode's registry YAML (built once by
 job/probe_companies.py):
   - `ats:` entries have a live-verified Greenhouse/Lever/Ashby/Workable board —
     fetched DIRECTLY via that ATS's JSON API, which returns the FULL job
@@ -9,14 +10,15 @@ job/probe_companies.py):
     already gives clean, complete text).
   - `serper:` entries have no public ATS — `serper_careers_urls()` searches their
     own careers domain via Serper and returns URLs for the EXISTING Crawl4AI
-    scrape_jobs() path in job_remote.py.
+    scrape_jobs() path.
 
-`select_companies(n)` picks the next N companies (across both lists) that have
-not run yet in the current cycle, via a persistent on-disk cursor
-(job/companies_cursor.json). Once every company has had a turn, the cycle wraps.
-This guarantees a run never re-scans the same company until the whole pool has
-been covered — the user's explicit ask ("should be unique company running
-everytime").
+`select_companies(n, mode)` picks the next N companies (across both lists) that
+have not run yet in the current cycle, via a persistent on-disk cursor. Once
+every company has had a turn, the cycle wraps. This guarantees a run never
+re-scans the same company until the whole pool has been covered — the user's
+explicit ask ("should be unique company running everytime"). "remote" and
+"india" mode each keep their OWN registry + cursor, so scanning one doesn't
+consume the other's rotation.
 """
 
 import datetime
@@ -33,8 +35,20 @@ import requests
 import yaml
 
 _DIR = os.path.dirname(__file__)
-REGISTRY_PATH = os.path.join(_DIR, "companies_remote.yaml")
-CURSOR_PATH = os.path.join(_DIR, "companies_cursor.json")
+_REGISTRY_PATHS = {"remote": os.path.join(_DIR, "companies_remote.yaml"),
+                   "india": os.path.join(_DIR, "companies_india.yaml")}
+_CURSOR_PATHS = {"remote": os.path.join(_DIR, "companies_cursor.json"),
+                 "india": os.path.join(_DIR, "companies_cursor_india.json")}
+# Back-compat aliases — job/probe_companies.py and any external reference still
+# uses these directly for the default ("remote") mode.
+REGISTRY_PATH = _REGISTRY_PATHS["remote"]
+CURSOR_PATH = _CURSOR_PATHS["remote"]
+
+def _registry_path(mode: str) -> str:
+    return _REGISTRY_PATHS.get(mode, REGISTRY_PATH)
+
+def _cursor_path(mode: str) -> str:
+    return _CURSOR_PATHS.get(mode, CURSOR_PATH)
 
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -330,26 +344,28 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
 # Registry + persistent unique-rotation selection
 # ══════════════════════════════════════════════════════════════════
 
-def load_pool() -> dict:
-    if not os.path.exists(REGISTRY_PATH): return {"ats": [], "serper": []}
+def load_pool(mode: str = "remote") -> dict:
+    path = _registry_path(mode)
+    if not os.path.exists(path): return {"ats": [], "serper": []}
     try:
-        with open(REGISTRY_PATH) as f: data = yaml.safe_load(f) or {}
+        with open(path) as f: data = yaml.safe_load(f) or {}
     except Exception as e:
-        print(f"  ⚠️  Could not read {REGISTRY_PATH}: {e}")
+        print(f"  ⚠️  Could not read {path}: {e}")
         return {"ats": [], "serper": []}
     return {"ats": data.get("ats") or [], "serper": data.get("serper") or []}
 
-def _load_cursor() -> dict:
-    if not os.path.exists(CURSOR_PATH): return {"done": []}
+def _load_cursor(mode: str = "remote") -> dict:
+    path = _cursor_path(mode)
+    if not os.path.exists(path): return {"done": []}
     try:
-        with open(CURSOR_PATH) as f: return json.load(f)
+        with open(path) as f: return json.load(f)
     except Exception: return {"done": []}
 
-def _save_cursor(state: dict):
+def _save_cursor(state: dict, mode: str = "remote"):
     try:
-        with open(CURSOR_PATH, "w") as f: json.dump(state, f)
+        with open(_cursor_path(mode), "w") as f: json.dump(state, f)
     except Exception as e:
-        print(f"  ⚠️  Could not save companies cursor: {e}")
+        print(f"  ⚠️  Could not save companies cursor ({mode}): {e}")
 
 def _interleave(a: list, b: list) -> list:
     """Round-robin interleave so a prefix slice of the combined list is a
@@ -366,9 +382,11 @@ def _interleave(a: list, b: list) -> list:
     return out
 
 
-def select_companies(n: int) -> tuple:
+def select_companies(n: int, mode: str = "remote") -> tuple:
     """Pick up to `n` companies (ATS + Serper interleaved) that have NOT run yet
-    this cycle. When fewer than `n` remain, top up by wrapping to the start of
+    this cycle, from the given mode's registry ("remote" or "india" — each has
+    its own registry + cursor, so scanning one never consumes the other's
+    rotation). When fewer than `n` remain, top up by wrapping to the start of
     the pool — never placing the same company twice within THIS batch. Returns
     (ats_batch, serper_batch).
 
@@ -377,11 +395,11 @@ def select_companies(n: int) -> tuple:
     attempted, so a crash, a missing SERPER_API_KEY, or an unsupported `ats:`
     value still permanently marked those companies done having produced
     nothing."""
-    pool = load_pool()
+    pool = load_pool(mode)
     all_companies = _interleave([{"kind": "ats", **c} for c in pool["ats"]],
                                 [{"kind": "serper", **c} for c in pool["serper"]])
     if not all_companies or n <= 0: return [], []
-    done = set(_load_cursor().get("done", []))
+    done = set(_load_cursor(mode).get("done", []))
     remaining = [c for c in all_companies if c.get("name") not in done]
     batch = remaining[:n]
     if len(batch) < n:
@@ -392,7 +410,7 @@ def select_companies(n: int) -> tuple:
             [c for c in batch if c["kind"] == "serper"])
 
 
-def mark_companies_done(manifest: list):
+def mark_companies_done(manifest: list, mode: str = "remote"):
     """Persist the cursor AFTER fetching. Only companies that were actually
     ATTEMPTED advance — a manifest row whose status starts with "skipped"
     (e.g. no SERPER_API_KEY) means we never even tried, so it doesn't burn that
@@ -401,30 +419,30 @@ def mark_companies_done(manifest: list):
     never stalls. This also fixes v10's cycle-boundary double-count: `done` now
     only ever grows from real per-company outcomes recorded here, not from an
     ad-hoc reset embedded inside selection."""
-    pool = load_pool()
+    pool = load_pool(mode)
     total = len(pool["ats"]) + len(pool["serper"])
-    done = set(_load_cursor().get("done", []))
+    done = set(_load_cursor(mode).get("done", []))
     attempted = {m.get("name") for m in manifest if not str(m.get("status", "")).startswith("skipped")}
     done |= attempted
     if total and len(done) >= total:
         done = set()  # full cycle actually covered — start the next one fresh
-    _save_cursor({"done": sorted(done)})
+    _save_cursor({"done": sorted(done)}, mode)
 
-def pool_status() -> tuple:
+def pool_status(mode: str = "remote") -> tuple:
     """(total_companies, not_yet_run_this_cycle) — for the interactive prompt."""
-    pool = load_pool()
+    pool = load_pool(mode)
     total = len(pool["ats"]) + len(pool["serper"])
-    done = len(_load_cursor().get("done", []))
+    done = len(_load_cursor(mode).get("done", []))
     return total, max(total - done, 0)
 
-def prompt_company_count(default: int = 30) -> int:
+def prompt_company_count(default: int = 30, mode: str = "remote") -> int:
     """Ask how many companies to scan this run. Falls back to `default` when stdin
     isn't a TTY (cron/CI) so an automated run never blocks on input()."""
-    total, remaining = pool_status()
+    total, remaining = pool_status(mode)
     if total == 0: return 0
     if not sys.stdin.isatty(): return default
     try:
-        raw = input(f"  📇 Company pool: {total} total, {remaining} not yet run this cycle. "
+        raw = input(f"  📇 Company pool ({mode}): {total} total, {remaining} not yet run this cycle. "
                     f"How many to scan now? [default {default}]: ").strip()
         return int(raw) if raw else default
     except (ValueError, EOFError, KeyboardInterrupt):
