@@ -196,6 +196,66 @@ def is_confidently_worldwide_or_home(location_text: str, description: str, is_re
 
 
 # ══════════════════════════════════════════════════════════════════
+# AI-DOMAIN GATE — shared across all 3 scripts (job_remote.py had NONE; A5)
+# ══════════════════════════════════════════════════════════════════
+# The AI/ML domain focus is a fixed system constant (per design), not derived
+# from the résumé/profile — this is the one regex every script should share
+# instead of each keeping (and drifting from) its own copy.
+
+AI_RELEVANCE_KEYWORDS = re.compile(
+    r"(\bllm\b|\brag\b|langchain|crewai|fastapi(?=.*ai)|openai|gemini|claude|gpt|"
+    r"pinecone|\bai\b|\bml\b|machine.?learn|deep.?learn|generative|agentic|"
+    r"voice.?ai|livek|deepgram|eleven.?labs|transformer|fine.?tun|vector.?db|"
+    r"embedding|chatbot|\bnlp\b|hugging.?face|pytorch|tensorflow|sklearn|scikit|"
+    r"inferenc|llama|mistral|prompt.?engineer|forward deployed|"
+    r"computer vision|neural network)",
+    re.IGNORECASE,
+)
+# Deliberately NOT matched by title alone: "data scien(tist)", "applied scien(tist)".
+# Those are accepted role families per this project's decision to allow AI/ML-focused
+# data science — but "Data Scientist" alone is ambiguous with pure BI/reporting work
+# (the EVAL prompt explicitly excludes that). A bare "Data Scientist" title with no
+# other AI/ML signal in the JD should NOT pass the domain gate; the pattern above
+# already accepts it the moment the JD mentions any real ML/AI content (pytorch,
+# "machine learning", etc.) — verified: "Data Scientist" + "A/B testing, pandas"
+# correctly fails, "Data Scientist" + "PyTorch, LightGBM" correctly passes.
+
+
+def is_ai_relevant(title: str, description: str) -> bool:
+    """Positive gate — a job must mention an AI/ML/LLM/data-science signal
+    somewhere in title+description or it's out of scope, no matter how well the
+    other gates pass. job_remote.py had NO such gate (only a 20-token blocklist),
+    so "Rust Systems Engineer," "Solutions Architect," and "Accountant" titles
+    that didn't happen to match the blocklist reached a paid LLM call."""
+    return bool(AI_RELEVANCE_KEYWORDS.search(f"{title or ''} {description or ''}"))
+
+
+# ══════════════════════════════════════════════════════════════════
+# EDUCATION — driven by the profile's education_ceiling, not a fixed constant
+# ══════════════════════════════════════════════════════════════════
+
+_DEGREE_RANK = {"bachelor's": 0, "bachelors": 0, "master's": 1, "masters": 1, "phd": 2}
+_DEGREE_REQUIRE_PATTERNS = {
+    "master's": re.compile(r"\b(master'?s?\s+degree\s+required|m\.?s\.?\s+required|"
+                            r"msc\s+required|m\.?tech\s+required)\b", re.IGNORECASE),
+    "phd": re.compile(r"\b(phd\s+required|ph\.?d\.?|doctorate\s+required|"
+                       r"doctoral\s+degree)\b", re.IGNORECASE),
+}
+
+
+def education_ok(profile: dict, text: str) -> bool:
+    """True unless the posting hard-requires a degree ABOVE the profile's
+    education_ceiling. A PhD-holder's profile never gets rejected on education;
+    a bachelor's-only profile is rejected by any Master's-or-PhD requirement."""
+    ceiling = _DEGREE_RANK.get((profile.get("education_ceiling") or "bachelor's").lower(), 0)
+    t = (text or "")
+    for degree, rank in (("master's", 1), ("phd", 2)):
+        if rank > ceiling and _DEGREE_REQUIRE_PATTERNS[degree].search(t):
+            return False
+    return True
+
+
+# ══════════════════════════════════════════════════════════════════
 # SENIORITY — expanded title regex (v10's missed 5 of 7 real senior titles)
 # ══════════════════════════════════════════════════════════════════
 

@@ -206,40 +206,69 @@ _FETCHERS = {"greenhouse": fetch_greenhouse, "lever": fetch_lever,
              "ashby": fetch_ashby, "workable": fetch_workable}
 
 
-def fetch_ats_jobs(ats_batch: list) -> list:
+def _manifest_row(name, kind, detail, jobs_found, ai_relevant, status):
+    return {"name": name, "kind": kind, "detail": detail, "jobs_found": jobs_found,
+            "ai_relevant": ai_relevant, "status": status}
+
+
+def fetch_ats_jobs(ats_batch: list) -> tuple:
     """Fetch + AI-title-filter jobs for a batch of {name, ats, token} companies.
     Stamps _fingerprint/_scraped_at to match scrape_jobs()'s convention so these
-    jobs merge cleanly with Crawl4AI-scraped ones in job_remote.py's raw_jobs."""
-    out = []
+    jobs merge cleanly with Crawl4AI-scraped ones in job_remote.py's raw_jobs.
+
+    Returns (jobs, manifest) — manifest has ONE ROW PER COMPANY IN THE BATCH,
+    including zero-yield and failed ones. v10 only printed a line for companies
+    that fetched successfully; an unsupported `ats:` value or a failed HTTP call
+    silently vanished with no record anywhere, so a scan that fetched nothing
+    from half the batch looked identical to a clean run. This is what the
+    caller writes into the report's run_manifest so "did it actually fetch
+    company X" is answerable from the file, not just scrollback."""
+    out, manifest = [], []
     for co in ats_batch:
-        fn = _FETCHERS.get(co.get("ats"))
+        name, ats_kind = co.get("name", "?"), co.get("ats")
+        fn = _FETCHERS.get(ats_kind)
         if not fn:
+            print(f"    ⚠️  {name}: unsupported ats type {ats_kind!r} — skipped")
+            manifest.append(_manifest_row(name, "ats", ats_kind, 0, 0, f"unsupported ats type {ats_kind!r}"))
             continue
         try:
             jobs = fn(co["token"])
         except Exception as e:
-            print(f"    ⚠️  {co.get('name')} ({co.get('ats')}): {e}")
+            print(f"    ⚠️  {name} ({ats_kind}): {e}")
+            manifest.append(_manifest_row(name, "ats", ats_kind, 0, 0, f"error: {e}"))
             continue
         relevant = [j for j in jobs if AI_TITLE_KEYWORDS.search(j.get("title") or "")]
         for j in relevant:
-            j["company"] = co.get("name", "")
-            fp = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
+            j["company"] = name
+            fp = hashlib.md5(f"{j['title'].lower()}|{name.lower()}".encode()).hexdigest()
             j["_fingerprint"] = fp
             j["_scraped_at"] = datetime.datetime.utcnow().isoformat() + "Z"
             # Tells job_remote.py's prefilter to skip the Serper-week freshness
             # gate — an ATS board lists currently-OPEN roles, not week-old search
             # hits, so "posted 3 weeks ago" doesn't mean stale/unavailable.
             j["_source"] = "ats_direct"
-        print(f"    ✓ {co.get('name')} ({co.get('ats')}): {len(jobs)} jobs, {len(relevant)} AI/ML-relevant")
+        print(f"    ✓ {name} ({ats_kind}): {len(jobs)} jobs, {len(relevant)} AI/ML-relevant")
+        manifest.append(_manifest_row(name, "ats", ats_kind, len(jobs), len(relevant), "ok"))
         out.extend(relevant)
-    return out
+    return out, manifest
 
 
-def serper_careers_urls(serper_batch: list, serper_api_key: str) -> list:
+def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
     """For no-ATS companies, search their careers domain via Serper for AI/ML/DS/FDE
-    roles. Returns URLs for the EXISTING scrape_jobs() Crawl4AI path — unlike ATS
-    jobs, a careers-page hit still needs a full-page crawl for the JD text."""
-    if not serper_api_key or not serper_batch: return []
+    roles. Returns (urls, manifest) — urls feed the EXISTING scrape_jobs() Crawl4AI
+    path (unlike ATS jobs, a careers-page hit still needs a full-page crawl for the
+    JD text). If serper_api_key is missing, EVERY company in the batch still gets a
+    manifest row explaining why it was skipped — v10 silently dropped the entire
+    batch with zero output."""
+    manifest = []
+    if not serper_api_key:
+        for co in serper_batch:
+            manifest.append(_manifest_row(co.get("name", "?"), "serper",
+                                          co.get("careers_domain"), 0, 0, "skipped: no SERPER_API_KEY"))
+        if serper_batch:
+            print(f"    ⚠️  SERPER_API_KEY not set — skipping all {len(serper_batch)} "
+                  f"Serper-careers companies in this batch")
+        return [], manifest
     urls = []
     api_url = "https://google.serper.dev/search"
     headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
@@ -257,9 +286,11 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> list:
                 link = r.get("link", "").strip()
                 if link: urls.append(link); found += 1
             print(f"    ✓ {name}: {found} URLs")
+            manifest.append(_manifest_row(name, "serper", domain, found, None, "ok"))
         except Exception as e:
             print(f"    ⚠️  Serper error ({name}): {e}")
-    return urls
+            manifest.append(_manifest_row(name, "serper", domain, 0, None, f"error: {e}"))
+    return urls, manifest
 
 
 # ══════════════════════════════════════════════════════════════════
