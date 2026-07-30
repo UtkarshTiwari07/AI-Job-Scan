@@ -608,6 +608,12 @@ async def main(dry_run: bool = False):
                 if serper_batch:
                     company_urls, serper_manifest = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
                     company_manifest.extend(serper_manifest)
+                # Commit the rotation cursor only NOW, after the fetch attempts
+                # actually ran — v10 committed inside select_companies(), before
+                # any fetch happened, so a crash or a missing SERPER_API_KEY still
+                # permanently marked those companies done with zero jobs produced.
+                companies.mark_companies_done(company_manifest)
+                pool_total, pool_remaining = companies.pool_status()
             else:
                 print("\n🏢 PHASE 0 — 0 companies requested this run; skipping the company source.")
         else:

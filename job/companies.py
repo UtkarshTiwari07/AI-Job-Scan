@@ -132,15 +132,25 @@ def _job(**kw) -> dict:
 # ══════════════════════════════════════════════════════════════════
 
 def fetch_greenhouse(token: str) -> list:
-    data = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true")
-    if not data: return []
+    """Two-step: list every job WITHOUT its content field (cheap — `content=false`
+    keeps the payload to title/url/location for the whole board), filter by
+    AI-relevant title FIRST, then fetch the full content only for jobs that
+    survive. v10 fetched full content for EVERY job on the board just to keep the
+    ~10-25% that were AI-relevant — Cloudflare (280 jobs), MongoDB (398), Okta
+    (348) were each fetched in full to end up with single-digit-to-20-ish
+    matches. This is the single most wasteful call in the whole pipeline."""
+    listing = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=false")
+    if not listing: return []
+    relevant_meta = [j for j in listing.get("jobs", []) if AI_TITLE_KEYWORDS.search(j.get("title") or "")]
     out = []
-    for j in data.get("jobs", []):
+    for j in relevant_meta:
+        detail = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{j.get('id')}") or {}
         out.append(_job(
-            title=j.get("title"), url=j.get("absolute_url"),
-            location_text=(j.get("location") or {}).get("name", ""),
-            posted_date=_iso_date(j.get("first_published") or j.get("updated_at")),
-            description=strip_html(j.get("content")),
+            title=detail.get("title") or j.get("title"),
+            url=detail.get("absolute_url") or j.get("absolute_url"),
+            location_text=((detail.get("location") or j.get("location")) or {}).get("name", ""),
+            posted_date=_iso_date(detail.get("first_published") or detail.get("updated_at")),
+            description=strip_html(detail.get("content")),
         ))
     return out
 
@@ -164,6 +174,22 @@ def fetch_lever(token: str) -> list:
         ))
     return out
 
+def _fmt_ashby_comp(comp) -> str:
+    """Best-effort compensation string from an Ashby compensation block. v10
+    requested this data (`?includeCompensation=true`) and then never mapped it
+    to pay_text — paid for it, threw it away. Field names verified against a
+    LIVE response (Ramp/Perplexity postings): the top-level string is
+    `compensationTierSummary` (singular) — an earlier version of this function,
+    copied from older reference code, looked for a nonexistent
+    `compensationTierSummaries` (plural) key that never matches real API output
+    and silently always returned ''."""
+    if not comp or not isinstance(comp, dict): return ""
+    top = comp.get("compensationTierSummary") or comp.get("scrapeableCompensationSalarySummary")
+    if top: return str(top)[:200]
+    tiers = comp.get("compensationTiers") or []
+    parts = [t.get("tierSummary") or t.get("title") or "" for t in tiers if isinstance(t, dict)]
+    return " | ".join(p for p in parts if p)[:200]
+
 def fetch_ashby(token: str) -> list:
     data = _get_json(f"https://api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true")
     if not data: return []
@@ -173,18 +199,25 @@ def fetch_ashby(token: str) -> list:
             title=j.get("title"), url=j.get("jobUrl") or j.get("applyUrl"),
             location_text=j.get("location", ""), is_remote=j.get("isRemote"),
             job_type=j.get("employmentType", ""),
+            pay_text=_fmt_ashby_comp(j.get("compensation")),
             posted_date=_iso_date(j.get("publishedAt")),
             description=j.get("descriptionPlain") or strip_html(j.get("descriptionHtml")),
         ))
     return out
 
 def fetch_workable(account: str, max_detail: int = 40) -> list:
+    """Filters by AI-relevant title on the cheap v3 listing BEFORE spending a v2
+    detail call — v10 took the first `max_detail` jobs regardless of relevance,
+    wasting detail calls on "Sales Manager"/"Support Engineer" postings ahead of
+    any real AI/ML role in the list."""
     listing = _post_json(
         f"https://apply.workable.com/api/v3/accounts/{account}/jobs",
         {"query": "", "location": [], "department": [], "worktype": [], "remote": []})
     if not listing: return []
+    relevant_posts = [p for p in (listing.get("results") or [])
+                      if AI_TITLE_KEYWORDS.search(p.get("title") or "")][:max_detail]
     out = []
-    for post in (listing.get("results") or [])[:max_detail]:
+    for post in relevant_posts:
         sc = post.get("shortcode")
         if not sc: continue
         detail = _get_json(f"https://apply.workable.com/api/v2/accounts/{account}/jobs/{sc}") or {}
@@ -318,29 +351,64 @@ def _save_cursor(state: dict):
     except Exception as e:
         print(f"  ⚠️  Could not save companies cursor: {e}")
 
+def _interleave(a: list, b: list) -> list:
+    """Round-robin interleave so a prefix slice of the combined list is a
+    proportional mix of both, instead of exhausting `a` before ever touching
+    `b`. v10 used plain concatenation (ats + serper) — with 106 ats entries
+    listed before 75 serper ones, requesting 50 companies returned 50 ATS-direct
+    and ZERO Serper-careers, for at least the first two runs from a virgin
+    cursor. The career-page path the user explicitly asked to lean on was dead."""
+    out = []
+    ia = ib = 0
+    while ia < len(a) or ib < len(b):
+        if ia < len(a): out.append(a[ia]); ia += 1
+        if ib < len(b): out.append(b[ib]); ib += 1
+    return out
+
+
 def select_companies(n: int) -> tuple:
-    """Pick up to `n` companies (ATS + Serper combined) that have NOT run yet this
-    cycle. When fewer than `n` remain, finish the old cycle then top up from a
-    fresh one (skipping anything already placed in THIS batch) — so one call
-    never returns a duplicate, and across runs nothing repeats until the entire
-    pool has had a turn. Returns (ats_batch, serper_batch)."""
+    """Pick up to `n` companies (ATS + Serper interleaved) that have NOT run yet
+    this cycle. When fewer than `n` remain, top up by wrapping to the start of
+    the pool — never placing the same company twice within THIS batch. Returns
+    (ats_batch, serper_batch).
+
+    Does NOT persist the cursor — call mark_companies_done() with the resulting
+    fetch manifest afterward. v10 saved the cursor here, BEFORE any fetch was
+    attempted, so a crash, a missing SERPER_API_KEY, or an unsupported `ats:`
+    value still permanently marked those companies done having produced
+    nothing."""
     pool = load_pool()
-    all_companies = ([{"kind": "ats", **c} for c in pool["ats"]] +
-                     [{"kind": "serper", **c} for c in pool["serper"]])
+    all_companies = _interleave([{"kind": "ats", **c} for c in pool["ats"]],
+                                [{"kind": "serper", **c} for c in pool["serper"]])
     if not all_companies or n <= 0: return [], []
-    state = _load_cursor()
-    done = set(state.get("done", []))
+    done = set(_load_cursor().get("done", []))
     remaining = [c for c in all_companies if c.get("name") not in done]
     batch = remaining[:n]
     if len(batch) < n:
         batch_names = {c.get("name") for c in batch}
         topup = [c for c in all_companies if c.get("name") not in batch_names]
         batch = batch + topup[: n - len(batch)]
-        done = set()  # cycle completed — next save starts the new cycle fresh
-    done.update(c.get("name") for c in batch)
-    _save_cursor({"done": sorted(done)})
     return ([c for c in batch if c["kind"] == "ats"],
             [c for c in batch if c["kind"] == "serper"])
+
+
+def mark_companies_done(manifest: list):
+    """Persist the cursor AFTER fetching. Only companies that were actually
+    ATTEMPTED advance — a manifest row whose status starts with "skipped"
+    (e.g. no SERPER_API_KEY) means we never even tried, so it doesn't burn that
+    company's turn; it'll be retried for real next time. Once every company in
+    the pool has been attempted at least once, the cycle resets so selection
+    never stalls. This also fixes v10's cycle-boundary double-count: `done` now
+    only ever grows from real per-company outcomes recorded here, not from an
+    ad-hoc reset embedded inside selection."""
+    pool = load_pool()
+    total = len(pool["ats"]) + len(pool["serper"])
+    done = set(_load_cursor().get("done", []))
+    attempted = {m.get("name") for m in manifest if not str(m.get("status", "")).startswith("skipped")}
+    done |= attempted
+    if total and len(done) >= total:
+        done = set()  # full cycle actually covered — start the next one fresh
+    _save_cursor({"done": sorted(done)})
 
 def pool_status() -> tuple:
     """(total_companies, not_yet_run_this_cycle) — for the interactive prompt."""
