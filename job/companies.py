@@ -1,7 +1,8 @@
 """
-job/companies.py — v10 200-company source for job_remote.py.
+job/companies.py — company source shared by job_remote.py (mode="remote") and
+job_india_mnc.py (mode="india").
 
-Two fetch paths, chosen per company by job/companies_remote.yaml (built once by
+Two fetch paths, chosen per company by the mode's registry YAML (built once by
 job/probe_companies.py):
   - `ats:` entries have a live-verified Greenhouse/Lever/Ashby/Workable board —
     fetched DIRECTLY via that ATS's JSON API, which returns the FULL job
@@ -9,14 +10,15 @@ job/probe_companies.py):
     already gives clean, complete text).
   - `serper:` entries have no public ATS — `serper_careers_urls()` searches their
     own careers domain via Serper and returns URLs for the EXISTING Crawl4AI
-    scrape_jobs() path in job_remote.py.
+    scrape_jobs() path.
 
-`select_companies(n)` picks the next N companies (across both lists) that have
-not run yet in the current cycle, via a persistent on-disk cursor
-(job/companies_cursor.json). Once every company has had a turn, the cycle wraps.
-This guarantees a run never re-scans the same company until the whole pool has
-been covered — the user's explicit ask ("should be unique company running
-everytime").
+`select_companies(n, mode)` picks the next N companies (across both lists) that
+have not run yet in the current cycle, via a persistent on-disk cursor. Once
+every company has had a turn, the cycle wraps. This guarantees a run never
+re-scans the same company until the whole pool has been covered — the user's
+explicit ask ("should be unique company running everytime"). "remote" and
+"india" mode each keep their OWN registry + cursor, so scanning one doesn't
+consume the other's rotation.
 """
 
 import datetime
@@ -33,8 +35,20 @@ import requests
 import yaml
 
 _DIR = os.path.dirname(__file__)
-REGISTRY_PATH = os.path.join(_DIR, "companies_remote.yaml")
-CURSOR_PATH = os.path.join(_DIR, "companies_cursor.json")
+_REGISTRY_PATHS = {"remote": os.path.join(_DIR, "companies_remote.yaml"),
+                   "india": os.path.join(_DIR, "companies_india.yaml")}
+_CURSOR_PATHS = {"remote": os.path.join(_DIR, "companies_cursor.json"),
+                 "india": os.path.join(_DIR, "companies_cursor_india.json")}
+# Back-compat aliases — job/probe_companies.py and any external reference still
+# uses these directly for the default ("remote") mode.
+REGISTRY_PATH = _REGISTRY_PATHS["remote"]
+CURSOR_PATH = _CURSOR_PATHS["remote"]
+
+def _registry_path(mode: str) -> str:
+    return _REGISTRY_PATHS.get(mode, REGISTRY_PATH)
+
+def _cursor_path(mode: str) -> str:
+    return _CURSOR_PATHS.get(mode, CURSOR_PATH)
 
 UA = ("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
@@ -132,15 +146,25 @@ def _job(**kw) -> dict:
 # ══════════════════════════════════════════════════════════════════
 
 def fetch_greenhouse(token: str) -> list:
-    data = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=true")
-    if not data: return []
+    """Two-step: list every job WITHOUT its content field (cheap — `content=false`
+    keeps the payload to title/url/location for the whole board), filter by
+    AI-relevant title FIRST, then fetch the full content only for jobs that
+    survive. v10 fetched full content for EVERY job on the board just to keep the
+    ~10-25% that were AI-relevant — Cloudflare (280 jobs), MongoDB (398), Okta
+    (348) were each fetched in full to end up with single-digit-to-20-ish
+    matches. This is the single most wasteful call in the whole pipeline."""
+    listing = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs?content=false")
+    if not listing: return []
+    relevant_meta = [j for j in listing.get("jobs", []) if AI_TITLE_KEYWORDS.search(j.get("title") or "")]
     out = []
-    for j in data.get("jobs", []):
+    for j in relevant_meta:
+        detail = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{j.get('id')}") or {}
         out.append(_job(
-            title=j.get("title"), url=j.get("absolute_url"),
-            location_text=(j.get("location") or {}).get("name", ""),
-            posted_date=_iso_date(j.get("first_published") or j.get("updated_at")),
-            description=strip_html(j.get("content")),
+            title=detail.get("title") or j.get("title"),
+            url=detail.get("absolute_url") or j.get("absolute_url"),
+            location_text=((detail.get("location") or j.get("location")) or {}).get("name", ""),
+            posted_date=_iso_date(detail.get("first_published") or detail.get("updated_at")),
+            description=strip_html(detail.get("content")),
         ))
     return out
 
@@ -164,6 +188,22 @@ def fetch_lever(token: str) -> list:
         ))
     return out
 
+def _fmt_ashby_comp(comp) -> str:
+    """Best-effort compensation string from an Ashby compensation block. v10
+    requested this data (`?includeCompensation=true`) and then never mapped it
+    to pay_text — paid for it, threw it away. Field names verified against a
+    LIVE response (Ramp/Perplexity postings): the top-level string is
+    `compensationTierSummary` (singular) — an earlier version of this function,
+    copied from older reference code, looked for a nonexistent
+    `compensationTierSummaries` (plural) key that never matches real API output
+    and silently always returned ''."""
+    if not comp or not isinstance(comp, dict): return ""
+    top = comp.get("compensationTierSummary") or comp.get("scrapeableCompensationSalarySummary")
+    if top: return str(top)[:200]
+    tiers = comp.get("compensationTiers") or []
+    parts = [t.get("tierSummary") or t.get("title") or "" for t in tiers if isinstance(t, dict)]
+    return " | ".join(p for p in parts if p)[:200]
+
 def fetch_ashby(token: str) -> list:
     data = _get_json(f"https://api.ashbyhq.com/posting-api/job-board/{token}?includeCompensation=true")
     if not data: return []
@@ -173,18 +213,25 @@ def fetch_ashby(token: str) -> list:
             title=j.get("title"), url=j.get("jobUrl") or j.get("applyUrl"),
             location_text=j.get("location", ""), is_remote=j.get("isRemote"),
             job_type=j.get("employmentType", ""),
+            pay_text=_fmt_ashby_comp(j.get("compensation")),
             posted_date=_iso_date(j.get("publishedAt")),
             description=j.get("descriptionPlain") or strip_html(j.get("descriptionHtml")),
         ))
     return out
 
 def fetch_workable(account: str, max_detail: int = 40) -> list:
+    """Filters by AI-relevant title on the cheap v3 listing BEFORE spending a v2
+    detail call — v10 took the first `max_detail` jobs regardless of relevance,
+    wasting detail calls on "Sales Manager"/"Support Engineer" postings ahead of
+    any real AI/ML role in the list."""
     listing = _post_json(
         f"https://apply.workable.com/api/v3/accounts/{account}/jobs",
         {"query": "", "location": [], "department": [], "worktype": [], "remote": []})
     if not listing: return []
+    relevant_posts = [p for p in (listing.get("results") or [])
+                      if AI_TITLE_KEYWORDS.search(p.get("title") or "")][:max_detail]
     out = []
-    for post in (listing.get("results") or [])[:max_detail]:
+    for post in relevant_posts:
         sc = post.get("shortcode")
         if not sc: continue
         detail = _get_json(f"https://apply.workable.com/api/v2/accounts/{account}/jobs/{sc}") or {}
@@ -206,40 +253,69 @@ _FETCHERS = {"greenhouse": fetch_greenhouse, "lever": fetch_lever,
              "ashby": fetch_ashby, "workable": fetch_workable}
 
 
-def fetch_ats_jobs(ats_batch: list) -> list:
+def _manifest_row(name, kind, detail, jobs_found, ai_relevant, status):
+    return {"name": name, "kind": kind, "detail": detail, "jobs_found": jobs_found,
+            "ai_relevant": ai_relevant, "status": status}
+
+
+def fetch_ats_jobs(ats_batch: list) -> tuple:
     """Fetch + AI-title-filter jobs for a batch of {name, ats, token} companies.
     Stamps _fingerprint/_scraped_at to match scrape_jobs()'s convention so these
-    jobs merge cleanly with Crawl4AI-scraped ones in job_remote.py's raw_jobs."""
-    out = []
+    jobs merge cleanly with Crawl4AI-scraped ones in job_remote.py's raw_jobs.
+
+    Returns (jobs, manifest) — manifest has ONE ROW PER COMPANY IN THE BATCH,
+    including zero-yield and failed ones. v10 only printed a line for companies
+    that fetched successfully; an unsupported `ats:` value or a failed HTTP call
+    silently vanished with no record anywhere, so a scan that fetched nothing
+    from half the batch looked identical to a clean run. This is what the
+    caller writes into the report's run_manifest so "did it actually fetch
+    company X" is answerable from the file, not just scrollback."""
+    out, manifest = [], []
     for co in ats_batch:
-        fn = _FETCHERS.get(co.get("ats"))
+        name, ats_kind = co.get("name", "?"), co.get("ats")
+        fn = _FETCHERS.get(ats_kind)
         if not fn:
+            print(f"    ⚠️  {name}: unsupported ats type {ats_kind!r} — skipped")
+            manifest.append(_manifest_row(name, "ats", ats_kind, 0, 0, f"unsupported ats type {ats_kind!r}"))
             continue
         try:
             jobs = fn(co["token"])
         except Exception as e:
-            print(f"    ⚠️  {co.get('name')} ({co.get('ats')}): {e}")
+            print(f"    ⚠️  {name} ({ats_kind}): {e}")
+            manifest.append(_manifest_row(name, "ats", ats_kind, 0, 0, f"error: {e}"))
             continue
         relevant = [j for j in jobs if AI_TITLE_KEYWORDS.search(j.get("title") or "")]
         for j in relevant:
-            j["company"] = co.get("name", "")
-            fp = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
+            j["company"] = name
+            fp = hashlib.md5(f"{j['title'].lower()}|{name.lower()}".encode()).hexdigest()
             j["_fingerprint"] = fp
             j["_scraped_at"] = datetime.datetime.utcnow().isoformat() + "Z"
             # Tells job_remote.py's prefilter to skip the Serper-week freshness
             # gate — an ATS board lists currently-OPEN roles, not week-old search
             # hits, so "posted 3 weeks ago" doesn't mean stale/unavailable.
             j["_source"] = "ats_direct"
-        print(f"    ✓ {co.get('name')} ({co.get('ats')}): {len(jobs)} jobs, {len(relevant)} AI/ML-relevant")
+        print(f"    ✓ {name} ({ats_kind}): {len(jobs)} jobs, {len(relevant)} AI/ML-relevant")
+        manifest.append(_manifest_row(name, "ats", ats_kind, len(jobs), len(relevant), "ok"))
         out.extend(relevant)
-    return out
+    return out, manifest
 
 
-def serper_careers_urls(serper_batch: list, serper_api_key: str) -> list:
+def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
     """For no-ATS companies, search their careers domain via Serper for AI/ML/DS/FDE
-    roles. Returns URLs for the EXISTING scrape_jobs() Crawl4AI path — unlike ATS
-    jobs, a careers-page hit still needs a full-page crawl for the JD text."""
-    if not serper_api_key or not serper_batch: return []
+    roles. Returns (urls, manifest) — urls feed the EXISTING scrape_jobs() Crawl4AI
+    path (unlike ATS jobs, a careers-page hit still needs a full-page crawl for the
+    JD text). If serper_api_key is missing, EVERY company in the batch still gets a
+    manifest row explaining why it was skipped — v10 silently dropped the entire
+    batch with zero output."""
+    manifest = []
+    if not serper_api_key:
+        for co in serper_batch:
+            manifest.append(_manifest_row(co.get("name", "?"), "serper",
+                                          co.get("careers_domain"), 0, 0, "skipped: no SERPER_API_KEY"))
+        if serper_batch:
+            print(f"    ⚠️  SERPER_API_KEY not set — skipping all {len(serper_batch)} "
+                  f"Serper-careers companies in this batch")
+        return [], manifest
     urls = []
     api_url = "https://google.serper.dev/search"
     headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
@@ -257,75 +333,116 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> list:
                 link = r.get("link", "").strip()
                 if link: urls.append(link); found += 1
             print(f"    ✓ {name}: {found} URLs")
+            manifest.append(_manifest_row(name, "serper", domain, found, None, "ok"))
         except Exception as e:
             print(f"    ⚠️  Serper error ({name}): {e}")
-    return urls
+            manifest.append(_manifest_row(name, "serper", domain, 0, None, f"error: {e}"))
+    return urls, manifest
 
 
 # ══════════════════════════════════════════════════════════════════
 # Registry + persistent unique-rotation selection
 # ══════════════════════════════════════════════════════════════════
 
-def load_pool() -> dict:
-    if not os.path.exists(REGISTRY_PATH): return {"ats": [], "serper": []}
+def load_pool(mode: str = "remote") -> dict:
+    path = _registry_path(mode)
+    if not os.path.exists(path): return {"ats": [], "serper": []}
     try:
-        with open(REGISTRY_PATH) as f: data = yaml.safe_load(f) or {}
+        with open(path) as f: data = yaml.safe_load(f) or {}
     except Exception as e:
-        print(f"  ⚠️  Could not read {REGISTRY_PATH}: {e}")
+        print(f"  ⚠️  Could not read {path}: {e}")
         return {"ats": [], "serper": []}
     return {"ats": data.get("ats") or [], "serper": data.get("serper") or []}
 
-def _load_cursor() -> dict:
-    if not os.path.exists(CURSOR_PATH): return {"done": []}
+def _load_cursor(mode: str = "remote") -> dict:
+    path = _cursor_path(mode)
+    if not os.path.exists(path): return {"done": []}
     try:
-        with open(CURSOR_PATH) as f: return json.load(f)
+        with open(path) as f: return json.load(f)
     except Exception: return {"done": []}
 
-def _save_cursor(state: dict):
+def _save_cursor(state: dict, mode: str = "remote"):
     try:
-        with open(CURSOR_PATH, "w") as f: json.dump(state, f)
+        with open(_cursor_path(mode), "w") as f: json.dump(state, f)
     except Exception as e:
-        print(f"  ⚠️  Could not save companies cursor: {e}")
+        print(f"  ⚠️  Could not save companies cursor ({mode}): {e}")
 
-def select_companies(n: int) -> tuple:
-    """Pick up to `n` companies (ATS + Serper combined) that have NOT run yet this
-    cycle. When fewer than `n` remain, finish the old cycle then top up from a
-    fresh one (skipping anything already placed in THIS batch) — so one call
-    never returns a duplicate, and across runs nothing repeats until the entire
-    pool has had a turn. Returns (ats_batch, serper_batch)."""
-    pool = load_pool()
-    all_companies = ([{"kind": "ats", **c} for c in pool["ats"]] +
-                     [{"kind": "serper", **c} for c in pool["serper"]])
+def _interleave(a: list, b: list) -> list:
+    """Round-robin interleave so a prefix slice of the combined list is a
+    proportional mix of both, instead of exhausting `a` before ever touching
+    `b`. v10 used plain concatenation (ats + serper) — with 106 ats entries
+    listed before 75 serper ones, requesting 50 companies returned 50 ATS-direct
+    and ZERO Serper-careers, for at least the first two runs from a virgin
+    cursor. The career-page path the user explicitly asked to lean on was dead."""
+    out = []
+    ia = ib = 0
+    while ia < len(a) or ib < len(b):
+        if ia < len(a): out.append(a[ia]); ia += 1
+        if ib < len(b): out.append(b[ib]); ib += 1
+    return out
+
+
+def select_companies(n: int, mode: str = "remote") -> tuple:
+    """Pick up to `n` companies (ATS + Serper interleaved) that have NOT run yet
+    this cycle, from the given mode's registry ("remote" or "india" — each has
+    its own registry + cursor, so scanning one never consumes the other's
+    rotation). When fewer than `n` remain, top up by wrapping to the start of
+    the pool — never placing the same company twice within THIS batch. Returns
+    (ats_batch, serper_batch).
+
+    Does NOT persist the cursor — call mark_companies_done() with the resulting
+    fetch manifest afterward. v10 saved the cursor here, BEFORE any fetch was
+    attempted, so a crash, a missing SERPER_API_KEY, or an unsupported `ats:`
+    value still permanently marked those companies done having produced
+    nothing."""
+    pool = load_pool(mode)
+    all_companies = _interleave([{"kind": "ats", **c} for c in pool["ats"]],
+                                [{"kind": "serper", **c} for c in pool["serper"]])
     if not all_companies or n <= 0: return [], []
-    state = _load_cursor()
-    done = set(state.get("done", []))
+    done = set(_load_cursor(mode).get("done", []))
     remaining = [c for c in all_companies if c.get("name") not in done]
     batch = remaining[:n]
     if len(batch) < n:
         batch_names = {c.get("name") for c in batch}
         topup = [c for c in all_companies if c.get("name") not in batch_names]
         batch = batch + topup[: n - len(batch)]
-        done = set()  # cycle completed — next save starts the new cycle fresh
-    done.update(c.get("name") for c in batch)
-    _save_cursor({"done": sorted(done)})
     return ([c for c in batch if c["kind"] == "ats"],
             [c for c in batch if c["kind"] == "serper"])
 
-def pool_status() -> tuple:
-    """(total_companies, not_yet_run_this_cycle) — for the interactive prompt."""
-    pool = load_pool()
+
+def mark_companies_done(manifest: list, mode: str = "remote"):
+    """Persist the cursor AFTER fetching. Only companies that were actually
+    ATTEMPTED advance — a manifest row whose status starts with "skipped"
+    (e.g. no SERPER_API_KEY) means we never even tried, so it doesn't burn that
+    company's turn; it'll be retried for real next time. Once every company in
+    the pool has been attempted at least once, the cycle resets so selection
+    never stalls. This also fixes v10's cycle-boundary double-count: `done` now
+    only ever grows from real per-company outcomes recorded here, not from an
+    ad-hoc reset embedded inside selection."""
+    pool = load_pool(mode)
     total = len(pool["ats"]) + len(pool["serper"])
-    done = len(_load_cursor().get("done", []))
+    done = set(_load_cursor(mode).get("done", []))
+    attempted = {m.get("name") for m in manifest if not str(m.get("status", "")).startswith("skipped")}
+    done |= attempted
+    if total and len(done) >= total:
+        done = set()  # full cycle actually covered — start the next one fresh
+    _save_cursor({"done": sorted(done)}, mode)
+
+def pool_status(mode: str = "remote") -> tuple:
+    """(total_companies, not_yet_run_this_cycle) — for the interactive prompt."""
+    pool = load_pool(mode)
+    total = len(pool["ats"]) + len(pool["serper"])
+    done = len(_load_cursor(mode).get("done", []))
     return total, max(total - done, 0)
 
-def prompt_company_count(default: int = 30) -> int:
+def prompt_company_count(default: int = 30, mode: str = "remote") -> int:
     """Ask how many companies to scan this run. Falls back to `default` when stdin
     isn't a TTY (cron/CI) so an automated run never blocks on input()."""
-    total, remaining = pool_status()
+    total, remaining = pool_status(mode)
     if total == 0: return 0
     if not sys.stdin.isatty(): return default
     try:
-        raw = input(f"  📇 Company pool: {total} total, {remaining} not yet run this cycle. "
+        raw = input(f"  📇 Company pool ({mode}): {total} total, {remaining} not yet run this cycle. "
                     f"How many to scan now? [default {default}]: ").strip()
         return int(raw) if raw else default
     except (ValueError, EOFError, KeyboardInterrupt):

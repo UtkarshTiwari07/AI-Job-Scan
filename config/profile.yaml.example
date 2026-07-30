@@ -1,0 +1,44 @@
+# Copy this to config/profile.yaml and edit, or run `python job/init_profile.py`
+# to generate it from your résumé (or a few interactive questions) instead.
+#
+# job/profile.py loads config/profile.yaml for all three job_*.py scripts. Any
+# field you leave out falls back to the built-in default in job/profile.py's
+# DEFAULT_PROFILE (India-based, 2 years experience) — this file only needs to
+# override what's actually different about you.
+#
+# AI/ML domain focus is NOT a field here — it's fixed by the tool itself (see
+# job/requirements.py and each script's Serper query clusters). This file
+# describes WHO is searching, not WHAT domain is searched.
+
+name: "Utkarsh Tiwari"
+headline: "AI Engineer (1-2 YOE)"
+stack: "Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone"
+metrics: "Built production voice AI for 2,000+ concurrent calls. Reduced LLM cold-start 10.4x (3.9s to 378ms) with Groq and Pinecone. Trained LightGBM on 716K+ records. Reduced AI-content detection from 100% to 30%."
+
+# City, Country. Used to decide which onsite/hybrid roles count as reachable —
+# see home_cities below and job/requirements.py's build_home_pattern().
+location: "Bangalore, India"
+# Extra cities that should ALSO count as "local" (e.g. other tech hubs you'd
+# relocate to). Leave empty to rely on location + a built-in India-city list.
+home_cities: []
+
+# Total years of professional experience. Any job requiring MORE than
+# years_experience + yoe_slack is rejected before it ever reaches an LLM call
+# (job/requirements.py's min_years_required / decide_match).
+years_experience: 1.5
+yoe_slack: 0.5
+
+# AI/ML-domain role titles to accept — anything else is rejected even if the
+# stack fits (job/requirements.py's decide_match: role_family check).
+target_role_families:
+  - "AI Engineer"
+  - "ML Engineer"
+  - "LLM/RAG Engineer"
+  - "Data Scientist"
+  - "Forward Deployed Engineer"
+
+# Reject postings that hard-require more than this: "bachelor's", "master's", "phd".
+education_ceiling: "bachelor's"
+
+# Freelance-mode pay floor (job_freelance.py only).
+min_rate_usd_per_hour: 30

@@ -22,6 +22,10 @@ from dotenv import load_dotenv
 load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 from openai import OpenAI
 
+sys.path.insert(0, os.path.dirname(__file__))
+import profile as prof
+import requirements as req
+
 # ══════════════════════════════════════════════════════════════════
 # CONFIG
 # ══════════════════════════════════════════════════════════════════
@@ -30,7 +34,11 @@ DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 SERPER_API_KEY   = os.getenv("SERPER_API_KEY")
 SEEN_FP_FILE     = os.path.join(os.path.dirname(__file__), "seen_fp_freelance.json")
 MAX_POSTING_AGE_DAYS = 3   # Serper qdr:w, then Phase 3 enforces 3 days
-MIN_PAY_PER_HOUR_USD = 30  # Reject freelance gigs below this
+
+# Candidate profile — generalized in v11 (see job/profile.py). min_rate_usd_per_hour
+# replaces the old fixed MIN_PAY_PER_HOUR_USD constant.
+PROFILE = prof.load_profile()
+MIN_PAY_PER_HOUR_USD = PROFILE["min_rate_usd_per_hour"]  # Reject freelance gigs below this
 
 # ── Core freelance platforms for Serper site: queries ────────────
 TARGET_SITES = [
@@ -61,24 +69,9 @@ SITE_ALLOWLIST = {
     "alignerr.com", "scale.com", "outlier.ai",
 }
 
-# ── AI-relevance keyword filter ──────────────────────────────────
-# If NEITHER title NOR description contains any of these keywords,
-# the job is hard-rejected before reaching DeepSeek.
-# Blocks: IoT boards, CAD, logo design, wedding sites, PCB hardware.
-AI_RELEVANCE_KEYWORDS = re.compile(
-    r"(llm|rag|langchain|crewai|fastapi|openai|pinecone|"
-    r"generative.?ai|gen.?ai|ai.?agent|voice.?ai|"
-    r"chatbot|gpt|gemini|llama|lora|fine.?tun|"
-    r"machine.?learn|deep.?learn|neural|pytorch|"
-    r"nlp|natural.?language|transformer|embedding|"
-    r"ai.?engineer|ml.?engineer|ai.?develop|"
-    r"artificial.?intelligence|"
-    r"hugging.?face|vector.?db|chromadb|weaviate|"
-    r"livek|deepgram|elevenlabs|whisper|"
-    r"python.?ai|ai.?consult|ai.?automat|"
-    r"prompt.?engineer|ai.?model|ai.?train|"
-    r"ai.?ops|ai.?platform|ai.?solution)", re.IGNORECASE
-)
+# AI-relevance gate now comes from job/requirements.py (shared across all three
+# scripts — this file's own copy, v10's freelance.py copy, and job_india_mnc.py's
+# copy had already drifted from each other; job_remote.py had none at all).
 
 # ── Direct platform URL injection ────────────────────────────────
 # Pre-built search URLs injected directly into Phase 1 (no Serper needed).
@@ -252,14 +245,6 @@ QUERY_CLUSTERS = [
     },
 ]
 
-CANDIDATE_PROFILE = {
-    "name": "Utkarsh Tiwari",
-    "stack": "AI Engineer (1-2 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
-    "metrics": "Built production voice AI for 2,000+ concurrent calls. Reduced LLM cold-start 10.4x (3.9s→378ms). Trained LightGBM on 716K+ records. Reduced AI-content detection 100%→30%.",
-    "min_rate": f"${MIN_PAY_PER_HOUR_USD}/hr minimum",
-    "target_roles": "AI Engineer, ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused), Forward Deployed Engineer",
-}
-
 RECRUITER_PATTERN = re.compile(r"\b(recruit|staffing|placement agency|hr solutions|manpower)\b", re.IGNORECASE)
 
 # Hard-reject non-AI-stack job titles.
@@ -293,21 +278,9 @@ TITLE_REJECT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-EXPERIENCE_TITLE_REJECT = re.compile(r"\b(senior|lead|principal|manager|director|vp |head of)\b", re.IGNORECASE)
-EDUCATION_REJECT_TOKENS = ["master's degree required", "masters degree required", "phd required", "ph.d", "doctorate"]
-
-def min_years_required(exp_text: str) -> Optional[int]:
-    """Extract the MINIMUM years-of-experience a posting requires, from free text
-    like '3+ years', '1-2 yrs', '5 years', 'entry level'. Returns None when no number
-    is present (unspecified/entry-level language never blocks a candidate) — this
-    replaces a fixed token list, which missed band phrasing ('3-5 years') that wasn't
-    a literal '<n>+ years' substring. Candidate is 1-2 YOE; reject >2."""
-    if not exp_text: return None
-    t = exp_text.lower()
-    if any(w in t for w in ["fresher", "entry level", "entry-level", "no experience", "0 years", "any level"]):
-        return 0
-    m = re.search(r"(\d+)\s*\+", t) or re.search(r"(\d+)\s*(?:-|to)\s*\d+\s*year", t) or re.search(r"(\d+)\+?\s*year", t)
-    return int(m.group(1)) if m else None
+# Years/seniority/education/AI-relevance gates now come from job/requirements.py
+# (shared across all three scripts — see job_remote.py's and job_india_mnc.py's
+# equivalent comments for why: three independent copies had already drifted).
 
 def parse_pay_hourly(pay_str: str) -> Optional[float]:
     """Extract lowest hourly USD rate from pay string."""
@@ -474,10 +447,9 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
 
     for job in jobs:
         title  =(job.get("title") or "").strip()
-        title_l=title.lower()
         company=(job.get("company") or "").lower()
-        exp    =(job.get("experience_text") or "").lower()
-        desc   =(job.get("description") or "").lower()
+        exp    =job.get("experience_text") or ""
+        desc   =job.get("description") or ""
         fp     =job.get("_fingerprint","")
         site   =(job.get("site") or "").lower().strip()
 
@@ -500,20 +472,24 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         # 3. Title reject
         if TITLE_REJECT_PATTERNS.search(title): reject(f"Off-stack title: {title}"); continue
 
-        # 4. AI-relevance gate — blocks IoT/CAD/logo/wedding/PCB jobs
-        combined_ai_text = f"{title} {desc}"
-        if not AI_RELEVANCE_KEYWORDS.search(combined_ai_text):
+        # 4. AI-relevance gate (shared, job/requirements.py) — blocks IoT/CAD/
+        # logo/wedding/PCB jobs
+        if not req.is_ai_relevant(title, desc):
             reject(f"No AI relevance in title+desc: {title[:60]}"); continue
 
-        # 5. Recruiter spam
+        # 5. Recruiter spam + profile-driven education ceiling (job/requirements.py)
         if RECRUITER_PATTERN.search(company): reject(f"Recruiter: {company}"); continue
-        if any(tok in f"{exp} {desc}" for tok in EDUCATION_REJECT_TOKENS): reject("Advanced degree required"); continue
+        if not req.education_ok(PROFILE, f"{exp} {desc}"):
+            reject("Requires more education than profile's education_ceiling"); continue
 
-        # 6. Experience: candidate is 1-2 YOE. Seniority in TITLE only; minimum-years
-        # parsed from experience_text (catches band phrasing a literal token list would miss).
-        if EXPERIENCE_TITLE_REJECT.search(title): reject(f"Senior/lead title: {title}"); continue
-        min_yrs = min_years_required(exp)
-        if min_yrs is not None and min_yrs > 2: reject(f"Requires {min_yrs}+ yrs (candidate: 1-2)"); continue
+        # 6. Experience — seniority regex expanded (job/requirements.py catches
+        # "Staff Engineer," "Sr.," "Engineer III," ... that the old narrower
+        # per-file regex missed); years now read from the FULL description too,
+        # not just experience_text.
+        seniority = req.classify_seniority(title)
+        if seniority: reject(seniority); continue
+        yoe_ok, yoe_detail = req.experience_ok(exp, desc, PROFILE["years_experience"], PROFILE["yoe_slack"])
+        if not yoe_ok: reject(yoe_detail); continue
 
         # 7. Pay filter — only enforce for explicitly hourly pay; skip if pay not specified
         pay_text=job.get("pay_text","")
@@ -536,14 +512,15 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
 EVAL_SYSTEM="""You are {name}'s autonomous freelance AI job agent.
 Stack: {stack}
 Metrics: {metrics}
-Min rate: {min_rate}
+Min rate: ${min_rate}/hr minimum
 Target roles: {target_roles}
 
 RULES:
 - Worldwide remote freelance/contract only. Reject onsite-only positions.
-- Experience: candidate has 1-2 YOE. REJECT any gig requiring 3+ years, or titled
+- Experience: candidate has {years_experience} YOE (+{yoe_slack} slack). REJECT any
+  gig requiring more than {years_experience_cap} years, or titled
   Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
-- Reject if pay is specified and clearly below $30/hr equivalent.
+- Reject if pay is specified and clearly below ${min_rate}/hr equivalent.
 - Accept AI/ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused —
   modeling, LLMs, production ML — NOT pure BI/reporting/analytics), and Forward
   Deployed Engineer gigs as in-scope matches.
@@ -560,9 +537,11 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
     if not candidates: return json.dumps({"evaluated_jobs":[]},indent=2)
     print(f"\n🧠 PHASE 4 — DeepSeek V3 evaluating {len(candidates)} candidates...")
     client=OpenAI(api_key=DEEPSEEK_API_KEY,base_url="https://api.deepseek.com")
-    system_prompt=EVAL_SYSTEM.format(name=CANDIDATE_PROFILE["name"],stack=CANDIDATE_PROFILE["stack"],
-        metrics=CANDIDATE_PROFILE["metrics"],min_rate=CANDIDATE_PROFILE["min_rate"],
-        target_roles=CANDIDATE_PROFILE["target_roles"],
+    system_prompt=EVAL_SYSTEM.format(name=PROFILE["name"],stack=PROFILE["stack"],
+        metrics=PROFILE["metrics"],min_rate=MIN_PAY_PER_HOUR_USD,
+        target_roles=", ".join(PROFILE["target_role_families"]),
+        years_experience=PROFILE["years_experience"], yoe_slack=PROFILE["yoe_slack"],
+        years_experience_cap=PROFILE["years_experience"] + PROFILE["yoe_slack"],
         format_instructions=FORMAT_INSTRUCTIONS)
 
     def call_ds(batch,bn,total):
@@ -619,7 +598,9 @@ async def main(dry_run: bool=False):
     report_out   =os.path.join(rdir,f"report_freelance_{ts}.json")
 
     print(f"\n{'='*60}")
-    print(f"🚀 FREELANCE JOB SEARCH v4  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"🚀 FREELANCE JOB SEARCH v11  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"👤 Profile: {PROFILE['name']} | {PROFILE['years_experience']} YOE (+{PROFILE['yoe_slack']} slack) "
+          f"| min rate: ${MIN_PAY_PER_HOUR_USD}/hr | roles: {', '.join(PROFILE['target_role_families'])}")
     print(f"{'='*60}")
 
     cross_run_seen=load_seen_fingerprints()

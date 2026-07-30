@@ -1,12 +1,19 @@
 """
-Autonomous Worldwide Remote Job Search Agent — v10
+Autonomous Worldwide Remote Job Search Agent — v11
 ===================================================
 Phase 0: Company source — direct ATS fetch (full JD) + Serper-careers queries for
          a persistent, never-repeating rotation across a 180+ company registry
 Phase 1: Serper multi-cluster (per-site + broad free-text) + direct URL injection
 Phase 2: Crawl4AI scrape
-Phase 3: Pre-filter (qdr:w in Serper, 3-day Phase 3 enforcement)
-Phase 4: DeepSeek V3 evaluation + proposal
+Phase V: Deterministic pre-filter — dedup, freshness, title/AI-domain/education/
+         seniority/years-of-experience, confident geo region-lock rejects. Cheap,
+         conservative: only rejects what it's SURE about (job/requirements.py).
+Phase X: LLM extracts job facts as STRUCTURED data (years required, location
+         policy, role family) — it does NOT judge fit here.
+Phase D: Pure-Python deterministic decision over Phase X's extraction
+         (job/requirements.py's decide_match) — same input, same verdict, every
+         run, unlike letting the LLM both read the JD and rule on it in one step.
+Phase L: LLM drafts a proposal — ONLY for confirmed matches from Phase D.
 
 Run:
   python job/job_remote.py                 # full run — prompts for company count
@@ -31,6 +38,9 @@ except ImportError as e:
     print(f"  ⚠️  job/companies.py unavailable ({e}) — the 200-company source is "
           f"skipped this run. `pip install -r requirements.txt` to enable it.")
 
+import profile as prof
+import requirements as req
+
 # ══════════════════════════════════════════════════════════════════
 # CONFIG
 # ══════════════════════════════════════════════════════════════════
@@ -38,8 +48,17 @@ except ImportError as e:
 DEEPSEEK_API_KEY = os.getenv("DEEPSEEK_API_KEY")
 SERPER_API_KEY   = os.getenv("SERPER_API_KEY")
 SEEN_FP_FILE     = os.path.join(os.path.dirname(__file__), "seen_fp_remote.json")
-MAX_POSTING_AGE_DAYS = 3   # Serper uses qdr:w, Phase 3 enforces 3 days
+MAX_POSTING_AGE_DAYS = 3   # Serper uses qdr:w, Phase V enforces 3 days
 
+# The candidate profile — generalized in v11. Previously a hardcoded dict
+# (CANDIDATE_PROFILE) duplicated, and already drifted, across all three job_*.py
+# scripts. Run `python job/init_profile.py` once to personalize; a missing/partial
+# config/profile.yaml degrades to the original tool's own defaults.
+PROFILE = prof.load_profile()
+HOME_PATTERN = req.build_home_pattern(PROFILE)
+
+# Curated AI/ML search queries stay fixed by design (per explicit decision) — a
+# résumé changes WHO is searching, never WHAT domain is searched.
 TARGET_SITES = [
     "remoteok.com", "weworkremotely.com", "himalayas.app", "remotive.com",
     "wellfound.com", "arc.dev", "contra.com", "braintrust.us", "torre.ai", "linkedin.com",
@@ -114,13 +133,10 @@ QUERY_CLUSTERS = [
     },
 ]
 
-CANDIDATE_PROFILE = {
-    "name": "Utkarsh Tiwari",
-    "stack": "AI Engineer (1-2 YOE). Python, PyTorch, LightGBM, RAG, LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone.",
-    "metrics": "Built production voice AI for 2,000+ concurrent calls. Reduced LLM cold-start 10.4x (3.9s→378ms). Trained LightGBM on 716K+ records. Reduced AI-content detection from 100%→30%.",
-    "target_roles": "AI Engineer, ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused), Forward Deployed Engineer",
-}
-
+# Non-AI-stack denylist — cheap, complements (not replaces) req.is_ai_relevant()'s
+# positive gate below. This alone was job_remote.py's ONLY content filter in v10,
+# which is why non-enumerated non-AI titles ("Solutions Architect," "Accountant")
+# reached a paid LLM call; the positive gate in Phase V now closes that hole.
 RECRUITER_PATTERN = re.compile(r"\b(recruit|staffing|placement agency|hr solutions|manpower)\b", re.IGNORECASE)
 TITLE_REJECT_PATTERNS = re.compile(
     r"(medical writer|medical editor|biostatistic|clinical research|"
@@ -130,52 +146,6 @@ TITLE_REJECT_PATTERNS = re.compile(
     r"blockchain|solidity|frontend developer|support consultant|technical support(?!.*ai))",
     re.IGNORECASE,
 )
-EXPERIENCE_TITLE_REJECT = re.compile(r"\b(senior|lead|principal|manager|director|vp |head of|staff engineer)\b", re.IGNORECASE)
-REMOTE_PASS_TOKENS   = ["remote", "work from home", "wfh", "anywhere", "worldwide", "globally"]
-REMOTE_REJECT_TOKENS = ["on-site only", "onsite only", "must be in office", "must relocate"]
-# Region-LOCKED remote (requires residency in one specific country/region) — always
-# rejected. Distinct from GLOBAL remote (accepted) and from INDIA presence (accepted
-# below via INDIA_LOCATION_TOKENS) — the user wants worldwide-remote OR India, never
-# a remote role gated to living in the US/UK/EU/Canada/Australia.
-GEO_LOCK_TOKENS = [
-    "united states only", "us only", "us-based", "us residents", "us citizens",
-    "must be in the us", "must reside in the us", "must be located in",
-    "authorized to work in the us", "right to work in the uk", "uk-based", "uk residents",
-    "canada only", "australia only", "eu only", "europe only", "emea only",
-    "eu residents", "eu-based", "must be eu based", "must reside in the eu",
-    "remote (us)", "remote (usa)", "remote (uk)", "remote (canada)", "remote (europe)",
-    "remote (eu)", "remote - us", "remote - usa", "remote - uk", "remote - europe",
-    "remote - emea", "remote, united states", "remote, usa", "remote, europe",
-    # Reversed word order — "<Country> (Remote)" — live-observed on a real ATS
-    # listing (Greenhouse) that the "remote (us)" phrasing above didn't catch.
-    "united states (remote)", "usa (remote)", "us (remote)", "uk (remote)",
-    "united kingdom (remote)", "canada (remote)", "australia (remote)",
-    "europe (remote)", "eu (remote)",
-    "us permanent resident", "green card",
-]
-# India presence (any of onsite/hybrid/remote-India) is accepted alongside worldwide
-# remote — see the location gate in prefilter().
-INDIA_LOCATION_TOKENS = [
-    "india", "bangalore", "bengaluru", "mumbai", "delhi", "gurgaon", "gurugram",
-    "noida", "hyderabad", "pune", "chennai", "kolkata", "ncr",
-]
-EDUCATION_REJECT_TOKENS = [
-    "master's degree required", "masters degree required", "m.s. required",
-    "msc required", "phd required", "ph.d", "doctorate required",
-]
-
-def min_years_required(exp_text: str) -> Optional[int]:
-    """Extract the MINIMUM years-of-experience a posting requires, from free text
-    like '3+ years', '1-2 yrs', '5 years', 'entry level'. Returns None when no
-    number is present (so unspecified/entry-level/fresher language never blocks a
-    candidate) — this replaces a fixed token list, which missed any band phrasing
-    ('3-5 years') that wasn't a literal '<n>+ years' substring."""
-    if not exp_text: return None
-    t = exp_text.lower()
-    if any(w in t for w in ["fresher", "entry level", "entry-level", "no experience", "0 years", "any level"]):
-        return 0
-    m = re.search(r"(\d+)\s*\+", t) or re.search(r"(\d+)\s*(?:-|to)\s*\d+\s*year", t) or re.search(r"(\d+)\+?\s*year", t)
-    return int(m.group(1)) if m else None
 
 # ══════════════════════════════════════════════════════════════════
 # CROSS-RUN DEDUP
@@ -200,7 +170,7 @@ def save_seen_fingerprints(fp_map: dict):
 
 def search_for_jobs() -> List[str]:
     if not SERPER_API_KEY: print("❌ SERPER_API_KEY not set"); return []
-    print("\n🔍 PHASE 1 — Remote Job Search (qdr:w → 3-day filter in Phase 3)")
+    print("\n🔍 PHASE 1 — Remote Job Search (qdr:w → 3-day filter in Phase V)")
     seen_urls: Set[str] = set(); all_urls: List[str] = []
     api_url = "https://google.serper.dev/search"
     headers = {"X-API-KEY": SERPER_API_KEY, "Content-Type": "application/json"}
@@ -296,7 +266,7 @@ async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
     return all_jobs
 
 # ══════════════════════════════════════════════════════════════════
-# PHASE 3 — PRE-FILTER
+# PHASE V — DETERMINISTIC PRE-FILTER (cheap, conservative rejects only)
 # ══════════════════════════════════════════════════════════════════
 
 def parse_age_days(posted_date: str) -> Optional[int]:
@@ -314,20 +284,18 @@ def parse_age_days(posted_date: str) -> Optional[int]:
     if any(w in txt for w in ["just","today","now","moment"]): return 0
     return None
 
-def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[dict]]:
-    print(f"\n🔬 PHASE 3 — Pre-filter ({len(jobs)} raw, {len(cross_run_seen)} cross-run known)...")
+def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple:
+    print(f"\n🔬 PHASE V — Deterministic pre-filter ({len(jobs)} raw, {len(cross_run_seen)} cross-run known)...")
     candidates: List[dict] = []; rejected: List[dict] = []
     session_seen: Set[str] = set()
     now_iso = datetime.datetime.utcnow().isoformat() + "Z"
 
     for job in jobs:
         title   = (job.get("title") or "").strip()
-        title_l = title.lower()
         company = (job.get("company") or "").lower()
-        exp     = (job.get("experience_text") or "").lower()
-        desc    = (job.get("description") or "").lower()
-        loc     = (job.get("location_text") or "").lower()
-        combined= f"{title_l} {loc} {exp}"
+        exp     = job.get("experience_text") or ""
+        desc    = job.get("description") or ""
+        loc     = job.get("location_text") or ""
         fp      = job.get("_fingerprint", "")
 
         def reject(r): job["rejection_reason"] = r; rejected.append(job)
@@ -348,27 +316,34 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
 
         if TITLE_REJECT_PATTERNS.search(title): reject(f"Off-stack title: {title}"); continue
         if RECRUITER_PATTERN.search(company): reject(f"Recruiter: {company}"); continue
-        if any(tok in f"{exp} {desc}" for tok in EDUCATION_REJECT_TOKENS): reject("Advanced degree required"); continue
 
-        # Experience: candidate is 1-2 YOE — reject seniority-words in TITLE, and
-        # reject any posting whose MINIMUM year requirement (parsed from
-        # experience_text) exceeds 2.
-        if EXPERIENCE_TITLE_REJECT.search(title): reject(f"Senior/lead title: {title}"); continue
-        min_yrs = min_years_required(exp)
-        if min_yrs is not None and min_yrs > 2: reject(f"Requires {min_yrs}+ yrs (candidate: 1-2)"); continue
+        # Positive AI/ML-domain gate — v10 had none in this script (its only content
+        # filter was the denylist above), so any non-enumerated non-AI title reached
+        # a paid LLM call. This closes that hole.
+        if not req.is_ai_relevant(title, desc):
+            reject(f"No AI/ML relevance in title+desc: {title[:60]}"); continue
 
-        # Location: ACCEPT iff (a) worldwide/location-agnostic remote, OR (b) India
-        # presence (onsite/hybrid/remote-India). REJECT region-locked remote (a role
-        # gated to residency in one specific country/region) unconditionally — India
-        # is a distinct accepted case, not a bypass for a US/UK/EU-only posting.
-        is_india  = any(t in combined for t in INDIA_LOCATION_TOKENS)
-        has_remote = any(t in combined for t in REMOTE_PASS_TOKENS)
-        has_onsite = any(t in combined for t in REMOTE_REJECT_TOKENS)
-        if any(t in f"{loc} {desc}" for t in GEO_LOCK_TOKENS):
-            reject("Region-locked remote (US/UK/EU/Canada/Australia-only)"); continue
-        if has_onsite and not is_india: reject("On-site required (non-India)"); continue
-        if not (is_india or job.get("is_remote") or has_remote):
-            reject("Not India-accessible and not confirmed worldwide-remote"); continue
+        if not req.education_ok(PROFILE, f"{exp} {desc}"):
+            reject("Requires more education than profile's education_ceiling"); continue
+
+        # Seniority + years — profile-driven, not hardcoded. classify_seniority()
+        # catches titles v10's narrower regex missed (Staff Engineer, Sr. ML
+        # Engineer, Engineer III, Member of Technical Staff, ...).
+        seniority = req.classify_seniority(title)
+        if seniority: reject(seniority); continue
+
+        # THE core accuracy fix: reads experience_text AND the full description
+        # (v10 read only experience_text, which no ATS adapter ever populates —
+        # this gate was a 100%-dead no-op on every company-page-sourced job).
+        yoe_ok, yoe_detail = req.experience_ok(exp, desc, PROFILE["years_experience"], PROFILE["yoe_slack"])
+        if not yoe_ok: reject(yoe_detail); continue
+
+        # Confident region-lock rejection only (word-boundary, not v10's
+        # decorated-phrase-only substring list that missed bare "Europe"/
+        # "Toronto"/"Canada"). A genuinely ambiguous location — the common case —
+        # is NOT decided here; it survives to Phase X, which reads the full JD.
+        geo_reject = req.pre_kill_location(loc, desc, HOME_PATTERN)
+        if geo_reject: reject(geo_reject); continue
 
         if fp: cross_run_seen[fp] = now_iso
         candidates.append(job)
@@ -377,73 +352,186 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
     return candidates, rejected
 
 # ══════════════════════════════════════════════════════════════════
-# PHASE 4 — DEEPSEEK V3
+# PHASE X — LLM STRUCTURED EXTRACTION (facts only, no judgment)
 # ══════════════════════════════════════════════════════════════════
 
-EVAL_SYSTEM = """You are {name}'s worldwide-remote job agent. Candidate is India-based.
-Stack: {stack}
-Metrics: {metrics}
-Target roles: {target_roles}
+EXTRACTION_SYSTEM = """You are a job-posting information extractor. For each job in
+the list, extract ONLY facts stated or clearly implied in its text — do NOT judge
+whether the candidate is a good fit; that decision happens in a separate step.
 
-RULES:
-- Experience: candidate has 1-2 YOE. REJECT any role that requires 3+ years, or is
-  titled Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
-- Location: ACCEPT only (a) 100% worldwide/location-agnostic remote, OR (b) an
-  India-based role (remote-India, hybrid-India, onsite-India). REJECT remote roles
-  locked to residency in one specific country/region (US-only, UK-only, EU/EMEA-only,
-  Canada-only, Australia-only, etc.) — those are neither worldwide nor India.
-- Any employment type (full-time/contract/freelance) is fine.
-- Accept AI/ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused —
-  modeling, LLMs, production ML pipelines — NOT pure BI/reporting/analytics), and
-  Forward Deployed Engineer roles as in-scope matches.
-- Reject: MLOps-only, DevOps-only, Java/.NET, roles unrelated to AI/ML/LLM/data science.
-- Empty description but clear AI/DS/FDE title → is_match=true, score=60, note "description unavailable".
+The candidate is based in: {location}
+Cities that also count as local for onsite/hybrid roles: {home_cities}
 
-For is_match=true: drafted_proposal (3 paras: achievement → stack fit → metric + CTA).
-For is_match=false: rejection_reason (1 sentence).
-{format_instructions}"""
+For each job return a JSON object with EXACTLY these keys:
+- job_title, company: echoed back verbatim (string)
+- min_years: integer minimum years of experience the posting requires, or null
+  if none is stated
+- location_policy: one of "worldwide_remote" (open to a candidate anywhere),
+  "country_locked" (remote, but restricted to specific countries/regions), or
+  "onsite" (requires physical presence at a specific office/city)
+- eligible_countries: array of country names if location_policy is
+  "country_locked", else an empty array
+- home_eligible: true if a candidate based in {location} could actually take
+  this role. Always true for "worldwide_remote". For "onsite"/hybrid roles,
+  true ONLY if the office is in {location} or one of the home cities above.
+  For "country_locked", true only if {location}'s country is in
+  eligible_countries.
+- role_family: pick the SINGLE closest match from this list: {target_role_families}.
+  Use "other" if none genuinely fit.
 
-FORMAT_INSTRUCTIONS = 'Return ONLY valid JSON: {"evaluated_jobs":[{"is_match":true/false,"job_title":"string","company":"string","application_url":"string","match_score":0-100,"rejection_reason":"string or null","drafted_proposal":"string or null"}]}'
+Return ONLY valid JSON: {{"extractions":[{{...}}]}}"""
 
-def evaluate_and_draft(candidates: List[dict]) -> str:
-    if not candidates: return json.dumps({"evaluated_jobs": []}, indent=2)
-    print(f"\n🧠 PHASE 4 — DeepSeek V3 evaluating {len(candidates)} candidates...")
+def _slim_for_extraction(job: dict) -> dict:
+    # Cap description length — requirement/location language is virtually always
+    # near the top of a JD, and this keeps per-batch token cost bounded.
+    return {
+        "job_title": job.get("title", ""), "company": job.get("company", ""),
+        "location_text": job.get("location_text", ""), "is_remote": job.get("is_remote"),
+        "experience_text": job.get("experience_text", ""),
+        "description": (job.get("description") or "")[:4000],
+    }
+
+def extract_requirements(candidates: List[dict]) -> List[dict]:
+    if not candidates: return []
+    print(f"\n🧠 PHASE X — DeepSeek extracting requirements for {len(candidates)} candidates...")
     client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
-    system_prompt = EVAL_SYSTEM.format(name=CANDIDATE_PROFILE["name"], stack=CANDIDATE_PROFILE["stack"],
-        metrics=CANDIDATE_PROFILE["metrics"], target_roles=CANDIDATE_PROFILE["target_roles"],
-        format_instructions=FORMAT_INSTRUCTIONS)
+    system_prompt = EXTRACTION_SYSTEM.format(
+        location=PROFILE["location"],
+        home_cities=", ".join(PROFILE.get("home_cities") or []) or "(none listed)",
+        target_role_families=", ".join(PROFILE["target_role_families"]))
 
     def call_ds(batch, bn, total):
-        print(f"  📦 Batch {bn}/{total}...")
+        print(f"  📦 Extraction batch {bn}/{total}...")
         text = ""
         try:
-            resp = client.chat.completions.create(model="deepseek-chat", max_tokens=14000,
+            payload = [_slim_for_extraction(c) for c in batch]
+            resp = client.chat.completions.create(model="deepseek-chat", max_tokens=8000,
                 messages=[{"role":"system","content":system_prompt},
-                          {"role":"user","content":f"Jobs:\n{json.dumps(batch, indent=2)}"}],
-                extra_body={"thinking":{"type":"enabled"}})
-            reasoning = getattr(resp.choices[0].message, "reasoning_content", None)
-            if reasoning:
-                lines = reasoning.strip().splitlines()
-                print(f"  💭 Thinking ({bn}, {len(lines)} lines):")
-                for l in lines[:20]: print(f"  {l}")
-                if len(lines)>20: print(f"  ...({len(lines)-20} more)")
+                          {"role":"user","content":f"Jobs:\n{json.dumps(payload, indent=2)}"}])
             text = resp.choices[0].message.content or ""
             if "```json" in text: text=text.split("```json")[1].split("```")[0].strip()
             elif "```" in text: text=text.split("```")[1].split("```")[0].strip()
-            return json.loads(text).get("evaluated_jobs",[])
+            return json.loads(text).get("extractions", [])
         except Exception as e:
-            print(f"  ⚠️ Batch {bn} error: {e}")
+            print(f"  ⚠️ Extraction batch {bn} error: {e}")
             if text: print("  Raw:", text[:400])
             return []
 
-    batches=[candidates[i:i+10] for i in range(0,len(candidates),10)]
-    all_eval: List[dict]=[]
-    for idx,batch in enumerate(batches,1):
-        results=call_ds(batch,idx,len(batches))
-        all_eval.extend(results)
-        hits=sum(1 for j in results if j.get("is_match"))
-        print(f"  ✅ {idx}/{len(batches)} — {hits}/{len(results)} matched, total: {len(all_eval)}")
-    return json.dumps({"evaluated_jobs":all_eval},indent=2)
+    batches = [candidates[i:i+10] for i in range(0, len(candidates), 10)]
+    all_ext: List[dict] = []
+    for idx, batch in enumerate(batches, 1):
+        results = call_ds(batch, idx, len(batches))
+        all_ext.extend(results)
+        print(f"  ✅ {idx}/{len(batches)} — {len(results)} extracted, total: {len(all_ext)}")
+    return all_ext
+
+def _match_key(title, company):
+    return (str(title or "").strip().lower(), str(company or "").strip().lower())
+
+def pair_extractions(candidates: List[dict], extractions: List[dict]) -> list:
+    """Match extraction rows back to candidates by (title, company) — batches
+    aren't guaranteed to preserve order or completeness through an LLM call."""
+    index = {_match_key(e.get("job_title"), e.get("company")): e for e in extractions}
+    return [(c, index.get(_match_key(c.get("title"), c.get("company")))) for c in candidates]
+
+# ══════════════════════════════════════════════════════════════════
+# PHASE D — DETERMINISTIC DECISION (pure Python, no LLM call)
+# ══════════════════════════════════════════════════════════════════
+
+def decide_all(pairs: list) -> tuple:
+    print(f"\n📐 PHASE D — deciding {len(pairs)} candidates against the profile...")
+    matches, non_matches = [], []
+    for job, extraction in pairs:
+        if extraction is None:
+            job["rejection_reason"] = "extraction failed or missing (LLM did not return this job)"
+            non_matches.append(job)
+            continue
+        ok, reason = req.decide_match(PROFILE, extraction)
+        job["_extraction"] = extraction
+        if ok:
+            matches.append(job)
+        else:
+            job["rejection_reason"] = reason
+            non_matches.append(job)
+    print(f"  ✅ {len(matches)} match | ❌ {len(non_matches)} rejected")
+    return matches, non_matches
+
+# ══════════════════════════════════════════════════════════════════
+# PHASE L — LLM PROPOSAL DRAFTING (matches only — tokens never spent on rejects)
+# ══════════════════════════════════════════════════════════════════
+
+DRAFT_SYSTEM = """You are {name}'s job-application assistant. The candidate ALREADY
+qualifies for every job below — experience, location, and role fit are already
+confirmed by a separate step. Your ONLY task is to draft a tight, specific
+proposal for each.
+
+Stack: {stack}
+Metrics: {metrics}
+
+For each job return: job_title, company, application_url, match_score (0-100 —
+rate how STRONG a fit this is given the stack/metrics, not eligibility, which is
+already confirmed), drafted_proposal (3 short paragraphs: an achievement that
+addresses this company's specific need → stack fit → one concrete metric + a
+call to interview).
+
+Return ONLY valid JSON: {{"drafted":[{{"job_title":"string","company":"string",
+"application_url":"string","match_score":0-100,"drafted_proposal":"string"}}]}}"""
+
+def draft_proposals(matches: List[dict]) -> List[dict]:
+    if not matches: return []
+    print(f"\n✍️  PHASE L — Drafting proposals for {len(matches)} confirmed matches...")
+    client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
+    system_prompt = DRAFT_SYSTEM.format(name=PROFILE["name"], stack=PROFILE["stack"], metrics=PROFILE["metrics"])
+
+    def call_ds(batch, bn, total):
+        print(f"  📦 Drafting batch {bn}/{total}...")
+        text = ""
+        try:
+            payload = [{"job_title": j.get("title"), "company": j.get("company"),
+                       "application_url": j.get("url"), "description": (j.get("description") or "")[:3000]}
+                      for j in batch]
+            resp = client.chat.completions.create(model="deepseek-chat", max_tokens=8000,
+                messages=[{"role":"system","content":system_prompt},
+                          {"role":"user","content":f"Jobs:\n{json.dumps(payload, indent=2)}"}])
+            text = resp.choices[0].message.content or ""
+            if "```json" in text: text=text.split("```json")[1].split("```")[0].strip()
+            elif "```" in text: text=text.split("```")[1].split("```")[0].strip()
+            return json.loads(text).get("drafted", [])
+        except Exception as e:
+            print(f"  ⚠️ Drafting batch {bn} error: {e}")
+            if text: print("  Raw:", text[:400])
+            return []
+
+    batches = [matches[i:i+10] for i in range(0, len(matches), 10)]
+    all_drafted: List[dict] = []
+    for idx, batch in enumerate(batches, 1):
+        results = call_ds(batch, idx, len(batches))
+        all_drafted.extend(results)
+        print(f"  ✅ {idx}/{len(batches)} — {len(results)} drafted")
+    return all_drafted
+
+def build_evaluated_jobs(matches: List[dict], non_matches: List[dict], drafted: List[dict]) -> list:
+    """Same report schema as v10's single-call evaluate_and_draft(), so existing
+    tooling/readers of report_remote_*.json don't break — plus `extraction` on
+    matches for anyone who wants the raw structured facts."""
+    drafted_index = {_match_key(d.get("job_title"), d.get("company")): d for d in drafted}
+    evaluated = []
+    for job in matches:
+        d = drafted_index.get(_match_key(job.get("title"), job.get("company")), {})
+        evaluated.append({
+            "is_match": True, "job_title": job.get("title"), "company": job.get("company"),
+            "application_url": job.get("url"), "match_score": d.get("match_score", 70),
+            "rejection_reason": None,
+            "drafted_proposal": d.get("drafted_proposal") or "(drafting failed — review the JD and apply manually)",
+            "extraction": job.get("_extraction"),
+        })
+    for job in non_matches:
+        evaluated.append({
+            "is_match": False, "job_title": job.get("title"), "company": job.get("company"),
+            "application_url": job.get("url"), "match_score": 0,
+            "rejection_reason": job.get("rejection_reason"), "drafted_proposal": None,
+        })
+    return evaluated
 
 # ══════════════════════════════════════════════════════════════════
 # MOCK + MAIN
@@ -457,6 +545,7 @@ MOCK_JOBS = [
     {"title":"Data Scientist","company":"Groww","url":"https://groww.in/careers/data-scientist","site":"groww.in","posted_date":"3 hours ago","location_text":"Bengaluru, India (Onsite)","is_remote":False,"job_type":"full-time","pay_text":"₹18-25 LPA","experience_text":"1-2 years","description":"Build ML models for credit risk and fraud detection using PyTorch and LightGBM."},
     {"title":"Forward Deployed Engineer","company":"Palantir-style AI Co","url":"https://jobs.ashbyhq.com/fde-456","site":"jobs.ashbyhq.com","posted_date":"6 hours ago","location_text":"Remote — Worldwide","is_remote":True,"job_type":"full-time","pay_text":"$95-140k/yr","experience_text":"1-3 years","description":"Embed with customers to deploy LLM-powered workflows using Python and FastAPI."},
     {"title":"ML Engineer","company":"EuroAI GmbH","url":"https://jobs.lever.co/euro-ml","site":"jobs.lever.co","posted_date":"1 day ago","location_text":"Remote (EU Only)","is_remote":True,"job_type":"full-time","pay_text":"€70k/yr","experience_text":"1-2 years","description":"Region-locked despite otherwise fitting the stack — should be rejected on location alone."},
+    {"title":"Staff Software Engineer, AI Platform","company":"BigAI Corp","url":"https://jobs.ashbyhq.com/staff-789","site":"jobs.ashbyhq.com","posted_date":"4 hours ago","location_text":"Remote — Worldwide","is_remote":True,"job_type":"full-time","pay_text":"$220k/yr","experience_text":"","description":"8+ years of experience building large-scale ML infrastructure. Staff-level IC role."},
 ]
 
 def _companies_arg() -> Optional[int]:
@@ -477,11 +566,16 @@ async def main(dry_run: bool = False):
     report_out   = os.path.join(rdir, f"report_remote_{ts}.json")
 
     print(f"\n{'='*60}")
-    print(f"🚀 WORLDWIDE REMOTE JOB SEARCH v10  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"🚀 WORLDWIDE REMOTE JOB SEARCH v11  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"👤 Profile: {PROFILE['name']} | {PROFILE['years_experience']} YOE (+{PROFILE['yoe_slack']} slack) "
+          f"| {PROFILE['location']} | roles: {', '.join(PROFILE['target_role_families'])}")
     print(f"{'='*60}")
 
     cross_run_seen = load_seen_fingerprints()
     print(f"  📦 Cross-run cache: {len(cross_run_seen)} fingerprints")
+
+    company_manifest = []
+    pool_total = pool_remaining = None
 
     if dry_run:
         print("\n[DRY RUN] Using mock data")
@@ -494,33 +588,73 @@ async def main(dry_run: bool = False):
         # PHASE 0 — company source: ATS-direct (full JD already, no crawl needed) +
         # Serper-careers (feeds the existing Crawl4AI path below). Selection is a
         # persistent, never-repeating rotation across the whole registry — see
-        # companies.select_companies()'s docstring.
+        # companies.select_companies()'s docstring. Every company scanned (incl.
+        # zero-yield ones) is recorded in company_manifest and written into the
+        # report — v10 had NO record anywhere of which companies actually ran.
         ats_jobs, company_urls = [], []
         if companies:
             n_companies = _companies_arg()
             if n_companies is None:
                 n_companies = companies.prompt_company_count()
+            pool_total, pool_remaining = companies.pool_status()
             if n_companies:
                 ats_batch, serper_batch = companies.select_companies(n_companies)
                 print(f"\n🏢 PHASE 0 — Company source: {len(ats_batch)} ATS-direct + "
-                      f"{len(serper_batch)} via Serper-careers ({n_companies} requested)")
+                      f"{len(serper_batch)} via Serper-careers ({n_companies} requested, "
+                      f"cycle progress before this run: {pool_total - pool_remaining}/{pool_total})")
                 if ats_batch:
-                    ats_jobs = companies.fetch_ats_jobs(ats_batch)
+                    ats_jobs, ats_manifest = companies.fetch_ats_jobs(ats_batch)
+                    company_manifest.extend(ats_manifest)
                 if serper_batch:
-                    company_urls = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+                    company_urls, serper_manifest = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+                    company_manifest.extend(serper_manifest)
+                # Commit the rotation cursor only NOW, after the fetch attempts
+                # actually ran — v10 committed inside select_companies(), before
+                # any fetch happened, so a crash or a missing SERPER_API_KEY still
+                # permanently marked those companies done with zero jobs produced.
+                companies.mark_companies_done(company_manifest)
+                pool_total, pool_remaining = companies.pool_status()
+            else:
+                print("\n🏢 PHASE 0 — 0 companies requested this run; skipping the company source.")
+        else:
+            print("\n🏢 PHASE 0 — job/companies.py unavailable; skipping the company source.")
 
         urls = search_for_jobs() + company_urls
         if not urls and not ats_jobs: print("No URLs. Exiting."); return
         scraped_jobs = await scrape_jobs(urls, raw_ndjson) if urls else []
+        # ATS jobs bypass Crawl4AI (they already carry a full JD) but v10 never
+        # wrote them to raw_ndjson at all — a PASSING ats job left no raw record
+        # anywhere. Append them here so the raw dump reflects every source.
+        if ats_jobs:
+            with open(raw_ndjson, "a") as f:
+                for j in ats_jobs: f.write(json.dumps(j, default=str) + "\n")
         raw_jobs = scraped_jobs + ats_jobs
 
     candidates, rejected = prefilter(raw_jobs, cross_run_seen)
-    with open(rejected_out, "w") as f: json.dump(rejected, f, indent=2)
+    with open(rejected_out, "w") as f: json.dump(rejected, f, indent=2, default=str)
     print(f"  💾 Rejected → {rejected_out}")
     if not dry_run: save_seen_fingerprints(cross_run_seen)
 
-    final_json = (json.dumps({"dry_run":True,"candidates_passed_prefilter":len(candidates),"candidates":candidates},indent=2)
-                  if dry_run else evaluate_and_draft(candidates))
+    if dry_run:
+        result = {"dry_run": True, "candidates_passed_prefilter": len(candidates), "candidates": candidates}
+    else:
+        extractions = extract_requirements(candidates)
+        pairs = pair_extractions(candidates, extractions)
+        matches, non_matches = decide_all(pairs)
+        drafted = draft_proposals(matches)
+        evaluated_jobs = build_evaluated_jobs(matches, non_matches, drafted)
+        result = {
+            "evaluated_jobs": evaluated_jobs,
+            "run_manifest": {
+                "companies_scanned": company_manifest,
+                "cycle_progress": (f"{pool_total - pool_remaining}/{pool_total}"
+                                   if pool_total is not None else None),
+                "funnel": {"raw_jobs": len(raw_jobs), "prefilter_passed": len(candidates),
+                          "extracted": len(extractions), "matched": len(matches),
+                          "reported": len(matches)},
+            },
+        }
+    final_json = json.dumps(result, indent=2, default=str)
     with open(report_out, "w") as f: f.write(final_json)
     print(f"\n{'='*60}\nFINAL REPORT\n{'='*60}")
     print(final_json[:3000] + ("\n... (truncated)" if len(final_json)>3000 else ""))

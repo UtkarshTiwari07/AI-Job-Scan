@@ -1,16 +1,20 @@
 """
-Autonomous India MNC Job Search Agent — v4
-==========================================
-Phases:
-  1. Serper.dev multi-cluster search — per-site AND broad free-text
-     + direct LinkedIn Jobs URL injection
-     (qdr:w = last week in Serper, Phase 3 enforces 3-day freshness)
-  2. Crawl4AI universal scrape
-  3. Pure-Python pre-filter (zero LLM cost)
-  4. DeepSeek V3 evaluation + cover letter drafting
+Autonomous India MNC Job Search Agent — v11
+============================================
+Phase 0: Company source — ATS-direct fetch (full JD) + Serper-careers, from the
+         93-company India registry (job/companies.py, mode="india")
+Phase 1: Serper.dev multi-cluster search — per-site AND broad free-text
+         + direct LinkedIn Jobs URL injection
+         (qdr:w = last week in Serper, Phase 3 enforces 3-day freshness)
+Phase 2: Crawl4AI universal scrape
+Phase 3: Deterministic pre-filter (job/requirements.py's shared gates — years of
+         experience read from the FULL description, not just experience_text;
+         profile-driven education ceiling; expanded seniority regex)
+Phase 4: DeepSeek V3 evaluation + cover letter drafting
 
 Run:
-  python job/job_india_mnc.py           # full run
+  python job/job_india_mnc.py           # full run — prompts for company count
+  python job/job_india_mnc.py --companies 20
   python job/job_india_mnc.py --dry-run # test filters, no API calls
 """
 
@@ -33,6 +37,17 @@ load_dotenv(dotenv_path=os.path.join(os.path.dirname(__file__), "..", ".env"))
 
 from openai import OpenAI
 
+sys.path.insert(0, os.path.dirname(__file__))
+try:
+    import companies
+except ImportError as e:
+    companies = None
+    print(f"  ⚠️  job/companies.py unavailable ({e}) — the India ATS company "
+          f"source is skipped this run. `pip install -r requirements.txt` to enable it.")
+
+import profile as prof
+import requirements as req
+
 # ══════════════════════════════════════════════════════════════════
 # CONFIG
 # ══════════════════════════════════════════════════════════════════
@@ -45,10 +60,12 @@ SEEN_FP_FILE     = os.path.join(os.path.dirname(__file__), "seen_fp_india_mnc.js
 # NOTE: cutshort.io REMOVED — it returns entire listing pages with unrelated jobs
 #       (cricket coaches, telecallers, maths tutors) because Crawl4AI scrapes all
 #       visible jobs on the page, not just the queried one.
+# NOTE: foundit.in REMOVED (v11) — user-reported it only returned stale (month-old)
+#       jobs. Its removal is intentionally not backfilled with another aggregator;
+#       v11 leans harder on ATS-direct/career-page sourcing instead (Phase 0 below).
 TARGET_SITES = [
     "naukri.com",
     "linkedin.com",
-    "foundit.in",
     "wellfound.com",
     "instahyre.com",
     "iimjobs.com",
@@ -61,7 +78,7 @@ TARGET_SITES = [
 # qureos / simplyhired / glassdoor / instagram etc. is hard-rejected.
 SITE_ALLOWLIST = {
     "naukri.com", "linkedin.com", "lnkd.in",
-    "foundit.in", "wellfound.com", "instahyre.com",
+    "wellfound.com", "instahyre.com",
     "iimjobs.com", "hirist.tech",
     # India AI startups
     "sarvam.ai", "krutrim.ai", "observe.ai", "yellow.ai",
@@ -324,21 +341,13 @@ QUERY_CLUSTERS = [
     },
 ]
 
-CANDIDATE_PROFILE = {
-    "name": "Utkarsh Tiwari",
-    "stack": (
-        "AI Engineer (1-2 YOE). Python, PyTorch, LightGBM, RAG, "
-        "LLMs (GPT-4, Gemini, LLaMA LoRA fine-tuning), CrewAI, LangChain, "
-        "FastAPI, LiveKit, Deepgram STT, ElevenLabs TTS, Pinecone."
-    ),
-    "metrics": (
-        "Built production AI voice infrastructure handling 2,000+ concurrent calls. "
-        "Reduced LLM cold-start latency by 10.4x (3.9s to 378ms) with Groq and Pinecone. "
-        "Trained LightGBM models on 716K+ records. "
-        "Reduced AI-content detection from 100% to 30% in multi-agent architectures."
-    ),
-    "target_roles": "AI Engineer, ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused), Forward Deployed Engineer",
-}
+# Candidate profile — generalized in v11 (see job/profile.py). Previously a
+# hardcoded dict duplicated (and already drifted — this one alone mentioned
+# Groq) across all three job_*.py scripts. Run `python job/init_profile.py`
+# once to personalize; a missing/partial config/profile.yaml degrades to the
+# original tool's own defaults.
+PROFILE = prof.load_profile()
+HOME_PATTERN = req.build_home_pattern(PROFILE)
 
 # Pre-filter rules
 RECRUITER_PATTERN = re.compile(r"\b(recruit|staffing|placement agency|hr solutions|manpower)\b", re.IGNORECASE)
@@ -370,51 +379,10 @@ TITLE_REJECT_PATTERNS = re.compile(
     re.IGNORECASE,
 )
 
-# Keywords that MUST appear in title OR description for a job to be considered AI-relevant.
-# If description is empty and title has none of these, the job is hard-rejected before LLM.
-AI_RELEVANCE_KEYWORDS = re.compile(
-    r"(\bllm\b|\brag\b|langchain|crewai|fastapi|openai|gemini|claude|gpt|pinecone|"
-    r"\bai\b|\bml\b|machine learning|generative|agentic|voice ai|livek|deepgram|"
-    r"eleven.?labs|transformer|fine.?tun|vector|embedding|chatbot|nlp|hugging face|"
-    r"pytorch|tensorflow|sklearn|scikit|inferenc|llama|mistral|prompt)",
-    re.IGNORECASE,
-)
-
-# Reject tokens checked ONLY in title (not description body)
-EXPERIENCE_TITLE_REJECT = re.compile(
-    r"\b(senior|lead|principal|manager|director|vp |head of)\b", re.IGNORECASE
-)
-
-def min_years_required(exp_text: str) -> Optional[int]:
-    """Extract the MINIMUM years-of-experience a posting requires, from free text
-    like '3+ years', '1-2 yrs', '5 years', 'fresher'. Returns None when no number
-    is present (unspecified/entry-level language never blocks a candidate) — this
-    replaces a fixed token list, which missed band phrasing ('3-5 years') that
-    wasn't a literal '<n>+ years' substring. Candidate is 1-2 YOE; reject >2."""
-    if not exp_text: return None
-    t = exp_text.lower()
-    if any(w in t for w in ["fresher", "entry level", "entry-level", "no experience", "0 years", "any level"]):
-        return 0
-    m = re.search(r"(\d+)\s*\+", t) or re.search(r"(\d+)\s*(?:-|to)\s*\d+\s*year", t) or re.search(r"(\d+)\+?\s*year", t)
-    return int(m.group(1)) if m else None
-
-# Geo-lock: US/UK/EU-only positions sneaking onto Indian boards
-GEO_LOCK_TOKENS = [
-    "united states only", "us only", "us citizens", "us permanent resident", "green card",
-    "uk residents", "uk-based", "canada only", "australia only", "europe only", "eu only",
-    "must be located in the us", "authorized to work in the us",
-    # Reversed word order — "<Country> (Remote)" — live-observed on a real ATS
-    # listing that the "remote (us)"-style phrasing above didn't catch.
-    "united states (remote)", "usa (remote)", "us (remote)", "uk (remote)",
-    "united kingdom (remote)", "canada (remote)", "australia (remote)", "europe (remote)",
-]
-
-EDUCATION_REJECT_TOKENS = [
-    "master's degree required", "masters degree required", "m.s. required",
-    "msc required", "m.tech required", "phd required", "ph.d", "doctorate required",
-    "doctoral degree", "postgraduate degree required",
-]
-
+# Years/seniority/education/AI-relevance/geo gates now come from job/requirements.py
+# (shared across all three scripts — v10 had three independent, already-drifted
+# copies; only job_remote.py's seniority regex had "staff engineer", only this
+# file's years-list had "3+ years", etc). MAX_POSTING_AGE_DAYS unchanged.
 MAX_POSTING_AGE_DAYS = 3   # 3-day window (qdr:w in Serper + Phase 3 enforcement)
 
 
@@ -642,11 +610,10 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
 
     for job in jobs:
         title        = (job.get("title") or "").strip()
-        title_l      = title.lower()
         company      = (job.get("company") or "").lower()
-        experience   = (job.get("experience_text") or "").lower()
-        description  = (job.get("description") or "").lower()
-        location     = (job.get("location_text") or "").lower()
+        experience   = job.get("experience_text") or ""
+        description  = job.get("description") or ""
+        location     = job.get("location_text") or ""
         site         = (job.get("site") or "").lower().strip()
         fp           = job.get("_fingerprint", "")
 
@@ -657,8 +624,15 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         # 0. SITE DOMAIN ALLOWLIST — drop jobs from garbage sites immediately
         #    This kills apna.co (cricket coaches), talent.com (BPO/sales),
         #    fresheroffcampus, qureos, simplyhired, glassdoor, instagram etc.
-        if site and not any(site.endswith(allowed) or site == allowed
-                           for allowed in SITE_ALLOWLIST):
+        #    Skipped for ATS-direct jobs (companies.py) — those never had a
+        #    scraped `site` guessed from a search result in the first place, and
+        #    are already trusted (they came from a verified company ATS token).
+        #    FIXED (v11): bare `site.endswith(allowed)` with no dot separator let
+        #    "evilnaukri.com" or "fake-linkedin.com" pass — endswith("naukri.com")
+        #    is true for either. Must require a dot (or exact match) before the
+        #    allowed suffix, matching job_freelance.py's already-correct pattern.
+        if site and job.get("_source") != "ats_direct" and not any(
+                site == allowed or site.endswith("." + allowed) for allowed in SITE_ALLOWLIST):
             reject(f"Not-allowlisted site: {site}"); continue
 
         # 1. Cross-run dedup
@@ -671,47 +645,57 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         if fp:
             session_seen.add(fp)
 
-        # 3. Freshness — 3-day window
-        age = parse_age_days(job.get("posted_date", ""))
-        if age is None:
-            job["freshness_unknown"] = True
-        elif age > MAX_POSTING_AGE_DAYS:
-            reject(f"Stale: {age}d ago (max {MAX_POSTING_AGE_DAYS}d)"); continue
+        # 3. Freshness — 3-day window. Skipped for ATS-direct jobs (companies.py):
+        # a Greenhouse/Lever/Ashby board lists every CURRENTLY OPEN role regardless
+        # of its original post date — a live posting from 3 weeks ago is still a
+        # real, applicable job, not a stale one (same fix as job_remote.py).
+        if job.get("_source") != "ats_direct":
+            age = parse_age_days(job.get("posted_date", ""))
+            if age is None:
+                job["freshness_unknown"] = True
+            elif age > MAX_POSTING_AGE_DAYS:
+                reject(f"Stale: {age}d ago (max {MAX_POSTING_AGE_DAYS}d)"); continue
 
         # 4. Title hard-reject
         if TITLE_REJECT_PATTERNS.search(title):
             reject(f"Off-stack title: {title}"); continue
 
-        # 5. AI-relevance gate — prevents non-AI jobs from reaching Phase 4 LLM.
-        #    Checks BOTH title AND description. If neither contains an AI keyword, reject.
-        #    This catches: JioStar sport interns, corporate finance interns, AWS infra,
-        #    MERN devs with description, etc. that pass the TITLE_REJECT regex.
-        combined_ai_text = f"{title} {description}"
-        if not AI_RELEVANCE_KEYWORDS.search(combined_ai_text):
+        # 5. AI-relevance gate (shared, job/requirements.py) — prevents non-AI
+        #    jobs from reaching Phase 4 LLM. Catches JioStar sport interns,
+        #    corporate finance interns, AWS infra, etc. that pass TITLE_REJECT.
+        if not req.is_ai_relevant(title, description):
             reject(f"No AI relevance in title+desc: {title[:60]}"); continue
 
         # 6. Recruiter / staffing spam
         if RECRUITER_PATTERN.search(company):
             reject(f"Recruiter/staffing: {company}"); continue
 
-        # 7. Education filter
-        edu_text = f"{experience} {description}"
-        if any(tok in edu_text for tok in EDUCATION_REJECT_TOKENS):
-            reject("Requires advanced degree"); continue
+        # 7. Education filter — profile-driven ceiling (job/requirements.py),
+        # not a fixed "bachelor's only" assumption.
+        if not req.education_ok(PROFILE, f"{experience} {description}"):
+            reject("Requires more education than profile's education_ceiling"); continue
 
-        # 8. Experience — candidate is 1-2 YOE. Seniority in TITLE only; minimum-years
-        # parsed from experience_text (catches band phrasing like "3-5 years" that a
-        # literal token list would miss).
-        if EXPERIENCE_TITLE_REJECT.search(title):
-            reject(f"Senior/lead title: {title}"); continue
-        min_yrs = min_years_required(experience)
-        if min_yrs is not None and min_yrs > 2:
-            reject(f"Requires {min_yrs}+ yrs (candidate: 1-2)"); continue
+        # 8. Experience — seniority regex expanded (catches "Staff Engineer,"
+        # "Sr. ML Engineer," "Engineer III," "Member of Technical Staff" that the
+        # old narrower per-file regex missed); years now read from the FULL
+        # description too, not just experience_text (which no ATS adapter ever
+        # populates — this was the core accuracy bug fixed in v11).
+        seniority = req.classify_seniority(title)
+        if seniority:
+            reject(seniority); continue
+        yoe_ok, yoe_detail = req.experience_ok(experience, description,
+                                               PROFILE["years_experience"], PROFILE["yoe_slack"])
+        if not yoe_ok:
+            reject(yoe_detail); continue
 
-        # 9. Geo-lock
-        geo_text = f"{location} {description}"
-        if any(tok in geo_text for tok in GEO_LOCK_TOKENS):
-            reject("Geo-locked to US/UK/EU"); continue
+        # 9. Geo-lock — word-boundary matching (job/requirements.py) against a
+        # profile-derived home-location pattern, fixing two real bugs: bare
+        # "Europe"/"Canada"/"Toronto" (no decoration) used to pass silently, and
+        # "must be located in India" used to be falsely caught by a truncated
+        # "must be located in" substring and rejected as region-locked.
+        geo_reject = req.pre_kill_location(location, description, HOME_PATTERN)
+        if geo_reject:
+            reject(geo_reject); continue
 
         # Mark as seen
         if fp:
@@ -736,8 +720,9 @@ Target roles: {target_roles}
 RULES:
 - Target: well-funded India startups (Series A+), top MNCs, or high-growth AI companies.
 - The role must be geographically accessible in India (remote India, hybrid India, onsite India).
-- Experience: candidate has 1-2 YOE. REJECT any role that requires 3+ years, or is
-  titled Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
+- Experience: candidate has {years_experience} YOE (+{yoe_slack} slack). REJECT any role
+  that requires more than {years_experience_cap} years, or is titled
+  Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
 - Accept AI/ML Engineer, LLM/RAG Engineer, Applied/Data Scientist (AI/ML-focused —
   modeling, LLMs, production ML pipelines — NOT pure BI/reporting/analytics), and
   Forward Deployed Engineer roles as in-scope matches.
@@ -748,7 +733,7 @@ RULES:
   "description unavailable".
 
 For each job:
-1. is_match=true only if role matches the target roles AND is India-accessible AND fits the 1-2 YOE bracket.
+1. is_match=true only if role matches the target roles AND is India-accessible AND fits the experience bracket.
 2. If is_match=true:
    - match_score (0-100): reward Voice AI, LLM optimization, RAG, LiveKit, production backend scale.
    - drafted_proposal: tight 3-paragraph technical cover letter.
@@ -774,10 +759,13 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
     client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
 
     system_prompt = EVAL_SYSTEM.format(
-        name=CANDIDATE_PROFILE["name"],
-        stack=CANDIDATE_PROFILE["stack"],
-        metrics=CANDIDATE_PROFILE["metrics"],
-        target_roles=CANDIDATE_PROFILE["target_roles"],
+        name=PROFILE["name"],
+        stack=PROFILE["stack"],
+        metrics=PROFILE["metrics"],
+        target_roles=", ".join(PROFILE["target_role_families"]),
+        years_experience=PROFILE["years_experience"],
+        yoe_slack=PROFILE["yoe_slack"],
+        years_experience_cap=PROFILE["years_experience"] + PROFILE["yoe_slack"],
         format_instructions=FORMAT_INSTRUCTIONS,
     )
 
@@ -855,16 +843,16 @@ MOCK_JOBS = [
     },
     {
         "title": "Gen AI Developer", "company": "ProAI Solutions",
-        "url": "https://foundit.in/job/gen-ai-12345",
-        "site": "foundit.in", "posted_date": "2 days ago",
+        "url": "https://instahyre.com/job/gen-ai-12345",
+        "site": "instahyre.com", "posted_date": "2 days ago",
         "location_text": "Bengaluru", "is_remote": False, "job_type": "full-time",
         "pay_text": "", "experience_text": "Fresher",
         "description": "Design and optimise GenAI features: RAG workflows, LangChain stacks, Pinecone vector stores. Python, FastAPI REST APIs.",
     },
     {
         "title": "Medical Writer", "company": "Syneos Health",
-        "url": "https://foundit.in/job/medical-789",
-        "site": "foundit.in", "posted_date": "1 hour ago",
+        "url": "https://naukri.com/job/medical-789",
+        "site": "naukri.com", "posted_date": "1 hour ago",
         "location_text": "Remote", "is_remote": True, "job_type": "full-time",
         "pay_text": "", "experience_text": "3 years",
         "description": "Write clinical study reports and regulatory documents.",
@@ -892,6 +880,15 @@ MOCK_JOBS = [
 # MAIN ORCHESTRATOR
 # ══════════════════════════════════════════════════════════════════
 
+def _companies_arg() -> Optional[int]:
+    """--companies N on the command line skips the interactive prompt (for cron/CI)."""
+    if "--companies" in sys.argv:
+        i = sys.argv.index("--companies")
+        if i + 1 < len(sys.argv):
+            try: return int(sys.argv[i + 1])
+            except ValueError: pass
+    return None
+
 async def main(dry_run: bool = False):
     timestamp    = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
     reports_dir  = os.path.join(os.path.dirname(__file__), "reports_india_mnc")
@@ -902,11 +899,16 @@ async def main(dry_run: bool = False):
     report_out   = os.path.join(reports_dir, f"report_india_mnc_{timestamp}.json")
 
     print(f"\n{'='*60}")
-    print(f"🚀 INDIA MNC JOB SEARCH v4  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"🚀 INDIA MNC JOB SEARCH v11  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"👤 Profile: {PROFILE['name']} | {PROFILE['years_experience']} YOE (+{PROFILE['yoe_slack']} slack) "
+          f"| roles: {', '.join(PROFILE['target_role_families'])}")
     print(f"{'='*60}")
 
     cross_run_seen = load_seen_fingerprints()
     print(f"  📦 Cross-run cache: {len(cross_run_seen)} fingerprints")
+
+    company_manifest = []
+    pool_total = pool_remaining = None
 
     if dry_run:
         print("\n[DRY RUN] Using mock data")
@@ -916,15 +918,50 @@ async def main(dry_run: bool = False):
                 j["_fingerprint"] = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
                 j["_scraped_at"]  = datetime.datetime.utcnow().isoformat() + "Z"
     else:
-        urls = search_for_jobs()
-        if not urls:
+        # PHASE 0 — India ATS-direct company source (job/companies.py, mode="india":
+        # its own 93-company registry + its own rotation cursor, independent of
+        # job_remote.py's worldwide-remote pool). Every company scanned (incl.
+        # zero-yield ones) is recorded in company_manifest and written into the
+        # report.
+        ats_jobs, company_urls = [], []
+        if companies:
+            n_companies = _companies_arg()
+            if n_companies is None:
+                n_companies = companies.prompt_company_count(mode="india")
+            pool_total, pool_remaining = companies.pool_status(mode="india")
+            if n_companies:
+                ats_batch, serper_batch = companies.select_companies(n_companies, mode="india")
+                print(f"\n🏢 PHASE 0 — India company source: {len(ats_batch)} ATS-direct + "
+                      f"{len(serper_batch)} via Serper-careers ({n_companies} requested, "
+                      f"cycle progress before this run: {pool_total - pool_remaining}/{pool_total})")
+                if ats_batch:
+                    ats_jobs, ats_manifest = companies.fetch_ats_jobs(ats_batch)
+                    company_manifest.extend(ats_manifest)
+                if serper_batch:
+                    company_urls, serper_manifest = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+                    company_manifest.extend(serper_manifest)
+                companies.mark_companies_done(company_manifest, mode="india")
+                pool_total, pool_remaining = companies.pool_status(mode="india")
+            else:
+                print("\n🏢 PHASE 0 — 0 companies requested this run; skipping the company source.")
+        else:
+            print("\n🏢 PHASE 0 — job/companies.py unavailable; skipping the company source.")
+
+        urls = search_for_jobs() + company_urls
+        if not urls and not ats_jobs:
             print("No URLs found. Exiting."); return
-        raw_jobs = await scrape_jobs(urls, raw_ndjson)
+        scraped_jobs = await scrape_jobs(urls, raw_ndjson) if urls else []
+        # ATS jobs bypass Crawl4AI (already full JDs) but were never written to
+        # raw_ndjson before — append them so the raw dump reflects every source.
+        if ats_jobs:
+            with open(raw_ndjson, "a") as f:
+                for j in ats_jobs: f.write(json.dumps(j, default=str) + "\n")
+        raw_jobs = scraped_jobs + ats_jobs
 
     candidates, rejected = prefilter(raw_jobs, cross_run_seen)
 
     with open(rejected_out, "w") as f:
-        json.dump(rejected, f, indent=2)
+        json.dump(rejected, f, indent=2, default=str)
     print(f"  💾 Rejected → {rejected_out}")
 
     if not dry_run:
@@ -932,9 +969,25 @@ async def main(dry_run: bool = False):
 
     if dry_run:
         print("\n[DRY RUN] Skipping DeepSeek evaluation")
-        final_json = json.dumps({"dry_run": True, "candidates_passed_prefilter": len(candidates), "candidates": candidates}, indent=2)
+        result = {"dry_run": True, "candidates_passed_prefilter": len(candidates), "candidates": candidates}
+        final_json = json.dumps(result, indent=2, default=str)
     else:
         final_json = evaluate_and_draft(candidates)
+        # Splice a run_manifest into the evaluated_jobs report — v10 had no record
+        # anywhere of which India companies actually ran; a zero-yield company was
+        # invisible.
+        try:
+            parsed = json.loads(final_json)
+            parsed["run_manifest"] = {
+                "companies_scanned": company_manifest,
+                "cycle_progress": (f"{pool_total - pool_remaining}/{pool_total}"
+                                   if pool_total is not None else None),
+                "funnel": {"raw_jobs": len(raw_jobs), "prefilter_passed": len(candidates),
+                          "reported": len(parsed.get("evaluated_jobs", []))},
+            }
+            final_json = json.dumps(parsed, indent=2, default=str)
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     with open(report_out, "w") as f:
         f.write(final_json)
