@@ -224,6 +224,122 @@ check("the sole V-stage survivor is the genuinely-ambiguous Toronto/2yr case, "
 
 
 # ══════════════════════════════════════════════════════════════════
+# v12 — geo_ok(): india_mnc's "India-or-worldwide-remote" policy
+# ══════════════════════════════════════════════════════════════════
+
+india_profile = {"location": "India", "home_cities": []}
+india_home = req.build_home_pattern(india_profile)
+
+check("geo_ok: onsite India -> accept (True)",
+     req.geo_ok("Bengaluru, India (Hybrid)", "", india_profile, india_home) is True)
+
+check("geo_ok: 'Remote - Worldwide' -> accept (True)",
+     req.geo_ok("Remote - Worldwide", "", india_profile, india_home) is True)
+
+check("geo_ok: 'Remote, United States' with no worldwide language -> reject (False)",
+     req.geo_ok("Remote, United States", "", india_profile, india_home, is_remote=False) is False)
+
+check("geo_ok: structured foreign-onsite (location='Austin, TX', is_remote=False) -> reject (False) "
+     "— this is what pre_kill_location's ambiguous-city rule used to miss on ATS jobs",
+     req.geo_ok("Austin, TX", "", india_profile, india_home, is_remote=False, job_type="onsite") is False)
+
+check("geo_ok: foreign city but is_remote=True, no lock phrase -> ambiguous (None), not a false reject",
+     req.geo_ok("Austin, TX", "", india_profile, india_home, is_remote=True) is None)
+
+check("geo_ok: bare 'Remote' with no country, no JD signal -> ambiguous (None), deferred to the LLM",
+     req.geo_ok("Remote", "", india_profile, india_home) is None)
+
+check("geo_ok: no location_text at all (markdown-sourced candidate) -> never hits the "
+     "foreign-onsite branch, stays ambiguous (None) even with no remote signal",
+     req.geo_ok("", "Build ML models with PyTorch.", india_profile, india_home) is None)
+
+check("geo_ok: 'must be US-based' in description body -> reject (False)",
+     req.geo_ok("", "Must be US-based. Build ML pipelines.", india_profile, india_home) is False)
+
+
+# ══════════════════════════════════════════════════════════════════
+# v12 — companies.py: ATS-URL shortcut parsing + Serper careers host filter
+# ══════════════════════════════════════════════════════════════════
+
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "job"))
+import companies as co
+
+check("ats_job_from_url: Greenhouse per-job URL parses to (ats, token, id)",
+     co.ats_job_from_url("https://job-boards.greenhouse.io/paytm/jobs/1234567")
+     == ("greenhouse", "paytm", "1234567"))
+
+check("ats_job_from_url: Lever per-job URL parses correctly",
+     co.ats_job_from_url("https://jobs.lever.co/eternal/abcdef12-3456-7890-abcd-ef1234567890")
+     == ("lever", "eternal", "abcdef12-3456-7890-abcd-ef1234567890"))
+
+check("ats_job_from_url: a board-ROOT URL (no job id) does not match — falls back to the crawl path",
+     co.ats_job_from_url("https://boards.greenhouse.io/sarvam") is None)
+
+check("ats_job_from_url: non-ATS URL returns None",
+     co.ats_job_from_url("https://example.com/careers/123") is None)
+
+check("_is_ats_host: recognises a Greenhouse job-boards host",
+     co._is_ats_host("job-boards.greenhouse.io"))
+
+check("_is_ats_host: rejects an unrelated host",
+     not co._is_ats_host("randomblog.com"))
+
+check("_host_matches_company: company's own subdomain matches",
+     co._host_matches_company("careers.sarvam.ai", "Sarvam AI"))
+
+check("_host_matches_company: unrelated host does not match",
+     not co._host_matches_company("randomblog.com", "Sarvam AI"))
+
+check("serper careers query hygiene: negative sites cover linkedin/naukri/glassdoor/"
+     "ambitionbox/indeed/wellfound (the boards already searched by Phase 1)",
+     set(co._CAREERS_NEGATIVE_SITES) == {"linkedin.com", "naukri.com", "glassdoor.com",
+                                         "ambitionbox.com", "indeed.com", "wellfound.com"})
+
+
+# ══════════════════════════════════════════════════════════════════
+# v12 — companies.page_passes_hardfilter(): the $0 gate before any LLM call
+# ══════════════════════════════════════════════════════════════════
+
+_hf_profile = {"location": "India", "home_cities": [], "years_experience": 1.5, "yoe_slack": 0.5}
+_hf_home = req.build_home_pattern(_hf_profile)
+
+_good_page = ("# AI Engineer - Remote India\n"
+             "We are hiring an AI Engineer to build LLM/RAG pipelines with PyTorch "
+             "and LangChain. Requirements: 1-2 years of experience in AI/ML "
+             "engineering. Location: Remote (India).\n") * 3
+
+_senior_page = ("# Staff AI Engineer\nBuild LLM pipelines with PyTorch. "
+               "Requires 6+ years of experience in ML engineering.\n") * 3
+
+_no_ai_page = ("# Sales Executive\nDrive B2B SaaS sales for enterprise clients. "
+              "1-2 years of experience required.\n") * 3
+
+_over_exp_page = ("# AI Engineer\nBuild LLM/RAG pipelines with PyTorch and LangChain. "
+                  "Requires at least 8 years of experience.\n") * 3
+
+_locked_page = ("# AI Engineer\nBuild ML pipelines with PyTorch. Must be US-based. "
+               "1-2 years of experience required.\n") * 3
+
+check("hardfilter: real junior India-remote AI page passes",
+     co.page_passes_hardfilter(_good_page, _hf_profile, _hf_home)[0] is True)
+
+check("hardfilter: senior title (first line) rejected for $0",
+     co.page_passes_hardfilter(_senior_page, _hf_profile, _hf_home)[0] is False)
+
+check("hardfilter: no AI/ML relevance anywhere on the page rejected",
+     co.page_passes_hardfilter(_no_ai_page, _hf_profile, _hf_home)[0] is False)
+
+check("hardfilter: over-experience requirement (8 yrs vs 2-yr bracket) rejected",
+     co.page_passes_hardfilter(_over_exp_page, _hf_profile, _hf_home)[0] is False)
+
+check("hardfilter: confident foreign-lock phrase ('must be US-based') rejected",
+     co.page_passes_hardfilter(_locked_page, _hf_profile, _hf_home)[0] is False)
+
+check("hardfilter: thin page (<200 chars) rejected before any other check",
+     co.page_passes_hardfilter("AI Engineer at Foo", _hf_profile, _hf_home)[0] is False)
+
+
+# ══════════════════════════════════════════════════════════════════
 
 print(f"\n{'='*60}")
 print(f"TOTAL: {len(PASS)} passed, {len(FAIL)} failed")

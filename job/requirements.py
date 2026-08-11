@@ -183,6 +183,41 @@ def pre_kill_location(location_text: str, description: str, home_pattern=None) -
     return None
 
 
+_REMOTE_WORD = re.compile(r"\bremote\b", re.IGNORECASE)
+
+
+def geo_ok(location_text: str, description: str, profile: dict = None, home_pattern=None,
+           is_remote=None, job_type: str = "") -> Optional[bool]:
+    """v12 — India-mode geo verdict. Returns True (accept), False (reject), or
+    None (genuinely ambiguous — defer to the LLM stage, which gets the exact same
+    rule in its prompt). Unlike pre_kill_location (job_remote.py's worldwide-only
+    policy, unchanged this pass), india_mnc's policy is: accept India-accessible
+    (remote/hybrid/onsite India) OR worldwide/anywhere-remote; reject confident
+    foreign-lock OR foreign onsite/hybrid (a real non-home place with no remote
+    signal at all — e.g. an ATS job with location_text="San Francisco, CA" and
+    is_remote=False). "Foreign onsite" is detected WITHOUT enumerating every
+    non-India city (that list is unbounded and was the source of A2/A4's bugs) —
+    it only fires when we have a real location_text AND no remote signal anywhere
+    (location_text, description, or the structured is_remote/job_type fields).
+    A bare markdown page with no separate location_text (crawled career pages,
+    which carry no structured field) can never hit that branch — it stays
+    ambiguous and falls through to the LLM, exactly as the module's existing
+    confident-reject-only design intends."""
+    home_pattern = home_pattern or build_home_pattern(profile or {})
+    text = f"{location_text or ''} {description or ''}"
+    if home_pattern.search(text):
+        return True  # India-accessible: onsite/hybrid/remote India all pass
+    if WORLDWIDE_TOKENS.search(text):
+        return True  # explicit worldwide/anywhere remote passes regardless of location field
+    for pattern in _REGION_LOCK_PATTERNS:
+        if pattern.search(text):
+            return False  # confident foreign-lock (remote or onsite)
+    remote_signal = bool(is_remote) or bool(_REMOTE_WORD.search(job_type or "")) or bool(_REMOTE_WORD.search(text))
+    if location_text and location_text.strip() and not remote_signal:
+        return False  # foreign onsite/hybrid: a real place, not home, no remote signal anywhere
+    return None  # ambiguous — no confident signal either way; let the LLM read the full JD
+
+
 def is_confidently_worldwide_or_home(location_text: str, description: str, is_remote, home_pattern=None) -> bool:
     """Fast-accept for the unambiguous case — an explicit 'worldwide'/'anywhere'
     phrase, or home-location presence. Saves an LLM extraction call when the

@@ -34,6 +34,8 @@ from urllib.parse import urlparse
 import requests
 import yaml
 
+import requirements as req
+
 _DIR = os.path.dirname(__file__)
 _REGISTRY_PATHS = {"remote": os.path.join(_DIR, "companies_remote.yaml"),
                    "india": os.path.join(_DIR, "companies_india.yaml")}
@@ -253,6 +255,118 @@ _FETCHERS = {"greenhouse": fetch_greenhouse, "lever": fetch_lever,
              "ashby": fetch_ashby, "workable": fetch_workable}
 
 
+# ══════════════════════════════════════════════════════════════════
+# Per-JOB ATS fetchers — the v12 "ATS-URL shortcut" (revived from git 979065b)
+# ══════════════════════════════════════════════════════════════════
+# serper_careers_urls() below discovers individual posting URLs. When one of
+# those URLs is itself a Greenhouse/Lever/Ashby/Workable PER-JOB link, hitting
+# that ATS's per-job endpoint gets the full structured JD directly — no
+# Crawl4AI, no LLM extraction, and (unlike the board-level fetchers above)
+# never downloads the rest of that company's board.
+
+_ATS_JOB_URL_PATTERNS = (
+    ("greenhouse", re.compile(r"(?:job-boards|boards)\.greenhouse\.io/([a-z0-9\-_]+)/jobs/(\d+)", re.I)),
+    ("lever", re.compile(r"jobs\.lever\.co/([a-z0-9\-_]+)/([0-9a-f\-]{8,36})", re.I)),
+    ("ashby", re.compile(r"jobs\.ashbyhq\.com/([a-z0-9\-_]+)/([0-9a-f\-]{8,36})", re.I)),
+    ("workable", re.compile(r"apply\.workable\.com/([a-z0-9\-_]+)/j/([A-Za-z0-9]+)", re.I)),
+)
+
+
+def ats_job_from_url(url: str):
+    """Extract (ats, token, job_id) from a PER-JOB posting URL. Returns None if the
+    URL isn't a recognised per-job pattern (a board-root URL, or a non-ATS company
+    page) — the caller falls back to the host-filter + Crawl4AI crawl path."""
+    if not url:
+        return None
+    for ats, pattern in _ATS_JOB_URL_PATTERNS:
+        m = pattern.search(url)
+        if m:
+            return ats, m.group(1), m.group(2)
+    return None
+
+
+def fetch_greenhouse_job(token: str, job_id) -> dict:
+    """Per-job Greenhouse endpoint — one job's full JD, no board download."""
+    data = _get_json(f"https://boards-api.greenhouse.io/v1/boards/{token}/jobs/{job_id}")
+    if not data:
+        return None
+    return _job(
+        title=data.get("title"),
+        url=data.get("absolute_url"),
+        location_text=(data.get("location") or {}).get("name", ""),
+        posted_date=_iso_date(data.get("first_published") or data.get("updated_at")),
+        description=strip_html(data.get("content")),
+    )
+
+
+def fetch_lever_job(token: str, job_id) -> dict:
+    """Per-job Lever endpoint — one job's full JD, no board download."""
+    data = _get_json(f"https://api.lever.co/v0/postings/{token}/{job_id}")
+    if not isinstance(data, dict) or not data:
+        return None
+    cats = data.get("categories") or {}
+    body = data.get("descriptionPlain") or strip_html(data.get("description"))
+    extra = "\n".join(
+        (lst.get("text", "") + "\n" + strip_html(lst.get("content", "")))
+        for lst in (data.get("lists") or []) if isinstance(lst, dict))
+    return _job(
+        title=data.get("text"), url=data.get("hostedUrl"),
+        location_text=cats.get("location", ""),
+        job_type=cats.get("commitment", ""),
+        is_remote=("remote" in (cats.get("workplaceType") or "").lower()) or None,
+        posted_date=_iso_date(data.get("createdAt")),
+        description=(body + "\n\n" + extra).strip(),
+    )
+
+
+def fetch_ashby_job(token: str, job_id) -> dict:
+    """Ashby has no per-job endpoint — fetches the board ONCE and returns only the
+    one job whose URL contains the discovered job_id. A single board GET, but
+    nothing else from that board is ever added to the caller's pool."""
+    try:
+        jobs = fetch_ashby(token)
+    except Exception:
+        return None
+    for j in jobs:
+        if job_id and job_id in (j.get("url") or ""):
+            return j
+    return None
+
+
+def fetch_workable_job(account: str, shortcode: str) -> dict:
+    """Per-job Workable v2 detail endpoint — no listing call needed."""
+    d = _get_json(f"https://apply.workable.com/api/v2/accounts/{account}/jobs/{shortcode}")
+    if not d:
+        return None
+    loc = d.get("location") or {}
+    city, country = (loc.get("city") or "").strip(), (loc.get("country") or "").strip()
+    workplace = (d.get("workplace") or "").strip().lower()
+    is_remote = bool(d.get("remote")) or workplace == "remote"
+    loc_text = ", ".join(x for x in (city, country) if x)
+    if is_remote:
+        loc_text = f"Remote{' - ' + loc_text if loc_text else ''}"
+    return _job(
+        title=d.get("title"), url=f"https://apply.workable.com/{account}/j/{shortcode}/",
+        location_text=loc_text, is_remote=is_remote, job_type=d.get("type", ""),
+        posted_date=_iso_date(d.get("published")),
+        description=strip_html(d.get("description")),
+    )
+
+
+def fetch_job_by_ref(ats: str, token: str, job_id) -> dict:
+    """Dispatch a per-job fetch for a job discovered by URL. Returns a normalised
+    job dict or None — never raises (a probing caller shouldn't crash a whole
+    batch on one bad token/job_id)."""
+    try:
+        if ats == "greenhouse": return fetch_greenhouse_job(token, job_id)
+        if ats == "lever": return fetch_lever_job(token, job_id)
+        if ats == "ashby": return fetch_ashby_job(token, job_id)
+        if ats == "workable": return fetch_workable_job(token, job_id)
+    except Exception:
+        return None
+    return None
+
+
 def _manifest_row(name, kind, detail, jobs_found, ai_relevant, status):
     return {"name": name, "kind": kind, "detail": detail, "jobs_found": jobs_found,
             "ai_relevant": ai_relevant, "status": status}
@@ -294,17 +408,65 @@ def fetch_ats_jobs(ats_batch: list) -> tuple:
             # gate — an ATS board lists currently-OPEN roles, not week-old search
             # hits, so "posted 3 weeks ago" doesn't mean stale/unavailable.
             j["_source"] = "ats_direct"
+            # v12: human-readable source label for the run manifest/report (ats vs
+            # careers vs board) — distinct from the internal "_source" flag above.
+            j["source"] = "ats"
         print(f"    ✓ {name} ({ats_kind}): {len(jobs)} jobs, {len(relevant)} AI/ML-relevant")
         manifest.append(_manifest_row(name, "ats", ats_kind, len(jobs), len(relevant), "ok"))
         out.extend(relevant)
     return out, manifest
 
 
+# v12: boards LinkedIn/Naukri/Glassdoor/Ambitionbox/Indeed/Wellfound already
+# cover — excluded here so a careers-page query doesn't just re-find the same
+# aggregator listing job_india_mnc.py's QUERY_CLUSTERS already search.
+_CAREERS_NEGATIVE_SITES = ["linkedin.com", "naukri.com", "glassdoor.com",
+                           "ambitionbox.com", "indeed.com", "wellfound.com"]
+
+# Hosts of ATS platforms a returned URL might be on directly — a hit here always
+# survives the host filter below, ATS-URL-shortcut or not.
+_ATS_HOST_TOKENS = ("greenhouse.io", "lever.co", "ashbyhq.com", "workable.com",
+                    "smartrecruiters.com", "keka.com", "darwinbox.com", "darwinbox.in",
+                    "freshteam.com", "zohorecruit.com")
+
+
+def _is_ats_host(host: str) -> bool:
+    host = (host or "").lower()
+    return any(tok in host for tok in _ATS_HOST_TOKENS)
+
+
+def _name_slug(name: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
+
+
+def _host_matches_company(host: str, name: str) -> bool:
+    """Loose check that a URL's host is plausibly the company's OWN domain (as
+    opposed to some unrelated site Serper happened to return). Not exact —
+    false positives here just mean one extra page gets crawled and then killed
+    for $0 by page_passes_hardfilter(); false negatives just mean a real
+    careers-page hit gets dropped, which is why the ATS-host check above and the
+    ATS-URL shortcut are tried FIRST."""
+    slug = _name_slug(name)
+    host_clean = re.sub(r"[^a-z0-9]+", "", (host or "").lower())
+    return len(slug) >= 3 and bool(host_clean) and slug in host_clean
+
+
 def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
-    """For no-ATS companies, search their careers domain via Serper for AI/ML/DS/FDE
-    roles. Returns (urls, manifest) — urls feed the EXISTING scrape_jobs() Crawl4AI
-    path (unlike ATS jobs, a careers-page hit still needs a full-page crawl for the
-    JD text). If serper_api_key is missing, EVERY company in the batch still gets a
+    """For no-ATS companies, search for their OWN careers page (never an
+    aggregator — see _CAREERS_NEGATIVE_SITES) for AI/ML/DS/FDE roles.
+
+    Returns (urls, direct_jobs, manifest):
+      - `direct_jobs` — fully-fetched, structured job dicts for hits that turned
+        out to be a per-job Greenhouse/Lever/Ashby/Workable URL (the "ATS-URL
+        shortcut": parsed via ats_job_from_url + fetched via fetch_job_by_ref,
+        skipping Crawl4AI and any LLM extraction entirely for these).
+      - `urls` — everything else that passed the host filter (an ATS board-root
+        URL, or plausibly the company's own domain) and still needs a
+        Crawl4AI crawl (scrape_markdown()) for its JD text. A hit on neither an
+        ATS host nor the company's own domain is DROPPED, not returned — v11
+        returned every raw Serper hit including off-domain aggregator noise.
+
+    If serper_api_key is missing, EVERY company in the batch still gets a
     manifest row explaining why it was skipped — v10 silently dropped the entire
     batch with zero output."""
     manifest = []
@@ -315,29 +477,140 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
         if serper_batch:
             print(f"    ⚠️  SERPER_API_KEY not set — skipping all {len(serper_batch)} "
                   f"Serper-careers companies in this batch")
-        return [], manifest
-    urls = []
+        return [], [], manifest
+    urls, direct_jobs = [], []
     api_url = "https://google.serper.dev/search"
     headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
     role_terms = '("AI engineer" OR "machine learning engineer" OR "LLM" OR "data scientist" OR "forward deployed engineer")'
+    negatives = " ".join(f"-site:{s}" for s in _CAREERS_NEGATIVE_SITES)
     for co in serper_batch:
         domain = co.get("careers_domain") or ""
         name = co.get("name", "")
-        query = (f"site:{domain} " if domain else f'"{name}" careers ') + role_terms
+        base = f"site:{domain}" if domain else f'"{name}"'
+        query = f"{base} (careers OR jobs OR hiring) {role_terms} (remote OR india) {negatives}"
         try:
             resp = requests.post(api_url, headers=headers,
-                data=json.dumps({"q": query, "num": 5, "tbs": "qdr:m"}), timeout=15)
+                data=json.dumps({"q": query, "num": 8, "tbs": "qdr:m"}), timeout=15)
             resp.raise_for_status()
-            found = 0
+            kept = direct = dropped = 0
             for r in resp.json().get("organic", []):
                 link = r.get("link", "").strip()
-                if link: urls.append(link); found += 1
-            print(f"    ✓ {name}: {found} URLs")
-            manifest.append(_manifest_row(name, "serper", domain, found, None, "ok"))
+                if not link:
+                    continue
+                ref = ats_job_from_url(link)
+                if ref:
+                    ats_kind, token, job_id = ref
+                    job = fetch_job_by_ref(ats_kind, token, job_id)
+                    if job and job.get("title") and AI_TITLE_KEYWORDS.search(job["title"]):
+                        job["company"] = name
+                        job["_fingerprint"] = hashlib.md5(f"{job['title'].lower()}|{name.lower()}".encode()).hexdigest()
+                        job["_scraped_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+                        job["_source"] = "ats_direct"   # skip freshness gate, same as batch ATS jobs
+                        job["source"] = "careers"        # v12-E manifest/report label
+                        direct_jobs.append(job)
+                        direct += 1
+                        continue
+                    dropped += 1
+                    continue
+                host = _domain(link)
+                if _is_ats_host(host) or _host_matches_company(host, name):
+                    urls.append(link)
+                    kept += 1
+                else:
+                    dropped += 1
+            print(f"    ✓ {name}: {direct} ATS-direct jobs, {kept} URLs to crawl, {dropped} dropped (off-domain)")
+            manifest.append(_manifest_row(name, "serper", domain, kept + direct, direct, "ok"))
         except Exception as e:
             print(f"    ⚠️  Serper error ({name}): {e}")
-            manifest.append(_manifest_row(name, "serper", domain, 0, None, f"error: {e}"))
-    return urls, manifest
+            manifest.append(_manifest_row(name, "serper", domain, 0, 0, f"error: {e}"))
+    return urls, direct_jobs, manifest
+
+
+# ══════════════════════════════════════════════════════════════════
+# No-LLM crawl + deterministic hard-filter — the v12 efficiency fix
+# ══════════════════════════════════════════════════════════════════
+# v10/v11's Crawl4AI path used LLMExtractionStrategy, which fires >=1 DeepSeek
+# call PER URL to structure the page into a ScrapedJob — BEFORE any relevance
+# check. For ~200+ URLs/run that's >90% of LLM spend wasted on pages that turn
+# out off-stack, senior-only, over-experience, or foreign-onsite. scrape_markdown
+# reads Crawl4AI's raw markdown (zero DeepSeek); page_passes_hardfilter then
+# applies the SAME deterministic gates job/requirements.py already uses on
+# structured jobs, directly against that markdown — so a page dies for $0
+# before a single LLM token is spent on it. Only survivors ever reach a
+# DeepSeek call (the single combined evaluate+draft pass in job_india_mnc.py).
+
+async def scrape_markdown(urls: list) -> dict:
+    """Crawl4AI fetch with NO extraction_strategy. Returns {url: markdown_text} —
+    one entry per URL that crawled successfully with non-empty content; a failed
+    or empty crawl is simply absent (the caller treats a missing key as "no page
+    text", same as any other unenrichable job)."""
+    if not urls:
+        return {}
+    try:
+        from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
+    except ImportError as e:
+        print(f"    ⚠️  crawl4ai not installed ({e}) — {len(urls)} career/board URLs skipped "
+              f"this run; ATS-direct jobs still proceed. `pip install -r requirements.txt`.")
+        return {}
+    import logging
+    logging.getLogger("crawl4ai").setLevel(logging.ERROR)
+
+    run_cfg = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, magic=True)
+    browser_cfg = BrowserConfig(headless=True)
+    out = {}
+    try:
+        async with AsyncWebCrawler(config=browser_cfg) as crawler:
+            results = await crawler.arun_many(urls=urls, config=run_cfg)
+            for result in results:
+                if not result.success:
+                    continue
+                md = getattr(result, "markdown", None)
+                text = getattr(md, "raw_markdown", None) if md is not None else None
+                if text is None:
+                    text = md if isinstance(md, str) else ""
+                text = (text or "").strip()
+                if text:
+                    out[result.url] = text
+    except Exception as e:
+        # A browser that fails to LAUNCH (missing/mismatched Chromium build,
+        # sandboxed egress, etc.) must not crash the whole run — ATS-direct
+        # jobs (no crawl needed) should still get through. Per-URL failures are
+        # already handled above via result.success; this only catches a launch
+        # failure that never got to iterate results at all.
+        print(f"    ⚠️  Crawl4AI browser failed to launch/run ({e}) — {len(urls)} "
+              f"career/board URLs skipped this run; ATS-direct jobs still proceed.")
+        return out
+    return out
+
+
+def page_passes_hardfilter(markdown: str, profile: dict, home_pattern=None) -> tuple:
+    """(passes: bool, reason: str) — deterministic AI-relevance + experience +
+    seniority + geo gate applied directly to a Crawl4AI markdown page, reusing
+    job/requirements.py's gates. No AI signal, senior-only, over-experience, or
+    confident foreign-lock/foreign-onsite -> dropped here, for $0, before any
+    LLM call. Anything not confidently rejectable passes through (True) — the
+    combined extract+evaluate DeepSeek pass still gets the final say, exactly
+    like the confident-reject-only design in job/requirements.py."""
+    text = (markdown or "").strip()
+    if len(text) < 200:
+        return False, "thin/empty page (<200 chars)"
+    # Best-effort "title" = first non-empty line (Crawl4AI markdown usually opens
+    # with the page's H1) — used ONLY for the cheap seniority-in-title check. A
+    # miss here never falsely rejects: classify_seniority just returns None and
+    # the page proceeds, same as a title-less structured job would.
+    first_line = next((ln.strip("# ").strip() for ln in text.splitlines() if ln.strip()), "")
+    if not req.is_ai_relevant(first_line, text):
+        return False, "no AI/ML relevance in page text"
+    seniority = req.classify_seniority(first_line)
+    if seniority:
+        return False, seniority
+    yoe_ok, yoe_detail = req.experience_ok("", text, profile.get("years_experience", 0),
+                                           profile.get("yoe_slack", 0))
+    if not yoe_ok:
+        return False, yoe_detail
+    if req.geo_ok("", text, profile, home_pattern) is False:
+        return False, "geo: confident foreign-lock, no remote/India signal"
+    return True, "passed hard filter"
 
 
 # ══════════════════════════════════════════════════════════════════
