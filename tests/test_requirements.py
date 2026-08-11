@@ -290,10 +290,70 @@ check("_host_matches_company: company's own subdomain matches",
 check("_host_matches_company: unrelated host does not match",
      not co._host_matches_company("randomblog.com", "Sarvam AI"))
 
-check("serper careers query hygiene: negative sites cover linkedin/naukri/glassdoor/"
-     "ambitionbox/indeed/wellfound (the boards already searched by Phase 1)",
-     set(co._CAREERS_NEGATIVE_SITES) == {"linkedin.com", "naukri.com", "glassdoor.com",
-                                         "ambitionbox.com", "indeed.com", "wellfound.com"})
+check("serper careers query hygiene: negative sites cover linkedin/naukri/glassdoor(.co.in)/"
+     "ambitionbox/indeed/wellfound/simplyhired(.co.in)/foundit.in (v13: added ccTLD siblings + foundit.in)",
+     set(co._CAREERS_NEGATIVE_SITES) == {"linkedin.com", "naukri.com", "glassdoor.com", "glassdoor.co.in",
+                                         "ambitionbox.com", "indeed.com", "wellfound.com",
+                                         "simplyhired.com", "simplyhired.co.in", "foundit.in"})
+
+
+# ══════════════════════════════════════════════════════════════════
+# v13 — companies.py: query-recall fix (dropped role-terms + qdr:m), name
+# cleaning, and the code-level negative-host backstop
+# ══════════════════════════════════════════════════════════════════
+# Every case here traces to the live diagnostic that found only 2/28 real
+# companies got a correct hit under the old (role-term + remote/india +
+# qdr:m) query — see job/companies.py's serper_careers_urls() docstring.
+
+check("_core_company_name: strips a trailing parenthetical",
+     co._core_company_name("Return Rabbit (By Auctane)") == "Return Rabbit")
+
+check("_core_company_name: strips a YCombinator-batch parenthetical",
+     co._core_company_name("SureBright (YCombinator S24)") == "SureBright")
+
+check("_core_company_name: cuts at ' - ' (space-hyphen-space)",
+     co._core_company_name("Skedler - Guidanz") == "Skedler")
+
+check("_core_company_name: cuts at '|'",
+     co._core_company_name("QuillAudits | Web3 Security") == "QuillAudits")
+
+check("_core_company_name: cuts at the first parenthetical even with trailing words",
+     co._core_company_name("System Two Advisors (Tara Capital)") == "System Two Advisors")
+
+check("_core_company_name: does NOT touch a real '&' in a legal name",
+     co._core_company_name("AI Technology & Systems") == "AI Technology & Systems")
+
+check("_core_company_name: does NOT touch 'Hims & Hers'-style real names",
+     co._core_company_name("Hims & Hers") == "Hims & Hers")
+
+check("_core_company_name: does NOT touch a bare (unspaced) hyphen in a brand token",
+     co._core_company_name("Biz-Tech Analytics") == "Biz-Tech Analytics")
+
+check("_core_company_name: does NOT touch 'Master-O' (bare hyphen, no spaces)",
+     co._core_company_name("Master-O") == "Master-O")
+
+check("_core_company_name: never returns empty — degenerate input falls back to the original",
+     co._core_company_name("()") == "()")
+
+check("_host_matches_company now uses the cleaned name — a decorated legal name still "
+     "matches its real (undecorated) domain",
+     co._host_matches_company("returnrabbit.com", "Return Rabbit (By Auctane)"))
+
+check("_is_negative_host: catches a ccTLD variant a -site: query exclusion could miss "
+     "(glassdoor.co.in)",
+     co._is_negative_host("www.glassdoor.co.in"))
+
+check("_is_negative_host: catches simplyhired.co.in",
+     co._is_negative_host("simplyhired.co.in"))
+
+check("_is_negative_host: catches foundit.in",
+     co._is_negative_host("foundit.in"))
+
+check("_is_negative_host: does not false-positive on a real ATS host",
+     not co._is_negative_host("job-boards.greenhouse.io"))
+
+check("_is_negative_host: does not false-positive on an unrelated company domain",
+     not co._is_negative_host("manychat.com"))
 
 
 # ══════════════════════════════════════════════════════════════════

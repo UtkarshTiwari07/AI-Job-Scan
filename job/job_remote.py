@@ -606,7 +606,15 @@ async def main(dry_run: bool = False):
                     ats_jobs, ats_manifest = companies.fetch_ats_jobs(ats_batch)
                     company_manifest.extend(ats_manifest)
                 if serper_batch:
-                    company_urls, serper_manifest = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+                    # v13 fix: serper_careers_urls() started returning a 3-tuple
+                    # in v12 (urls, direct_jobs, manifest) — this call site was
+                    # never updated and crashed (`too many values to unpack`)
+                    # on every live run with a non-empty serper_batch.
+                    # direct_jobs are ATS-URL-shortcut hits (already full JDs,
+                    # bypass Crawl4AI) — merge into ats_jobs, the same list the
+                    # existing raw_ndjson-write-and-skip-Crawl4AI path below uses.
+                    company_urls, direct_jobs, serper_manifest = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+                    ats_jobs.extend(direct_jobs)
                     company_manifest.extend(serper_manifest)
                 # Commit the rotation cursor only NOW, after the fetch attempts
                 # actually ran — v10 committed inside select_companies(), before
