@@ -1,16 +1,31 @@
 """
-Autonomous India MNC Job Search Agent — v11
+Autonomous India MNC Job Search Agent — v12
 ============================================
 Phase 0: Company source — ATS-direct fetch (full JD) + Serper-careers, from the
-         93-company India registry (job/companies.py, mode="india")
+         593-company India registry (93 ats: + 500 serper:, job/companies.py,
+         mode="india"). Serper-careers now searches each company's OWN careers
+         page (with -site: negatives for linkedin/naukri/glassdoor/ambitionbox/
+         indeed/wellfound — those are covered by Phase 1's board search
+         instead) and takes an ATS-URL shortcut when a hit is itself a
+         Greenhouse/Lever/Ashby/Workable per-job link (full JD, no crawl).
 Phase 1: Serper.dev multi-cluster search — per-site AND broad free-text
          + direct LinkedIn Jobs URL injection
          (qdr:w = last week in Serper, Phase 3 enforces 3-day freshness)
-Phase 2: Crawl4AI universal scrape
+Phase 2: Crawl4AI markdown-only scrape (v12 — NO LLMExtractionStrategy; v10/v11
+         fired >=1 DeepSeek call per URL BEFORE any relevance check, wasting
+         >90% of LLM spend on pages that were off-stack/senior/foreign-onsite
+         anyway). Every crawled page is hard-filtered against
+         job/requirements.py's deterministic gates on its raw markdown, for $0,
+         BEFORE it ever becomes a candidate — only survivors proceed.
 Phase 3: Deterministic pre-filter (job/requirements.py's shared gates — years of
          experience read from the FULL description, not just experience_text;
-         profile-driven education ceiling; expanded seniority regex)
-Phase 4: DeepSeek V3 evaluation + cover letter drafting
+         profile-driven education ceiling; expanded seniority regex; geo_ok's
+         India-or-worldwide-remote policy, which also catches ATS/career jobs
+         that are onsite in a country that isn't India)
+Phase 4: DeepSeek V3 evaluation + cover letter drafting — the ONLY LLM call in
+         the whole pipeline now; also does the structured extraction (title/
+         company) for markdown-sourced candidates that arrive with those fields
+         blank, in the same pass.
 
 Run:
   python job/job_india_mnc.py           # full run — prompts for company count
@@ -28,7 +43,6 @@ import datetime
 import warnings
 import requests
 from typing import List, Optional, Set
-from pydantic import BaseModel
 
 warnings.filterwarnings("ignore", message="urllib3 .* doesn't match a supported version!")
 
@@ -493,84 +507,58 @@ def search_for_jobs() -> List[str]:
 
 
 # ══════════════════════════════════════════════════════════════════
-# PHASE 2 — CRAWL4AI UNIVERSAL SCRAPE
+# PHASE 2 — CRAWL4AI MARKDOWN SCRAPE + DETERMINISTIC HARD-FILTER (v12)
 # ══════════════════════════════════════════════════════════════════
+# v10/v11 used LLMExtractionStrategy here — >=1 DeepSeek call PER URL to
+# structure the page into a job dict, BEFORE any relevance check. For ~200+
+# URLs/run that's >90% of LLM spend wasted on off-stack/senior/foreign-onsite
+# pages. companies.scrape_markdown() reads Crawl4AI's raw markdown (zero
+# DeepSeek); companies.page_passes_hardfilter() then applies the SAME
+# deterministic gates job/requirements.py uses on structured jobs, directly
+# against that markdown. A page that fails never becomes a candidate — it's
+# recorded with its reason and never reaches Phase 3/4. Survivors carry an
+# empty title/company (unknown until the LLM reads the page in Phase 4) and a
+# URL-based fingerprint (title|company would collide across every survivor —
+# they're all "" at this point).
 
-class ScrapedJob(BaseModel):
-    title:               str = ""
-    company:             str = ""
-    url:                 str = ""
-    site:                str = ""
-    posted_date:         str = ""
-    location_text:       str = ""
-    is_remote:           bool = False
-    job_type:            str = ""
-    pay_text:            str = ""
-    experience_text:     str = ""
-    description:         str = ""
+async def scrape_and_hardfilter(url_sources: dict, raw_ndjson_path: str) -> tuple:
+    """`url_sources` is {url: "careers"|"board"}. Returns (jobs, hardfilter_rejected)."""
+    urls = list(url_sources.keys())
+    print(f"\n🕷️  PHASE 2 — Crawl4AI markdown scrape of {len(urls)} URLs (no LLM)...")
+    md_by_url = await companies.scrape_markdown(urls)
+    print(f"  ✅ {len(md_by_url)}/{len(urls)} URLs returned page text")
 
-SCRAPE_INSTRUCTION = """
-Extract EVERY job posting visible on this page.
-For each job return:
-  title, company, url (the direct apply/detail link), site (domain),
-  posted_date (ISO 8601 date OR relative string like '3 hours ago' — ALWAYS fill this),
-  location_text (exact text shown), is_remote (true/false),
-  job_type (full-time / contract / part-time / unknown),
-  pay_text (exact salary shown, or empty),
-  experience_text (exact years/level shown, e.g. "0-2 years", "fresher", "3-5 yrs" — ALWAYS fill this),
-  description (the FULL job description text on the page — every responsibility,
-  requirement, and qualification, not a summary or excerpt — ALWAYS fill even if partial).
-If the page is NOT a job listing, return an empty list [].
-""".strip()
+    jobs: List[dict] = []
+    hardfilter_rejected: List[dict] = []
+    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+
+    for url, md in md_by_url.items():
+        source = url_sources.get(url, "board")
+        ok, reason = companies.page_passes_hardfilter(md, PROFILE, HOME_PATTERN)
+        if not ok:
+            hardfilter_rejected.append({"url": url, "source": source, "rejection_reason": f"hardfilter: {reason}"})
+            continue
+        job = {
+            "title": "", "company": "", "url": url, "site": _domain(url),
+            "posted_date": "", "location_text": "", "is_remote": None, "job_type": "",
+            "pay_text": "", "experience_text": "", "description": md,
+            "_fingerprint": hashlib.md5(url.encode()).hexdigest(),
+            "_scraped_at": now_iso, "source": source,
+        }
+        with open(raw_ndjson_path, "a") as f:
+            f.write(json.dumps(job, default=str) + "\n")
+        jobs.append(job)
+
+    print(f"  🔬 hard-filter: {len(jobs)} survived for $0, {len(hardfilter_rejected)} killed before any LLM call")
+    return jobs, hardfilter_rejected
 
 
-async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
-    from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode, LLMConfig
-    from crawl4ai.extraction_strategy import LLMExtractionStrategy
-    import logging
-    logging.getLogger("crawl4ai").setLevel(logging.ERROR)
-
-    print(f"\n🕷️  PHASE 2 — Crawl4AI scraping {len(urls)} URLs...")
-
-    strategy = LLMExtractionStrategy(
-        llm_config=LLMConfig(provider="deepseek/deepseek-chat", api_token=DEEPSEEK_API_KEY),
-        schema=ScrapedJob.model_json_schema(),
-        extraction_type="schema",
-        instruction=SCRAPE_INSTRUCTION,
-    )
-    run_cfg    = CrawlerRunConfig(extraction_strategy=strategy, cache_mode=CacheMode.BYPASS, magic=True)
-    browser_cfg = BrowserConfig(headless=True)
-
-    all_jobs: List[dict] = []
-    seen_fingerprints: Set[str] = set()
-
-    async with AsyncWebCrawler(config=browser_cfg) as crawler:
-        results = await crawler.arun_many(urls=urls, config=run_cfg)
-        for result in results:
-            if not result.success or not result.extracted_content:
-                continue
-            try:
-                parsed = json.loads(result.extracted_content)
-                items  = parsed if isinstance(parsed, list) else [parsed]
-            except (json.JSONDecodeError, TypeError):
-                continue
-            for job in items:
-                if not isinstance(job, dict) or not job.get("title"):
-                    continue
-                fp = hashlib.md5(
-                    f"{job.get('title','').lower().strip()}|{job.get('company','').lower().strip()}".encode()
-                ).hexdigest()
-                if fp in seen_fingerprints:
-                    continue
-                seen_fingerprints.add(fp)
-                job["_fingerprint"] = fp
-                job["_scraped_at"]  = datetime.datetime.utcnow().isoformat() + "Z"
-                with open(raw_ndjson_path, "a") as f:
-                    f.write(json.dumps(job) + "\n")
-                all_jobs.append(job)
-
-    print(f"  ✅ {len(all_jobs)} unique jobs scraped (raw → {raw_ndjson_path})")
-    return all_jobs
+def _domain(url: str) -> str:
+    try:
+        from urllib.parse import urlparse
+        return urlparse(url or "").netloc
+    except Exception:
+        return ""
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -627,12 +615,20 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         #    Skipped for ATS-direct jobs (companies.py) — those never had a
         #    scraped `site` guessed from a search result in the first place, and
         #    are already trusted (they came from a verified company ATS token).
+        #    v12: ALSO skipped for source="careers" jobs — companies.
+        #    serper_careers_urls() already host-filters those (ATS host or the
+        #    company's own domain) before they're ever returned, so a second,
+        #    fixed-list allowlist check here would just reject legitimate
+        #    career-page hits from the ~500 companies that were never going to
+        #    be on this hardcoded list — defeating the entire point of sourcing
+        #    from them. "board" jobs (QUERY_CLUSTERS/DIRECT_URLS) still need it
+        #    as a safety net against garbage aggregators.
         #    FIXED (v11): bare `site.endswith(allowed)` with no dot separator let
         #    "evilnaukri.com" or "fake-linkedin.com" pass — endswith("naukri.com")
         #    is true for either. Must require a dot (or exact match) before the
         #    allowed suffix, matching job_freelance.py's already-correct pattern.
-        if site and job.get("_source") != "ats_direct" and not any(
-                site == allowed or site.endswith("." + allowed) for allowed in SITE_ALLOWLIST):
+        if (site and job.get("_source") != "ats_direct" and job.get("source") != "careers"
+                and not any(site == allowed or site.endswith("." + allowed) for allowed in SITE_ALLOWLIST)):
             reject(f"Not-allowlisted site: {site}"); continue
 
         # 1. Cross-run dedup
@@ -688,14 +684,20 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         if not yoe_ok:
             reject(yoe_detail); continue
 
-        # 9. Geo-lock — word-boundary matching (job/requirements.py) against a
-        # profile-derived home-location pattern, fixing two real bugs: bare
-        # "Europe"/"Canada"/"Toronto" (no decoration) used to pass silently, and
-        # "must be located in India" used to be falsely caught by a truncated
-        # "must be located in" substring and rejected as region-locked.
-        geo_reject = req.pre_kill_location(location, description, HOME_PATTERN)
-        if geo_reject:
-            reject(geo_reject); continue
+        # 9. Geo — job/requirements.py's geo_ok() (v12): accept India-accessible
+        # (remote/hybrid/onsite India) OR worldwide/anywhere-remote; reject
+        # confident foreign-lock OR foreign onsite/hybrid (a real place, not
+        # home, with no remote signal anywhere — this is the mechanism that
+        # actually catches an ATS job from a global board whose location_text
+        # names a specific non-India city, e.g. "Austin, TX" + is_remote=False;
+        # the old pre_kill_location left that ambiguous and let it through).
+        # Markdown-sourced candidates (location_text="") can never hit that
+        # foreign-onsite branch — they were already hard-filtered on their raw
+        # page text in Phase 2, and stay ambiguous here by design (LLM decides).
+        geo = req.geo_ok(location, description, PROFILE, HOME_PATTERN,
+                         is_remote=job.get("is_remote"), job_type=job.get("job_type", ""))
+        if geo is False:
+            reject("geo: confident foreign-lock or foreign onsite (no remote/India signal)"); continue
 
         # Mark as seen
         if fp:
@@ -719,7 +721,12 @@ Target roles: {target_roles}
 
 RULES:
 - Target: well-funded India startups (Series A+), top MNCs, or high-growth AI companies.
-- The role must be geographically accessible in India (remote India, hybrid India, onsite India).
+- GEO (read the full description, not just location_text — some candidates have no
+  separate location field at all): accept iff the role is India-accessible (remote
+  India, hybrid India, onsite India) OR genuinely worldwide/anywhere-remote. REJECT a
+  role that is onsite/hybrid in a specific country that isn't India, or remote but
+  scoped to a specific country/region other than India (e.g. "Remote, United States",
+  "US-based", "EU residents only") with no worldwide language anywhere.
 - Experience: candidate has {years_experience} YOE (+{yoe_slack} slack). REJECT any role
   that requires more than {years_experience_cap} years, or is titled
   Senior/Lead/Principal/Staff/Manager/Director — even if the stack fits well.
@@ -728,9 +735,14 @@ RULES:
   Forward Deployed Engineer roles as in-scope matches.
 - Reject: relocation to US/Europe, unpaid internships, DevOps-only, sales, roles
   entirely unrelated to AI/ML/LLM/Python/data science.
-- IMPORTANT: If description is empty but title and company clearly indicate an
-  AI/ML/DS/FDE role, set is_match=true with a best-effort match_score of 60 and note
-  "description unavailable".
+- Some candidates have title="" and company="" (their job_title/company weren't known
+  before this call) — for those, read the description field itself (it's the FULL
+  page text, e.g. a company careers page or job board listing) and extract the real
+  job title and company name into job_title/company. Always set application_url to
+  that candidate's own `url` field, never a generic company homepage. If a candidate's
+  description is empty or too thin to tell what the role even is, reject it
+  (rejection_reason: "insufficient information") — do NOT guess a match from title
+  and company alone.
 
 For each job:
 1. is_match=true only if role matches the target roles AND is India-accessible AND fits the experience bracket.
@@ -899,7 +911,7 @@ async def main(dry_run: bool = False):
     report_out   = os.path.join(reports_dir, f"report_india_mnc_{timestamp}.json")
 
     print(f"\n{'='*60}")
-    print(f"🚀 INDIA MNC JOB SEARCH v11  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    print(f"🚀 INDIA MNC JOB SEARCH v12  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
     print(f"👤 Profile: {PROFILE['name']} | {PROFILE['years_experience']} YOE (+{PROFILE['yoe_slack']} slack) "
           f"| roles: {', '.join(PROFILE['target_role_families'])}")
     print(f"{'='*60}")
@@ -918,12 +930,15 @@ async def main(dry_run: bool = False):
                 j["_fingerprint"] = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
                 j["_scraped_at"]  = datetime.datetime.utcnow().isoformat() + "Z"
     else:
-        # PHASE 0 — India ATS-direct company source (job/companies.py, mode="india":
-        # its own 93-company registry + its own rotation cursor, independent of
+        # PHASE 0 — India ATS-direct + Serper-careers company source
+        # (job/companies.py, mode="india": its own 593-company registry — 93
+        # ats: + 500 serper: — and its own rotation cursor, independent of
         # job_remote.py's worldwide-remote pool). Every company scanned (incl.
         # zero-yield ones) is recorded in company_manifest and written into the
-        # report.
-        ats_jobs, company_urls = [], []
+        # report. `direct_jobs` = ATS-URL-shortcut hits from the careers search
+        # (already full JDs, source="careers") — merged with the batch ATS jobs
+        # (source="ats") since both bypass Crawl4AI entirely.
+        structured_jobs, career_crawl_urls = [], []
         if companies:
             n_companies = _companies_arg()
             if n_companies is None:
@@ -936,9 +951,12 @@ async def main(dry_run: bool = False):
                       f"cycle progress before this run: {pool_total - pool_remaining}/{pool_total})")
                 if ats_batch:
                     ats_jobs, ats_manifest = companies.fetch_ats_jobs(ats_batch)
+                    structured_jobs.extend(ats_jobs)
                     company_manifest.extend(ats_manifest)
                 if serper_batch:
-                    company_urls, serper_manifest = companies.serper_careers_urls(serper_batch, SERPER_API_KEY)
+                    career_crawl_urls, direct_jobs, serper_manifest = companies.serper_careers_urls(
+                        serper_batch, SERPER_API_KEY)
+                    structured_jobs.extend(direct_jobs)
                     company_manifest.extend(serper_manifest)
                 companies.mark_companies_done(company_manifest, mode="india")
                 pool_total, pool_remaining = companies.pool_status(mode="india")
@@ -947,18 +965,27 @@ async def main(dry_run: bool = False):
         else:
             print("\n🏢 PHASE 0 — job/companies.py unavailable; skipping the company source.")
 
-        urls = search_for_jobs() + company_urls
-        if not urls and not ats_jobs:
+        # PHASE 1/2 — board search (LinkedIn/Naukri/Instahyre/... + direct URLs,
+        # source="board") and career-page URLs from Phase 0 that still need a
+        # crawl (source="careers") both go through the SAME no-LLM markdown
+        # scrape + deterministic hard-filter. `careers` wins on overlap (a URL
+        # both a board search and a careers search happened to return).
+        url_sources = {u: "board" for u in search_for_jobs()}
+        url_sources.update({u: "careers" for u in career_crawl_urls})
+        if not url_sources and not structured_jobs:
             print("No URLs found. Exiting."); return
-        scraped_jobs = await scrape_jobs(urls, raw_ndjson) if urls else []
-        # ATS jobs bypass Crawl4AI (already full JDs) but were never written to
-        # raw_ndjson before — append them so the raw dump reflects every source.
-        if ats_jobs:
+        crawled_jobs, hardfilter_rejected = (
+            await scrape_and_hardfilter(url_sources, raw_ndjson) if url_sources else ([], []))
+        # Structured jobs (ATS-direct + ATS-URL-shortcut) bypass Crawl4AI
+        # entirely (already full JDs) but still belong in the raw dump.
+        if structured_jobs:
             with open(raw_ndjson, "a") as f:
-                for j in ats_jobs: f.write(json.dumps(j, default=str) + "\n")
-        raw_jobs = scraped_jobs + ats_jobs
+                for j in structured_jobs: f.write(json.dumps(j, default=str) + "\n")
+        raw_jobs = crawled_jobs + structured_jobs
 
     candidates, rejected = prefilter(raw_jobs, cross_run_seen)
+    if not dry_run and hardfilter_rejected:
+        rejected = hardfilter_rejected + rejected
 
     with open(rejected_out, "w") as f:
         json.dump(rejected, f, indent=2, default=str)
@@ -978,12 +1005,22 @@ async def main(dry_run: bool = False):
         # invisible.
         try:
             parsed = json.loads(final_json)
+            # v12-E: source mix (ats/careers/board) at each funnel stage — shows
+            # whether results are actually coming from company career pages/ATS
+            # boards now, not just LinkedIn/Naukri board search.
+            def _source_mix(jobs):
+                counts = {}
+                for j in jobs:
+                    counts[j.get("source") or "board"] = counts.get(j.get("source") or "board", 0) + 1
+                return counts
             parsed["run_manifest"] = {
                 "companies_scanned": company_manifest,
                 "cycle_progress": (f"{pool_total - pool_remaining}/{pool_total}"
                                    if pool_total is not None else None),
-                "funnel": {"raw_jobs": len(raw_jobs), "prefilter_passed": len(candidates),
+                "funnel": {"raw_jobs": len(raw_jobs), "hardfilter_killed": len(hardfilter_rejected),
+                          "prefilter_passed": len(candidates),
                           "reported": len(parsed.get("evaluated_jobs", []))},
+                "source_mix": {"raw_jobs": _source_mix(raw_jobs), "candidates": _source_mix(candidates)},
             }
             final_json = json.dumps(parsed, indent=2, default=str)
         except (json.JSONDecodeError, TypeError):
