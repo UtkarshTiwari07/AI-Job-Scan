@@ -303,7 +303,7 @@ def load_seen_fingerprints() -> dict:
     if not os.path.exists(SEEN_FP_FILE): return {}
     try:
         with open(SEEN_FP_FILE) as f: data=json.load(f)
-        cutoff=(datetime.datetime.utcnow()-datetime.timedelta(days=7)).isoformat()
+        cutoff=(datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)-datetime.timedelta(days=7)).isoformat()
         return {fp:ts for fp,ts in data.items() if ts>=cutoff}
     except: return {}
 
@@ -401,7 +401,7 @@ async def scrape_jobs(urls: List[str], raw_ndjson_path: str) -> List[dict]:
                 fp=hashlib.md5(f"{job.get('title','').lower()}|{job.get('company','').lower()}".encode()).hexdigest()
                 if fp in seen_fp: continue
                 seen_fp.add(fp)
-                job["_fingerprint"]=fp; job["_scraped_at"]=datetime.datetime.utcnow().isoformat()+"Z"
+                job["_fingerprint"]=fp; job["_scraped_at"]=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat()+"Z"
                 with open(raw_ndjson_path,"a") as f: f.write(json.dumps(job)+"\n")
                 all_jobs.append(job)
     print(f"  ✅ {len(all_jobs)} unique jobs scraped → {raw_ndjson_path}")
@@ -425,7 +425,7 @@ def parse_age_days(posted_date: str) -> Optional[int]:
     for slen,fmt in [(20,"%Y-%m-%dT%H:%M:%SZ"),(19,"%Y-%m-%dT%H:%M:%S"),(10,"%Y-%m-%d")]:
         try:
             dt=datetime.datetime.strptime(posted_date[:slen].replace("Z",""),fmt.replace("Z",""))
-            return max((datetime.datetime.utcnow()-dt).days,0)
+            return max((datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)-dt).days,0)
         except ValueError: continue
     if any(w in txt for w in ["just","today","now","moment"]): return 0
     return None
@@ -443,7 +443,7 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
     print(f"\n🔬 PHASE 3 — Pre-filter ({len(jobs)} raw, {len(cross_run_seen)} cross-run known)...")
     candidates: List[dict]=[]; rejected: List[dict]=[]
     session_seen: Set[str]=set()
-    now_iso=datetime.datetime.utcnow().isoformat()+"Z"
+    now_iso=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat()+"Z"
 
     for job in jobs:
         title  =(job.get("title") or "").strip()
@@ -612,7 +612,7 @@ async def main(dry_run: bool=False):
         for j in raw_jobs:
             if "_fingerprint" not in j:
                 j["_fingerprint"]=hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
-                j["_scraped_at"]=datetime.datetime.utcnow().isoformat()+"Z"
+                j["_scraped_at"]=datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat()+"Z"
     else:
         urls=search_for_jobs()
         if not urls: print("No URLs. Exiting."); return

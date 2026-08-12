@@ -329,6 +329,65 @@ check("serper careers query hygiene: negative sites cover linkedin/naukri/glassd
 
 
 # ══════════════════════════════════════════════════════════════════
+# v16 — companies.py: short-slug collision fix in _host_matches_company
+# (real bug found live: "DPA"/"DISCO" in the registry matched dpa.colorado.gov,
+# dpamicrophones.com, csdisco.com, disconetwork.com via bare substring
+# matching). _registrable_label + an exact-match rule for slugs <6 chars fixes
+# the collisions while every real short-slug company (Wise, Deel, Canva,
+# Toggl, Zyte, Aiven, Wix, Rapyd, Gusto, Karat, Noise, Syook) still matches.
+# ══════════════════════════════════════════════════════════════════
+
+check("_registrable_label: plain .com domain",
+     co._registrable_label("wise.com") == "wise")
+
+check("_registrable_label: subdomain — takes the SLD, not the subdomain",
+     co._registrable_label("careers.sarvam.ai") == "sarvam")
+
+check("_registrable_label: two-part ccTLD (co.jp) steps one segment further left",
+     co._registrable_label("disco.co.jp") == "disco")
+
+check("_registrable_label: a government host's real label is NOT the leading token",
+     co._registrable_label("dpa.colorado.gov") == "colorado")
+
+check("_registrable_label: empty host returns empty",
+     co._registrable_label("") == "")
+
+check("_host_matches_company: 'DPA' does NOT match dpa.colorado.gov (real collision, fixed)",
+     not co._host_matches_company("dpa.colorado.gov", "DPA"))
+
+check("_host_matches_company: 'DPA' does NOT match dpa.ky.gov (real collision, fixed)",
+     not co._host_matches_company("dpa.ky.gov", "DPA"))
+
+check("_host_matches_company: 'DPA' does NOT match dpamicrophones.com (real collision, fixed)",
+     not co._host_matches_company("dpamicrophones.com", "DPA"))
+
+check("_host_matches_company: 'DPA' does NOT match dpaauctions.com (real collision, fixed)",
+     not co._host_matches_company("dpaauctions.com", "DPA"))
+
+check("_host_matches_company: 'DPA' DOES match its own exact domain dpa.com",
+     co._host_matches_company("dpa.com", "DPA"))
+
+check("_host_matches_company: 'DISCO' does NOT match csdisco.com (real collision, fixed)",
+     not co._host_matches_company("csdisco.com", "DISCO"))
+
+check("_host_matches_company: 'DISCO' does NOT match disconetwork.com (real collision, fixed)",
+     not co._host_matches_company("disconetwork.com", "DISCO"))
+
+check("_host_matches_company: 'DISCO' DOES match its real domain disco.co.jp",
+     co._host_matches_company("disco.co.jp", "DISCO"))
+
+for _name, _host in [("Wise", "wise.com"), ("Deel", "deel.com"), ("Canva", "canva.com"),
+                      ("Toggl", "toggl.com"), ("Zyte", "zyte.com"), ("Aiven", "aiven.io"),
+                      ("Wix", "wix.com"), ("Rapyd", "rapyd.com"), ("Gusto", "gusto.com"),
+                      ("Karat", "karat.com"), ("Noise", "noise.com"), ("Syook", "syook.com")]:
+    check(f"_host_matches_company: real short-slug company '{_name}' -> {_host} still matches",
+         co._host_matches_company(_host, _name))
+
+check("_host_matches_company: long slug (8 chars) keeps the original substring rule",
+     co._host_matches_company("careers.sarvam.ai", "Sarvam AI"))
+
+
+# ══════════════════════════════════════════════════════════════════
 # v13 — companies.py: query-recall fix (dropped role-terms + qdr:m), name
 # cleaning, and the code-level negative-host backstop
 # ══════════════════════════════════════════════════════════════════
@@ -417,11 +476,47 @@ _REAL_JOB_URLS = [
     "https://www.astranis.com/careers",
     "https://job-boards.greenhouse.io/gomotive/jobs/123",
     "https://www.procol.ai/careers/product-management/",
-    "https://www.naukri.com/llm-engineer-jobs-in-india",
+    "https://www.naukri.com/job-listings-ai-engineer-acme-bangalore-1-3-years-231024500123",
+    "https://www.linkedin.com/jobs/view/1234567890",
+    "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&location=India&f_TPR=r259200&f_E=2",
     "https://www.aurumanalytica.in/career.php",
 ]
 for u in _REAL_JOB_URLS:
     check(f"is_crawlable_job_url KEEPS real job/careers URL: {u[:55]}", co.is_crawlable_job_url(u))
+
+# v16 — Naukri tag/category-listing pages (bare "/<role>-jobs" or
+# "/<role>-jobs-in-<city>") are NOT single postings and got REMOVED from
+# NAUKRI_DIRECT_URLS for exactly this reason (same defect that got cutshort.io
+# removed in v11: Crawl4AI would scrape every visible job on the listing page,
+# not just the queried one). LinkedIn's /posts, /pulse, /company paths are
+# feed/article/profile pages, not job postings.
+_V16_JUNK_URLS = [
+    "https://www.naukri.com/llm-engineer-jobs-in-india",
+    "https://www.naukri.com/ai-engineer-jobs-in-india?experience=0",
+    "https://www.naukri.com/generative-ai-engineer-jobs",
+    "https://www.linkedin.com/posts/someone_ai-engineer-activity-12345",
+    "https://www.linkedin.com/pulse/why-ai-matters",
+    "https://www.linkedin.com/company/acme-ai",
+    "https://www.builtinnyc.com/job/ai-engineer",
+    "https://www.bebee.com/job/ai-engineer-india",
+    "https://himalayas.app/jobs/ai-engineer",
+    "https://www.iitjobs.com/jobs/ai-engineer",
+    "https://www.jobleads.com/job/ai-engineer",
+    "https://mypivot.com/jobs/ai-engineer",
+    "https://6figr.com/jobs/ai-engineer",
+    "https://opentrain.ai/jobs/ai-engineer",
+    "https://www.adzuna.in/details/12345",
+    "https://acme.com/careers/teams/engineering",
+    "https://acme.com/careers/team-category/ai",
+    "https://acme.com/careers/job-categories/ai-ml",
+    "https://acme.com/careers/business-categories/tech",
+    "https://acme.com/careers/locations/bangalore",
+    "https://acme.com/events/hackathon-2026",
+    "https://acme.com/profile/jane-doe",
+    "https://acme.com/search?q=ai",
+]
+for u in _V16_JUNK_URLS:
+    check(f"is_crawlable_job_url REJECTS v16 junk: {u[:55]}", not co.is_crawlable_job_url(u))
 
 check("is_crawlable_job_url rejects a non-http scheme",
      not co.is_crawlable_job_url("mailto:jobs@company.com"))
@@ -468,6 +563,38 @@ check("hardfilter: confident foreign-lock phrase ('must be US-based') rejected",
 
 check("hardfilter: thin page (<200 chars) rejected before any other check",
      co.page_passes_hardfilter("AI Engineer at Foo", _hf_profile, _hf_home)[0] is False)
+
+
+# ══════════════════════════════════════════════════════════════════
+# v16 — req.is_dead_posting(): reject dead/expired postings before the LLM
+# call. Live evidence: a druthire.com URL resolved to a plain "Job Not Found"
+# page for THREE different postings in one run — each one still passed every
+# other gate (short but not <200 chars, no seniority/YOE/geo signal to trip)
+# and was sent to the LLM to evaluate a job that no longer exists.
+# ══════════════════════════════════════════════════════════════════
+
+_DEAD_POSTING_CASES = [
+    ("Job Not Found\nThe job you are looking for is no longer available.", True),
+    ("This position is no longer accepting applications.", True),
+    ("We regret to inform you this position has already been filled.", True),
+    ("This job posting has expired. Please check our careers page for other openings.", True),
+    ("404 - Page Not Found", True),
+    ("Error 404: The page you requested could not be found.", True),
+    ("Applications are now closed for this role.", True),
+    ("This vacancy has been filled — thank you for your interest.", True),
+    ("AI Engineer - Remote, India. 1-2 years experience. Apply now! We are looking "
+     "for a passionate engineer to join our team building LLM pipelines.", False),
+    ("Address: 404 Main Street, Bangalore, Karnataka", False),
+]
+for _text, _expected in _DEAD_POSTING_CASES:
+    check(f"is_dead_posting: {_text[:45]!r} -> {_expected}",
+         req.is_dead_posting(_text) is _expected)
+
+_dead_page = ("Job Not Found\n" + "The job you are looking for is no longer available "
+             "or has been removed. " * 5)
+check("hardfilter: dead/expired posting page rejected before any other check",
+     co.page_passes_hardfilter(_dead_page, _hf_profile, _hf_home) ==
+     (False, "dead/expired posting (job no longer available)"))
 
 
 # ══════════════════════════════════════════════════════════════════
