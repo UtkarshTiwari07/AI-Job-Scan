@@ -21,6 +21,7 @@ explicit ask ("should be unique company running everytime"). "remote" and
 consume the other's rotation.
 """
 
+import asyncio
 import datetime
 import hashlib
 import html
@@ -420,8 +421,28 @@ def fetch_ats_jobs(ats_batch: list) -> tuple:
 # v12: boards LinkedIn/Naukri/Glassdoor/Ambitionbox/Indeed/Wellfound already
 # cover — excluded here so a careers-page query doesn't just re-find the same
 # aggregator listing job_india_mnc.py's QUERY_CLUSTERS already search.
-_CAREERS_NEGATIVE_SITES = ["linkedin.com", "naukri.com", "glassdoor.com",
-                           "ambitionbox.com", "indeed.com", "wellfound.com"]
+# v13: added the .co.in/.co regional siblings of glassdoor/simplyhired and
+# foundit.in (already treated as noise elsewhere in this repo, v11) — all three
+# were confirmed live, slipping through the -site: list as written.
+_CAREERS_NEGATIVE_SITES = ["linkedin.com", "naukri.com", "glassdoor.com", "glassdoor.co.in",
+                           "ambitionbox.com", "indeed.com", "wellfound.com",
+                           "simplyhired.com", "simplyhired.co.in", "foundit.in"]
+
+# v13: a CODE-level backstop for the same aggregator brands, checked against the
+# actual returned host — not just the query string. _CAREERS_NEGATIVE_SITES above
+# is a `-site:` exclusion Serper applies server-side; it's easy to miss a ccTLD
+# variant there (confirmed live: glassdoor.co.in and simplyhired.co.in both
+# slipped through untouched). Bare brand tokens (no TLD), mirroring how
+# _ATS_HOST_TOKENS already works, catch any current or future TLD variant of a
+# KNOWN brand automatically — closing that gap without hand-listing every ccTLD.
+_NEGATIVE_HOST_TOKENS = ("linkedin.", "lnkd.in", "naukri", "glassdoor", "ambitionbox",
+                         "indeed", "wellfound", "simplyhired", "foundit")
+
+
+def _is_negative_host(host: str) -> bool:
+    host = (host or "").lower()
+    return any(tok in host for tok in _NEGATIVE_HOST_TOKENS)
+
 
 # Hosts of ATS platforms a returned URL might be on directly — a hit here always
 # survives the host filter below, ATS-URL-shortcut or not.
@@ -439,14 +460,38 @@ def _name_slug(name: str) -> str:
     return re.sub(r"[^a-z0-9]+", "", (name or "").lower())
 
 
+# v13: decoration that hides the real brand token from BOTH the Serper query
+# (which wraps the whole raw name in quotes — decoration breaks the search
+# outright, e.g. '"Return Rabbit (By Auctane)"' -> 0 results vs '"Return
+# Rabbit"' -> 8) and the slug match below. Deliberately does NOT touch "&" or
+# bare hyphens — checked against every real name in both registry YAMLs and
+# found live legal names that would be corrupted by splitting on those ("AI
+# Technology & Systems", "Inkling & Co", "Hims & Hers", "Biz-Tech Analytics",
+# "Master-O", "U-Turn4Nature"). Confirmed-safe separators: a parenthetical span
+# anywhere, "|", "/", or " - " (space-hyphen-space, never a bare hyphen).
+_DECORATION_CUT = re.compile(r"\s*[|/]\s*|\s+-\s+")
+
+
+def _core_company_name(name: str) -> str:
+    """Best-effort primary brand token for SEARCHING/MATCHING only — never use
+    this for display (job['company'], manifest rows keep the original name)."""
+    n = (name or "").strip()
+    n = re.sub(r"\([^)]*\)", "", n).strip()          # drop any parenthetical span(s)
+    n = _DECORATION_CUT.split(n, maxsplit=1)[0].strip()  # cut at first |, /, or " - "
+    n = n.strip(" -|/").strip()
+    return n if len(n) >= 2 else (name or "").strip()   # never return an empty/degenerate query
+
+
 def _host_matches_company(host: str, name: str) -> bool:
     """Loose check that a URL's host is plausibly the company's OWN domain (as
     opposed to some unrelated site Serper happened to return). Not exact —
     false positives here just mean one extra page gets crawled and then killed
     for $0 by page_passes_hardfilter(); false negatives just mean a real
     careers-page hit gets dropped, which is why the ATS-host check above and the
-    ATS-URL shortcut are tried FIRST."""
-    slug = _name_slug(name)
+    ATS-URL shortcut are tried FIRST. `name` is cleaned via _core_company_name
+    first — a decorated legal name's parenthetical/pipe/dash suffix will never
+    appear in a real hostname either, so this is strictly safer, never riskier."""
+    slug = _name_slug(_core_company_name(name))
     host_clean = re.sub(r"[^a-z0-9]+", "", (host or "").lower())
     return len(slug) >= 3 and bool(host_clean) and slug in host_clean
 
@@ -481,16 +526,39 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
     urls, direct_jobs = [], []
     api_url = "https://google.serper.dev/search"
     headers = {"X-API-KEY": serper_api_key, "Content-Type": "application/json"}
-    role_terms = '("AI engineer" OR "machine learning engineer" OR "LLM" OR "data scientist" OR "forward deployed engineer")'
     negatives = " ".join(f"-site:{s}" for s in _CAREERS_NEGATIVE_SITES)
     for co in serper_batch:
         domain = co.get("careers_domain") or ""
         name = co.get("name", "")
-        base = f"site:{domain}" if domain else f'"{name}"'
-        query = f"{base} (careers OR jobs OR hiring) {role_terms} (remote OR india) {negatives}"
+        # v13: dropped the AI-role-term and (remote OR india) requirements —
+        # live A/B testing proved this narrow, compound query suppresses recall
+        # so badly that of 28 real companies tested (many with a genuine public
+        # career page), only 2 got a correct hit; broadening to just this
+        # (careers OR jobs OR hiring) form surfaced the company's REAL,
+        # already-recognized ATS board in 4/5 spot-checks the narrow query
+        # returned ZERO results for (Manychat, Motive, Modern Treasury,
+        # YipitData). AI-relevance/experience/geo are re-checked for real,
+        # deterministically, against the ACTUAL page content by
+        # page_passes_hardfilter() below once a page is crawled — that's
+        # always been this project's own design (push relevance decisions to
+        # where real content exists); the query only needs to find the page.
+        base = f"site:{domain}" if domain else f'"{_core_company_name(name)}"'
+        query = f"{base} (careers OR jobs OR hiring) {negatives}"
         try:
+            # v13: dropped "tbs": "qdr:m" (past-month freshness restriction) —
+            # a SECOND, independently confirmed recall killer live-verified
+            # alongside the query fix above. A company's careers PAGE is an
+            # evergreen entity; requiring Google to have seen "fresh" content on
+            # it within 30 days doesn't track whether the JOBS on it are
+            # current (the ATS APIs/prefilter's own freshness gate already
+            # handle that) — it just means Google prefers whatever unrelated
+            # content it re-crawled most recently. Confirmed live: with qdr:m,
+            # "YipitData"/"Return Rabbit" queries surfaced ONLY Instagram/
+            # Facebook/Threads noise (freshly-indexed, irrelevant); removing it
+            # immediately surfaced their real, current career pages
+            # (yipitdata.com/careers, returnrabbit.com/careers/) instead.
             resp = requests.post(api_url, headers=headers,
-                data=json.dumps({"q": query, "num": 8, "tbs": "qdr:m"}), timeout=15)
+                data=json.dumps({"q": query, "num": 8}), timeout=15)
             resp.raise_for_status()
             kept = direct = dropped = 0
             for r in resp.json().get("organic", []):
@@ -513,6 +581,9 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
                     dropped += 1
                     continue
                 host = _domain(link)
+                if _is_negative_host(host):
+                    dropped += 1
+                    continue
                 if _is_ats_host(host) or _host_matches_company(host, name):
                     urls.append(link)
                     kept += 1
@@ -539,28 +610,91 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
 # before a single LLM token is spent on it. Only survivors ever reach a
 # DeepSeek call (the single combined evaluate+draft pass in job_india_mnc.py).
 
+# v13: minimum text length to accept a scrapling HTTP-only fetch as "resolved"
+# (skip Crawl4AI for that URL). Deliberately HIGHER than page_passes_hardfilter's
+# own 200-char content-quality floor — a JS-shell page (all nav/footer
+# boilerplate, zero real job content) can easily clear 200 chars while carrying
+# no usable JD text (confirmed live on a real Ashby board). Using the same
+# threshold here would let scrapling falsely "resolve" a page Crawl4AI might
+# have actually rendered correctly, permanently forfeiting that URL's real
+# content instead of falling through to the browser attempt.
+_SCRAPLING_RESOLVED_MIN_CHARS = 600
+
+
+async def _scrapling_first_pass(urls: list) -> dict:
+    """Optional, zero-browser first attempt at each URL via scrapling's
+    HTTP-only AsyncFetcher (curl_cffi TLS/header impersonation — no Chromium).
+    Returns {url: text} for URLs judged "good enough" (see
+    _SCRAPLING_RESOLVED_MIN_CHARS); everything else is simply absent and falls
+    through to the Crawl4AI attempt below. impersonate="safari" specifically —
+    live-verified that "chrome"/"firefox" TLS fingerprints get reset by at
+    least one real network path this project has run behind, while "safari"
+    does not; "safari" also successfully fetched a real Lever board here.
+    Purely additive: works only on server-rendered pages (confirmed empty on a
+    genuinely client-rendered Ashby SPA) — never a Crawl4AI replacement, and
+    guarded so its absence is a silent no-op, not a failure."""
+    try:
+        from scrapling.fetchers import AsyncFetcher
+    except ImportError:
+        return {}
+    out = {}
+    sem = asyncio.Semaphore(8)
+
+    async def _fetch_one(url: str):
+        async with sem:
+            try:
+                resp = await AsyncFetcher.get(url, impersonate="safari", timeout=TIMEOUT)
+            except Exception:
+                return
+            if not resp or getattr(resp, "status", 0) not in range(200, 300):
+                return
+            try:
+                text = (resp.get_all_text(separator="\n", strip=True) or "").strip()
+            except Exception:
+                return
+            if len(text) >= _SCRAPLING_RESOLVED_MIN_CHARS:
+                out[url] = text
+
+    await asyncio.gather(*(_fetch_one(u) for u in urls))
+    return out
+
+
 async def scrape_markdown(urls: list) -> dict:
     """Crawl4AI fetch with NO extraction_strategy. Returns {url: markdown_text} —
     one entry per URL that crawled successfully with non-empty content; a failed
     or empty crawl is simply absent (the caller treats a missing key as "no page
-    text", same as any other unenrichable job)."""
+    text", same as any other unenrichable job).
+
+    v13: tries scrapling's HTTP-only fetcher FIRST (cheap, no browser — see
+    _scrapling_first_pass) and only sends whatever's left to Crawl4AI. This is
+    additive, not a replacement: URLs scrapling can't resolve (JS-heavy SPAs, or
+    scrapling simply not installed) still go through the exact same Crawl4AI
+    path as before."""
     if not urls:
         return {}
+    resolved = await _scrapling_first_pass(urls)
+    remaining = [u for u in urls if u not in resolved]
+    if resolved:
+        print(f"    ℹ️  scrapling (no-browser): {len(resolved)}/{len(urls)} resolved, "
+              f"{len(remaining)} left for Crawl4AI")
+    if not remaining:
+        return resolved
     try:
         from crawl4ai import AsyncWebCrawler, BrowserConfig, CrawlerRunConfig, CacheMode
     except ImportError as e:
-        print(f"    ⚠️  crawl4ai not installed ({e}) — {len(urls)} career/board URLs skipped "
+        print(f"    ⚠️  crawl4ai not installed ({e}) — {len(remaining)} career/board URLs skipped "
               f"this run; ATS-direct jobs still proceed. `pip install -r requirements.txt`.")
-        return {}
+        return resolved
     import logging
     logging.getLogger("crawl4ai").setLevel(logging.ERROR)
 
     run_cfg = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, magic=True)
     browser_cfg = BrowserConfig(headless=True)
-    out = {}
+    out = dict(resolved)
+    crawled = 0
     try:
         async with AsyncWebCrawler(config=browser_cfg) as crawler:
-            results = await crawler.arun_many(urls=urls, config=run_cfg)
+            results = await crawler.arun_many(urls=remaining, config=run_cfg)
             for result in results:
                 if not result.success:
                     continue
@@ -571,15 +705,17 @@ async def scrape_markdown(urls: list) -> dict:
                 text = (text or "").strip()
                 if text:
                     out[result.url] = text
+                    crawled += 1
     except Exception as e:
         # A browser that fails to LAUNCH (missing/mismatched Chromium build,
         # sandboxed egress, etc.) must not crash the whole run — ATS-direct
         # jobs (no crawl needed) should still get through. Per-URL failures are
         # already handled above via result.success; this only catches a launch
         # failure that never got to iterate results at all.
-        print(f"    ⚠️  Crawl4AI browser failed to launch/run ({e}) — {len(urls)} "
+        print(f"    ⚠️  Crawl4AI browser failed to launch/run ({e}) — {len(remaining)} "
               f"career/board URLs skipped this run; ATS-direct jobs still proceed.")
         return out
+    print(f"    ℹ️  crawl4ai: {crawled}/{len(remaining)} resolved")
     return out
 
 
