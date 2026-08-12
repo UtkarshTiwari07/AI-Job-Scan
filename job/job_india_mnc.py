@@ -522,35 +522,108 @@ def search_for_jobs() -> List[str]:
 # they're all "" at this point).
 
 async def scrape_and_hardfilter(url_sources: dict, raw_ndjson_path: str) -> tuple:
-    """`url_sources` is {url: "careers"|"board"}. Returns (jobs, hardfilter_rejected)."""
-    urls = list(url_sources.keys())
-    print(f"\n🕷️  PHASE 2 — Crawl4AI markdown scrape of {len(urls)} URLs (no LLM)...")
-    md_by_url = await companies.scrape_markdown(urls)
-    print(f"  ✅ {len(md_by_url)}/{len(urls)} URLs returned page text")
+    """`url_sources` is {url: "careers"|"board"}. Returns (jobs, hardfilter_rejected).
 
-    jobs: List[dict] = []
-    hardfilter_rejected: List[dict] = []
-    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    v15 — fail-proof + junk-free:
+      1. Every URL passes companies.is_crawlable_job_url() BEFORE a browser
+         touches it — kills YouTube/Instagram/Facebook/Reddit/blog/about/
+         privacy/PDF junk that flooded (and hung) a real run's crawl queue.
+      2. Each scraped page is STREAM-WRITTEN to raw_ndjson the instant it
+         resolves (companies.scrape_markdown's on_result callback) — so if the
+         process is killed mid-crawl, everything scraped so far is already on
+         disk. A --resume run reads those logs and continues, never re-crawling
+         or (crucially) re-spending Serper.
+      3. URLs already present in raw_ndjson (a prior interrupted run) are
+         skipped — only the remainder is crawled."""
+    raw_urls = list(url_sources.keys())
+    urls = [u for u in raw_urls if companies.is_crawlable_job_url(u)]
+    junk = len(raw_urls) - len(urls)
 
-    for url, md in md_by_url.items():
-        source = url_sources.get(url, "board")
-        ok, reason = companies.page_passes_hardfilter(md, PROFILE, HOME_PATTERN)
-        if not ok:
-            hardfilter_rejected.append({"url": url, "source": source, "rejection_reason": f"hardfilter: {reason}"})
-            continue
-        job = {
+    already = _scraped_urls_on_disk(raw_ndjson_path)
+    todo = [u for u in urls if u not in already]
+    print(f"\n🕷️  PHASE 2 — Crawl4AI markdown scrape (no LLM)")
+    print(f"    {len(raw_urls)} discovered → {junk} junk dropped pre-crawl → "
+          f"{len(already)} already scraped (resume) → {len(todo)} to crawl now")
+
+    # Stream each scraped page to disk AS it completes — the fail-proof core.
+    def _persist(url, md):
+        rec = {
             "title": "", "company": "", "url": url, "site": _domain(url),
             "posted_date": "", "location_text": "", "is_remote": None, "job_type": "",
             "pay_text": "", "experience_text": "", "description": md,
             "_fingerprint": hashlib.md5(url.encode()).hexdigest(),
-            "_scraped_at": now_iso, "source": source,
+            "_scraped_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "source": url_sources.get(url, "board"), "_kind": "scraped",
         }
         with open(raw_ndjson_path, "a") as f:
-            f.write(json.dumps(job, default=str) + "\n")
-        jobs.append(job)
+            f.write(json.dumps(rec, default=str) + "\n")
 
-    print(f"  🔬 hard-filter: {len(jobs)} survived for $0, {len(hardfilter_rejected)} killed before any LLM call")
+    if todo:
+        await companies.scrape_markdown(todo, on_result=_persist)
+
+    # Hard-filter reads back EVERY scraped page from raw_ndjson (this run's +
+    # any from a resumed prior run) — deterministic and free, so re-running it
+    # over the full log on resume costs nothing.
+    jobs: List[dict] = []
+    hardfilter_rejected: List[dict] = []
+    for rec in _load_scraped_records(raw_ndjson_path):
+        md = rec.get("description") or ""
+        source = rec.get("source", "board")
+        ok, reason = companies.page_passes_hardfilter(md, PROFILE, HOME_PATTERN)
+        if ok:
+            jobs.append(rec)
+        else:
+            hardfilter_rejected.append({"url": rec.get("url"), "source": source,
+                                        "rejection_reason": f"hardfilter: {reason}"})
+
+    print(f"  🔬 hard-filter: {len(jobs)} survived for $0, "
+          f"{len(hardfilter_rejected)} killed before any LLM call")
     return jobs, hardfilter_rejected
+
+
+def _scraped_urls_on_disk(raw_ndjson_path: str) -> set:
+    """URLs already crawled in a prior (possibly interrupted) run — read from
+    the streamed raw_ndjson so --resume never re-crawls them."""
+    out = set()
+    if not os.path.exists(raw_ndjson_path):
+        return out
+    try:
+        with open(raw_ndjson_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("_kind") == "scraped" and rec.get("url"):
+                    out.add(rec["url"])
+    except Exception:
+        pass
+    return out
+
+
+def _load_scraped_records(raw_ndjson_path: str) -> List[dict]:
+    """All streamed scraped-page records from raw_ndjson (this run + resumed)."""
+    out = []
+    if not os.path.exists(raw_ndjson_path):
+        return out
+    try:
+        with open(raw_ndjson_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("_kind") == "scraped":
+                    out.append(rec)
+    except Exception:
+        pass
+    return out
 
 
 def _domain(url: str) -> str:
@@ -763,11 +836,38 @@ Return ONLY valid JSON (no markdown fences):
 """
 
 
-def evaluate_and_draft(candidates: List[dict]) -> str:
+def evaluate_and_draft(candidates: List[dict], eval_cache_path: str = None) -> str:
     if not candidates:
         return json.dumps({"evaluated_jobs": []}, indent=2)
 
-    print(f"\n🧠 PHASE 4 — DeepSeek V3 evaluating {len(candidates)} candidates...")
+    # v15 — DeepSeek resume. Each evaluated batch is appended to eval_cache_path
+    # (ndjson) as it returns, keyed by the candidate's _fingerprint. On a
+    # --resume run, candidates already in the cache are NOT re-sent to DeepSeek —
+    # so an interrupted eval never re-spends on jobs it already paid to score.
+    done_fps, cached_results = set(), []
+    if eval_cache_path and os.path.exists(eval_cache_path):
+        try:
+            with open(eval_cache_path) as f:
+                for line in f:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    rec = json.loads(line)
+                    fp = rec.get("_fingerprint")
+                    if fp:
+                        done_fps.add(fp)
+                    cached_results.append({k: v for k, v in rec.items() if k != "_fingerprint"})
+        except Exception:
+            done_fps, cached_results = set(), []
+    remaining = [c for c in candidates if c.get("_fingerprint") not in done_fps]
+    if done_fps:
+        print(f"  ♻️  resume: {len(done_fps)} candidates already evaluated (cached), "
+              f"{len(remaining)} left to score")
+
+    if not remaining:
+        return json.dumps({"evaluated_jobs": cached_results}, indent=2)
+
+    print(f"\n🧠 PHASE 4 — DeepSeek V3 evaluating {len(remaining)} candidates...")
     client = OpenAI(api_key=DEEPSEEK_API_KEY, base_url="https://api.deepseek.com")
 
     system_prompt = EVAL_SYSTEM.format(
@@ -813,11 +913,24 @@ def evaluate_and_draft(candidates: List[dict]) -> str:
             return []
 
     BATCH_SIZE = 10
-    batches = [candidates[i:i+BATCH_SIZE] for i in range(0, len(candidates), BATCH_SIZE)]
-    all_evaluated: List[dict] = []
+    batches = [remaining[i:i+BATCH_SIZE] for i in range(0, len(remaining), BATCH_SIZE)]
+    all_evaluated: List[dict] = list(cached_results)
     for idx, batch in enumerate(batches, 1):
         results = call_deepseek(batch, idx, len(batches))
         all_evaluated.extend(results)
+        # Persist this batch immediately so a mid-eval kill doesn't lose (or
+        # force a re-pay for) the batches already scored. Tag each result with
+        # its candidate fingerprint (best-effort match by application_url).
+        if eval_cache_path:
+            url_to_fp = {c.get("url"): c.get("_fingerprint") for c in batch}
+            try:
+                with open(eval_cache_path, "a") as f:
+                    for r in results:
+                        rec = dict(r)
+                        rec["_fingerprint"] = url_to_fp.get(r.get("application_url"))
+                        f.write(json.dumps(rec, default=str) + "\n")
+            except Exception as e:
+                print(f"  ⚠️ Could not persist eval batch {idx}: {e}")
         hits = sum(1 for j in results if j.get("is_match"))
         print(f"  ✅ Batch {idx}/{len(batches)} — {hits}/{len(results)} matched, total: {len(all_evaluated)}")
 
@@ -901,17 +1014,77 @@ def _companies_arg() -> Optional[int]:
             except ValueError: pass
     return None
 
-async def main(dry_run: bool = False):
-    timestamp    = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+
+# ── v15 checkpoint/resume ─────────────────────────────────────────────
+# The expensive/irrecoverable step is DISCOVERY (Serper credits) and CRAWL
+# (time / hang-prone). A checkpoint written right after discovery records the
+# URL list + artifact paths so a --resume run SKIPS discovery entirely (spends
+# ZERO new Serper) and continues from the streamed logs. See scrape_and_
+# hardfilter for the crawl-side resume (already-scraped URLs skipped) and
+# evaluate_and_draft for the DeepSeek-side resume (already-scored candidates
+# skipped).
+_CHECKPOINT_PATH = os.path.join(os.path.dirname(__file__), "reports_india_mnc",
+                                ".checkpoint_india_mnc.json")
+
+
+def _save_checkpoint(state: dict):
+    try:
+        os.makedirs(os.path.dirname(_CHECKPOINT_PATH), exist_ok=True)
+        with open(_CHECKPOINT_PATH, "w") as f:
+            json.dump(state, f)
+    except Exception as e:
+        print(f"  ⚠️ Could not write checkpoint: {e}")
+
+
+def _load_checkpoint() -> Optional[dict]:
+    if not os.path.exists(_CHECKPOINT_PATH):
+        return None
+    try:
+        with open(_CHECKPOINT_PATH) as f:
+            return json.load(f)
+    except Exception:
+        return None
+
+
+def _clear_checkpoint():
+    try:
+        if os.path.exists(_CHECKPOINT_PATH):
+            os.remove(_CHECKPOINT_PATH)
+    except Exception:
+        pass
+
+
+def _load_structured_from_raw(raw_ndjson_path: str) -> List[dict]:
+    """Reload the ATS-direct / careers-direct (full-JD) jobs a prior run
+    persisted to raw_ndjson (tagged _kind='structured'), so --resume gets them
+    back without re-fetching from the ATS APIs."""
+    out = []
+    if not os.path.exists(raw_ndjson_path):
+        return out
+    try:
+        with open(raw_ndjson_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    rec = json.loads(line)
+                except json.JSONDecodeError:
+                    continue
+                if rec.get("_kind") == "structured":
+                    out.append(rec)
+    except Exception:
+        pass
+    return out
+
+
+async def main(dry_run: bool = False, resume: bool = False):
     reports_dir  = os.path.join(os.path.dirname(__file__), "reports_india_mnc")
     os.makedirs(reports_dir, exist_ok=True)
 
-    raw_ndjson   = os.path.join(reports_dir, f"raw_india_mnc_{timestamp}.ndjson")
-    rejected_out = os.path.join(reports_dir, f"rejected_india_mnc_{timestamp}.json")
-    report_out   = os.path.join(reports_dir, f"report_india_mnc_{timestamp}.json")
-
     print(f"\n{'='*60}")
-    print(f"🚀 INDIA MNC JOB SEARCH v12  {'[DRY RUN]' if dry_run else '[LIVE — 3-day window]'}")
+    mode_tag = "[DRY RUN]" if dry_run else ("[RESUME]" if resume else "[LIVE — 3-day window]")
+    print(f"🚀 INDIA MNC JOB SEARCH v15  {mode_tag}")
     print(f"👤 Profile: {PROFILE['name']} | {PROFILE['years_experience']} YOE (+{PROFILE['yoe_slack']} slack) "
           f"| roles: {', '.join(PROFILE['target_role_families'])}")
     print(f"{'='*60}")
@@ -921,23 +1094,53 @@ async def main(dry_run: bool = False):
 
     company_manifest = []
     pool_total = pool_remaining = None
+    hardfilter_rejected: List[dict] = []
+    eval_cache = None
 
     if dry_run:
+        timestamp    = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+        raw_ndjson   = os.path.join(reports_dir, f"raw_india_mnc_{timestamp}.ndjson")
+        rejected_out = os.path.join(reports_dir, f"rejected_india_mnc_{timestamp}.json")
+        report_out   = os.path.join(reports_dir, f"report_india_mnc_{timestamp}.json")
         print("\n[DRY RUN] Using mock data")
         raw_jobs = MOCK_JOBS
         for j in raw_jobs:
             if "_fingerprint" not in j:
                 j["_fingerprint"] = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
                 j["_scraped_at"]  = datetime.datetime.utcnow().isoformat() + "Z"
+    elif resume:
+        ck = _load_checkpoint()
+        if not ck:
+            print("\n♻️  --resume: no checkpoint found. Nothing to resume — run without --resume "
+                  "to start a fresh scan.")
+            return
+        raw_ndjson   = ck["raw_ndjson"]
+        rejected_out = ck["rejected_out"]
+        report_out   = ck["report_out"]
+        url_sources  = ck.get("url_sources", {})
+        company_manifest = ck.get("company_manifest", [])
+        pool_total   = ck.get("pool_total")
+        pool_remaining = ck.get("pool_remaining")
+        eval_cache   = ck.get("eval_cache")
+        structured_jobs = _load_structured_from_raw(raw_ndjson)
+        already = _scraped_urls_on_disk(raw_ndjson)
+        print(f"\n♻️  RESUMING run {ck.get('timestamp')} — NO new Serper spend.")
+        print(f"    {len(url_sources)} discovered URLs · {len(structured_jobs)} structured jobs "
+              f"· {len(already)} pages already scraped on disk")
+        crawled_jobs, hardfilter_rejected = (
+            await scrape_and_hardfilter(url_sources, raw_ndjson) if url_sources else ([], []))
+        raw_jobs = crawled_jobs + structured_jobs
     else:
+        timestamp    = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
+        raw_ndjson   = os.path.join(reports_dir, f"raw_india_mnc_{timestamp}.ndjson")
+        rejected_out = os.path.join(reports_dir, f"rejected_india_mnc_{timestamp}.json")
+        report_out   = os.path.join(reports_dir, f"report_india_mnc_{timestamp}.json")
+        eval_cache   = report_out + ".evalcache.ndjson"
         # PHASE 0 — India ATS-direct + Serper-careers company source
         # (job/companies.py, mode="india": its own 593-company registry — 93
-        # ats: + 500 serper: — and its own rotation cursor, independent of
-        # job_remote.py's worldwide-remote pool). Every company scanned (incl.
-        # zero-yield ones) is recorded in company_manifest and written into the
-        # report. `direct_jobs` = ATS-URL-shortcut hits from the careers search
-        # (already full JDs, source="careers") — merged with the batch ATS jobs
-        # (source="ats") since both bypass Crawl4AI entirely.
+        # ats: + 500 serper: — and its own rotation cursor). direct_jobs =
+        # ATS-URL-shortcut hits (already full JDs, source="careers") — merged
+        # with batch ATS jobs (source="ats") since both bypass Crawl4AI.
         structured_jobs, career_crawl_urls = [], []
         if companies:
             n_companies = _companies_arg()
@@ -965,22 +1168,34 @@ async def main(dry_run: bool = False):
         else:
             print("\n🏢 PHASE 0 — job/companies.py unavailable; skipping the company source.")
 
-        # PHASE 1/2 — board search (LinkedIn/Naukri/Instahyre/... + direct URLs,
-        # source="board") and career-page URLs from Phase 0 that still need a
-        # crawl (source="careers") both go through the SAME no-LLM markdown
-        # scrape + deterministic hard-filter. `careers` wins on overlap (a URL
-        # both a board search and a careers search happened to return).
+        # PHASE 1 board search + career-page URLs → the crawl queue.
         url_sources = {u: "board" for u in search_for_jobs()}
         url_sources.update({u: "careers" for u in career_crawl_urls})
+
+        # Persist structured jobs to raw_ndjson NOW (tagged _kind='structured'),
+        # BEFORE crawling — so they survive an interrupted crawl and --resume
+        # gets them back without re-hitting the ATS APIs.
+        for j in structured_jobs:
+            j["_kind"] = "structured"
+        if structured_jobs:
+            with open(raw_ndjson, "a") as f:
+                for j in structured_jobs:
+                    f.write(json.dumps(j, default=str) + "\n")
+
+        # Checkpoint the discovery result (URL list + paths) so a later --resume
+        # skips Serper entirely and continues from here.
+        _save_checkpoint({
+            "timestamp": timestamp, "raw_ndjson": raw_ndjson,
+            "rejected_out": rejected_out, "report_out": report_out,
+            "url_sources": url_sources, "company_manifest": company_manifest,
+            "pool_total": pool_total, "pool_remaining": pool_remaining,
+            "eval_cache": eval_cache, "stage": "discovered",
+        })
+
         if not url_sources and not structured_jobs:
             print("No URLs found. Exiting."); return
         crawled_jobs, hardfilter_rejected = (
             await scrape_and_hardfilter(url_sources, raw_ndjson) if url_sources else ([], []))
-        # Structured jobs (ATS-direct + ATS-URL-shortcut) bypass Crawl4AI
-        # entirely (already full JDs) but still belong in the raw dump.
-        if structured_jobs:
-            with open(raw_ndjson, "a") as f:
-                for j in structured_jobs: f.write(json.dumps(j, default=str) + "\n")
         raw_jobs = crawled_jobs + structured_jobs
 
     candidates, rejected = prefilter(raw_jobs, cross_run_seen)
@@ -999,7 +1214,7 @@ async def main(dry_run: bool = False):
         result = {"dry_run": True, "candidates_passed_prefilter": len(candidates), "candidates": candidates}
         final_json = json.dumps(result, indent=2, default=str)
     else:
-        final_json = evaluate_and_draft(candidates)
+        final_json = evaluate_and_draft(candidates, eval_cache_path=eval_cache)
         # Splice a run_manifest into the evaluated_jobs report — v10 had no record
         # anywhere of which India companies actually ran; a zero-yield company was
         # invisible.
@@ -1054,6 +1269,14 @@ async def main(dry_run: bool = False):
     with open(report_out, "w") as f:
         f.write(final_json)
 
+    # Run finished cleanly — drop the checkpoint + eval cache so the NEXT run
+    # starts fresh (a new company batch) instead of resuming this completed one.
+    if not dry_run:
+        _clear_checkpoint()
+        try:
+            if eval_cache and os.path.exists(eval_cache): os.remove(eval_cache)
+        except Exception: pass
+
     print(f"\n{'='*60}\nFINAL REPORT\n{'='*60}")
     print(final_json[:3000] + ("\n... (truncated)" if len(final_json) > 3000 else ""))
     print(f"\n💾 Report → {report_out}")
@@ -1061,4 +1284,5 @@ async def main(dry_run: bool = False):
 
 if __name__ == "__main__":
     dry_run = "--dry-run" in sys.argv
-    asyncio.run(main(dry_run=dry_run))
+    resume  = "--resume" in sys.argv
+    asyncio.run(main(dry_run=dry_run, resume=resume))

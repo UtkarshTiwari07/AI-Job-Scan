@@ -388,6 +388,46 @@ check("_is_negative_host: does not false-positive on an unrelated company domain
 
 
 # ══════════════════════════════════════════════════════════════════
+# v15 — is_crawlable_job_url(): the pre-crawl junk filter. Every URL here is a
+# REAL line from the user's stuck run — social/video/blog/policy/PDF pages that
+# were being crawled (and hanging) for no reason. This gate kills them before a
+# browser is ever launched.
+# ══════════════════════════════════════════════════════════════════
+
+_JUNK_URLS = [
+    "https://www.youtube.com/watch?v=LHQn5gvJyVE",
+    "https://www.instagram.com/reel/DbqhW1uSJ_9/",
+    "https://www.facebook.com/93wibc/posts/x/1777889840727276/",
+    "https://www.reddit.com/r/PlacementsPrep/comments/x/",
+    "https://www.1to1help.com/blog/nutrition-for-immune-system",
+    "https://www.airveda.com/blog/samsung-case-study",
+    "https://www.aurumanalytica.in/privacy.php",
+    "https://www.bynd.com/policies/terms-and-conditions",
+    "https://www.aicerts.ai/wp-content/uploads/2024/04/AI-Careers.pdf",
+    "https://www.cube.ms/features",
+    "https://www.carepay.com/press/leadership-update-2026",
+    "https://www.deaimer.com/reference-site/security.html",
+    "https://www.basepairtech.com/solutions/clinical-laboratories/",
+]
+for u in _JUNK_URLS:
+    check(f"is_crawlable_job_url REJECTS junk: {u[:55]}", not co.is_crawlable_job_url(u))
+
+_REAL_JOB_URLS = [
+    "https://www.aicerts.ai/jobs/business-analyst-at-ai-certs/",
+    "https://www.astranis.com/careers",
+    "https://job-boards.greenhouse.io/gomotive/jobs/123",
+    "https://www.procol.ai/careers/product-management/",
+    "https://www.naukri.com/llm-engineer-jobs-in-india",
+    "https://www.aurumanalytica.in/career.php",
+]
+for u in _REAL_JOB_URLS:
+    check(f"is_crawlable_job_url KEEPS real job/careers URL: {u[:55]}", co.is_crawlable_job_url(u))
+
+check("is_crawlable_job_url rejects a non-http scheme",
+     not co.is_crawlable_job_url("mailto:jobs@company.com"))
+
+
+# ══════════════════════════════════════════════════════════════════
 # v12 — companies.page_passes_hardfilter(): the $0 gate before any LLM call
 # ══════════════════════════════════════════════════════════════════
 

@@ -511,6 +511,55 @@ def _looks_like_job_posting_url(url: str) -> bool:
     return bool(_JOB_PATH_HINT.search(path)) and depth >= 2
 
 
+# v15 — the pre-crawl junk filter. A real run's crawl queue was flooded with
+# YouTube videos, Instagram reels, Facebook/Reddit posts, and endless
+# blog/about/privacy/case-study pages — none of them jobs, every one a wasted
+# (and potentially HANGING) browser fetch. These hosts are NEVER a per-company
+# job posting; distinct from _NEGATIVE_HOST_TOKENS (job aggregators excluded
+# because the board search already covers them).
+_NONJOB_HOST_TOKENS = ("youtube.", "youtu.be", "instagram.", "facebook.", "fb.com",
+                       "fb.watch", "twitter.", "x.com", "threads.", "tiktok.",
+                       "reddit.", "quora.", "medium.com", "pinterest.", "t.me",
+                       "telegram.", "whatsapp.", "snapchat.")
+
+# Path fragments that mark a page as NOT a job posting even on a real company
+# domain — blog/news/marketing/policy/product pages. A bare /careers or /jobs
+# landing still passes (it's not matched here); only these clearly-non-job
+# sections are rejected.
+_NONJOB_PATH_RE = re.compile(
+    r"/(blog|news|press|article|articles|resources?|insights?|stories|story|"
+    r"case-stud|customer-stor|customer-stories|privacy|terms|cookie|policy|policies|"
+    r"security|about|about-us|contact|our-clients|clients|team|leadership|"
+    r"courses?|academy|tutorials?|products?|solutions?|features?|pricing|plans?|"
+    r"use-cases?|status|documentation|docs|switcher|migrations?|reference-site|"
+    r"membership|store|new-page|safety|esg|partners)(/|$|\?|#|\.)", re.I)
+
+_DOC_EXT_RE = re.compile(r"\.(pdf|docx?|pptx?|xlsx?|zip|rar|jpe?g|png|gif|mp4|mp3|csv)(\?|#|$)", re.I)
+
+
+def is_crawlable_job_url(url: str) -> bool:
+    """Cheap pre-crawl gate: reject a URL that is obviously NOT a job/careers
+    page BEFORE a browser is ever launched on it. Kills social/video/forum
+    hosts, document downloads, and blog/news/about/product/privacy pages — the
+    'crap' that flooded a real run's crawl queue. Deliberately permissive
+    otherwise (a bare company page or a board listing still passes) — this is a
+    junk-remover, not the relevance judge (page_passes_hardfilter, on the real
+    crawled text, still does that). ATS hosts always pass."""
+    if not url or not url.lower().startswith(("http://", "https://")):
+        return False
+    host = _domain(url).lower()
+    if any(tok in host for tok in _NONJOB_HOST_TOKENS):
+        return False
+    if _DOC_EXT_RE.search(url):
+        return False
+    if _is_ats_host(host):
+        return True
+    path = urlparse(url).path or ""
+    if _NONJOB_PATH_RE.search(path):
+        return False
+    return True
+
+
 def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
     """For no-ATS companies, search for their OWN careers page (never an
     aggregator — see _CAREERS_NEGATIVE_SITES) for AI/ML/DS/FDE roles.
@@ -607,10 +656,16 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
                     urls.append(link)
                     kept += 1
                 elif _host_matches_company(host, name):
-                    urls.append(link)
-                    kept += 1
+                    # Resolve own_host for the deep step even if THIS particular
+                    # own-domain URL is a blog/about page — but only CRAWL it if
+                    # it passes the v15 junk filter (kills /blog, /about, /privacy).
                     if own_host is None:
                         own_host = host
+                    if is_crawlable_job_url(link):
+                        urls.append(link)
+                        kept += 1
+                    else:
+                        dropped += 1
                 else:
                     dropped += 1
 
@@ -631,17 +686,22 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
                         data=json.dumps({"q": deep_q, "num": 10}), timeout=15)
                     dresp.raise_for_status()
                     seen_here = set(urls)
-                    postings, landings = [], []
+                    postings = []
                     for r in dresp.json().get("organic", []):
                         link = r.get("link", "").strip()
                         if not link or link in seen_here:
                             continue
-                        if _is_negative_host(_domain(link)):
+                        # v15: only real, crawlable INDIVIDUAL postings — no
+                        # landing-page/blog fallback (that pulled /blog/,
+                        # /about, /privacy junk into the crawl). is_crawlable_
+                        # job_url kills the non-job paths; _looks_like_job_
+                        # posting_url requires a posting-shaped path.
+                        if not is_crawlable_job_url(link):
                             continue
-                        (postings if _looks_like_job_posting_url(link) else landings).append(link)
-                    # Prefer individual postings; top up with landing pages to a
-                    # small cap so one company can't flood the crawl list.
-                    for link in (postings + landings)[:8]:
+                        if not _looks_like_job_posting_url(link):
+                            continue
+                        postings.append(link)
+                    for link in postings[:8]:
                         urls.append(link)
                         deep += 1
                 except Exception:
@@ -680,7 +740,14 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
 _SCRAPLING_RESOLVED_MIN_CHARS = 600
 
 
-async def _scrapling_first_pass(urls: list) -> dict:
+# v15 — per-URL crawl timeout (ms). No single page (a YouTube video, a page
+# that triggers a file download, an infinite-JS SPA) may stall the whole crawl;
+# Crawl4AI aborts a page that exceeds this and moves on. A real run hung
+# indefinitely on a YouTube URL because there was no such cap.
+CRAWL_PAGE_TIMEOUT_MS = 25000
+
+
+async def _scrapling_first_pass(urls: list, on_result=None) -> dict:
     """Optional, zero-browser first attempt at each URL via scrapling's
     HTTP-only AsyncFetcher (curl_cffi TLS/header impersonation — no Chromium).
     Returns {url: text} for URLs judged "good enough" (see
@@ -691,7 +758,9 @@ async def _scrapling_first_pass(urls: list) -> dict:
     does not; "safari" also successfully fetched a real Lever board here.
     Purely additive: works only on server-rendered pages (confirmed empty on a
     genuinely client-rendered Ashby SPA) — never a Crawl4AI replacement, and
-    guarded so its absence is a silent no-op, not a failure."""
+    guarded so its absence is a silent no-op, not a failure. v15: fires
+    on_result(url, text) the instant a page resolves, so the caller can persist
+    it to disk immediately (fail-proof against an interrupted run)."""
     try:
         from scrapling.fetchers import AsyncFetcher
     except ImportError:
@@ -713,25 +782,30 @@ async def _scrapling_first_pass(urls: list) -> dict:
                 return
             if len(text) >= _SCRAPLING_RESOLVED_MIN_CHARS:
                 out[url] = text
+                if on_result:
+                    try: on_result(url, text)
+                    except Exception: pass
 
     await asyncio.gather(*(_fetch_one(u) for u in urls))
     return out
 
 
-async def scrape_markdown(urls: list) -> dict:
+async def scrape_markdown(urls: list, on_result=None) -> dict:
     """Crawl4AI fetch with NO extraction_strategy. Returns {url: markdown_text} —
     one entry per URL that crawled successfully with non-empty content; a failed
     or empty crawl is simply absent (the caller treats a missing key as "no page
     text", same as any other unenrichable job).
 
-    v13: tries scrapling's HTTP-only fetcher FIRST (cheap, no browser — see
-    _scrapling_first_pass) and only sends whatever's left to Crawl4AI. This is
-    additive, not a replacement: URLs scrapling can't resolve (JS-heavy SPAs, or
-    scrapling simply not installed) still go through the exact same Crawl4AI
-    path as before."""
+    v13: tries scrapling's HTTP-only fetcher FIRST (cheap, no browser) and only
+    sends whatever's left to Crawl4AI. v15: (a) a per-page timeout
+    (CRAWL_PAGE_TIMEOUT_MS) so no single URL can hang the run; (b) STREAMING —
+    each page fires on_result(url, text) the moment it resolves, so the caller
+    persists it to disk immediately. If the process is killed mid-crawl, every
+    page scraped so far is already saved (fail-proof resume). Falls back to
+    batch mode if this Crawl4AI build doesn't support stream=True."""
     if not urls:
         return {}
-    resolved = await _scrapling_first_pass(urls)
+    resolved = await _scrapling_first_pass(urls, on_result=on_result)
     remaining = [u for u in urls if u not in resolved]
     if resolved:
         print(f"    ℹ️  scrapling (no-browser): {len(resolved)}/{len(urls)} resolved, "
@@ -747,32 +821,52 @@ async def scrape_markdown(urls: list) -> dict:
     import logging
     logging.getLogger("crawl4ai").setLevel(logging.ERROR)
 
-    run_cfg = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, magic=True)
-    browser_cfg = BrowserConfig(headless=True)
     out = dict(resolved)
     crawled = 0
+
+    def _extract(result):
+        md = getattr(result, "markdown", None)
+        text = getattr(md, "raw_markdown", None) if md is not None else None
+        if text is None:
+            text = md if isinstance(md, str) else ""
+        return (text or "").strip()
+
+    def _handle(result):
+        nonlocal crawled
+        if not getattr(result, "success", False):
+            return
+        text = _extract(result)
+        if text:
+            out[result.url] = text
+            crawled += 1
+            if on_result:
+                try: on_result(result.url, text)
+                except Exception: pass
+
+    browser_cfg = BrowserConfig(headless=True)
     try:
+        # Streaming config — page_timeout caps any single hang; stream=True
+        # yields results as they complete so on_result persists incrementally.
+        try:
+            stream_cfg = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, magic=True,
+                                          page_timeout=CRAWL_PAGE_TIMEOUT_MS, stream=True)
+        except TypeError:
+            stream_cfg = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, magic=True)
         async with AsyncWebCrawler(config=browser_cfg) as crawler:
-            results = await crawler.arun_many(urls=remaining, config=run_cfg)
-            for result in results:
-                if not result.success:
-                    continue
-                md = getattr(result, "markdown", None)
-                text = getattr(md, "raw_markdown", None) if md is not None else None
-                if text is None:
-                    text = md if isinstance(md, str) else ""
-                text = (text or "").strip()
-                if text:
-                    out[result.url] = text
-                    crawled += 1
+            gen = await crawler.arun_many(urls=remaining, config=stream_cfg)
+            if hasattr(gen, "__aiter__"):
+                async for result in gen:        # streaming path
+                    _handle(result)
+            else:
+                for result in gen:              # batch fallback
+                    _handle(result)
     except Exception as e:
         # A browser that fails to LAUNCH (missing/mismatched Chromium build,
         # sandboxed egress, etc.) must not crash the whole run — ATS-direct
-        # jobs (no crawl needed) should still get through. Per-URL failures are
-        # already handled above via result.success; this only catches a launch
-        # failure that never got to iterate results at all.
-        print(f"    ⚠️  Crawl4AI browser failed to launch/run ({e}) — {len(remaining)} "
-              f"career/board URLs skipped this run; ATS-direct jobs still proceed.")
+        # jobs (no crawl needed) should still get through, and any page already
+        # streamed to disk via on_result is safe.
+        print(f"    ⚠️  Crawl4AI browser failed to launch/run ({e}) — {len(remaining) - crawled} "
+              f"of {len(remaining)} career/board URLs skipped this run; ATS-direct jobs still proceed.")
         return out
     print(f"    ℹ️  crawl4ai: {crawled}/{len(remaining)} resolved")
     return out
