@@ -1005,6 +1005,31 @@ async def main(dry_run: bool = False):
         # invisible.
         try:
             parsed = json.loads(final_json)
+            # v14: remote-FIRST ordering. india_mnc accepts India-accessible AND
+            # worldwide-remote roles; the user wants the do-it-from-anywhere and
+            # remote-India ones at the TOP, above hybrid/onsite India. Nothing is
+            # dropped — the report is just sorted by (remote-priority tier asc,
+            # match_score desc). Priority is computed deterministically from each
+            # CANDIDATE's real geo fields (job/requirements.remote_priority), then
+            # joined onto the LLM's report rows by application_url — the LLM never
+            # decides the ordering.
+            prio_by_url = {}
+            for c in candidates:
+                if c.get("url"):
+                    prio_by_url[c["url"]] = req.remote_priority(
+                        c.get("location_text", ""), c.get("description", ""),
+                        is_remote=c.get("is_remote"), job_type=c.get("job_type", ""),
+                        profile=PROFILE, home_pattern=HOME_PATTERN)
+            def _row_sort_key(row):
+                tier = prio_by_url.get(row.get("application_url"), req.REMOTE_PRIORITY_OTHER)
+                try:
+                    score = float(row.get("match_score") or 0)
+                except (TypeError, ValueError):
+                    score = 0.0
+                return (tier, -score)
+            evaluated = parsed.get("evaluated_jobs")
+            if isinstance(evaluated, list):
+                parsed["evaluated_jobs"] = sorted(evaluated, key=_row_sort_key)
             # v12-E: source mix (ats/careers/board) at each funnel stage — shows
             # whether results are actually coming from company career pages/ATS
             # boards now, not just LinkedIn/Naukri board search.

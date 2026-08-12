@@ -218,6 +218,42 @@ def geo_ok(location_text: str, description: str, profile: dict = None, home_patt
     return None  # ambiguous — no confident signal either way; let the LLM read the full JD
 
 
+# v14 — remote-first ordering. india_mnc accepts India-accessible AND
+# worldwide-remote roles (see geo_ok); the user wants the ones they can do from
+# ANYWHERE (or remote-from-India) shown FIRST, above hybrid/onsite India. This
+# is a deterministic priority TIER, not a filter — nothing is dropped, only
+# ordered. Lower number = higher priority.
+REMOTE_PRIORITY_WORLDWIDE = 0   # worldwide/anywhere remote — do it from anywhere
+REMOTE_PRIORITY_REMOTE_HOME = 1 # remote, and home-location-accessible (remote India)
+REMOTE_PRIORITY_HOME_ONSITE = 2 # home location but onsite/hybrid (India office)
+REMOTE_PRIORITY_OTHER = 3       # ambiguous / no clear signal
+
+
+def remote_priority(location_text: str, description: str, is_remote=None,
+                    job_type: str = "", profile: dict = None, home_pattern=None) -> int:
+    """Priority tier for remote-first ordering (0 best). worldwide/anywhere-remote
+    first, then remote-from-home (remote India), then home onsite/hybrid, then
+    everything else. Pure ordering signal — callers still report every job; this
+    only decides who appears at the top."""
+    home_pattern = home_pattern or build_home_pattern(profile or {})
+    text = f"{location_text or ''} {description or ''}"
+    remote_signal = (bool(is_remote) or bool(_REMOTE_WORD.search(job_type or ""))
+                     or bool(_REMOTE_WORD.search(text)))
+    home_hit = bool(home_pattern.search(text))
+    if WORLDWIDE_TOKENS.search(text):
+        return REMOTE_PRIORITY_WORLDWIDE
+    if home_hit and remote_signal:
+        return REMOTE_PRIORITY_REMOTE_HOME
+    if home_hit:
+        return REMOTE_PRIORITY_HOME_ONSITE
+    if remote_signal:
+        # remote signal but no explicit worldwide token and no home token —
+        # e.g. a bare "Remote" — still more attractive than a pure-onsite
+        # unknown, but below a confirmed home-remote role.
+        return REMOTE_PRIORITY_REMOTE_HOME
+    return REMOTE_PRIORITY_OTHER
+
+
 def is_confidently_worldwide_or_home(location_text: str, description: str, is_remote, home_pattern=None) -> bool:
     """Fast-accept for the unambiguous case — an explicit 'worldwide'/'anywhere'
     phrase, or home-location presence. Saves an LLM extraction call when the

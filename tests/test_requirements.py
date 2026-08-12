@@ -258,6 +258,37 @@ check("geo_ok: 'must be US-based' in description body -> reject (False)",
 
 
 # ══════════════════════════════════════════════════════════════════
+# v14 — remote_priority(): remote-FIRST ordering tier (0 best). India mode
+# accepts India-accessible AND worldwide-remote; the user wants do-it-from-
+# anywhere / remote-India roles ranked above hybrid/onsite. Ordering, not filter.
+# ══════════════════════════════════════════════════════════════════
+
+check("remote_priority: worldwide remote -> tier 0 (top)",
+     req.remote_priority("Remote - Worldwide", "", is_remote=True, profile=india_profile, home_pattern=india_home)
+     == req.REMOTE_PRIORITY_WORLDWIDE)
+
+check("remote_priority: remote India -> tier 1",
+     req.remote_priority("Remote, India", "", is_remote=True, profile=india_profile, home_pattern=india_home)
+     == req.REMOTE_PRIORITY_REMOTE_HOME)
+
+check("remote_priority: onsite/hybrid India -> tier 2",
+     req.remote_priority("Bengaluru, India (Hybrid)", "", is_remote=False, profile=india_profile, home_pattern=india_home)
+     == req.REMOTE_PRIORITY_HOME_ONSITE)
+
+check("remote_priority: bare 'Remote' (no country) -> tier 1, above onsite",
+     req.remote_priority("Remote", "", is_remote=None, profile=india_profile, home_pattern=india_home)
+     == req.REMOTE_PRIORITY_REMOTE_HOME)
+
+check("remote_priority: no signal at all -> tier 3 (bottom)",
+     req.remote_priority("", "", is_remote=None, profile=india_profile, home_pattern=india_home)
+     == req.REMOTE_PRIORITY_OTHER)
+
+check("remote_priority: worldwide beats remote-India beats onsite-India beats nothing",
+     req.REMOTE_PRIORITY_WORLDWIDE < req.REMOTE_PRIORITY_REMOTE_HOME
+     < req.REMOTE_PRIORITY_HOME_ONSITE < req.REMOTE_PRIORITY_OTHER)
+
+
+# ══════════════════════════════════════════════════════════════════
 # v12 — companies.py: ATS-URL shortcut parsing + Serper careers host filter
 # ══════════════════════════════════════════════════════════════════
 
