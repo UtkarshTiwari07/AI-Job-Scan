@@ -254,6 +254,55 @@ def is_dead_posting(text: str) -> bool:
     return bool(_DEAD_POSTING_RE.search(text or ""))
 
 
+# v17 — "is this even a job posting at ALL." A real live run showed the gap:
+# page_passes_hardfilter checks AI-relevance/seniority/experience/geo, but a
+# corporate homepage, a research blog post, a docs page, a brand-guidelines
+# page, a feedback form, a stock-listing page, or a generic "join our team"
+# careers landing page with no specific role is AMBIGUOUS on every one of
+# those axes (no seniority signal, no experience requirement, no location) —
+# so they all sailed through as "not confidently rejectable" and reached a
+# paid LLM call, which then (correctly, but wastefully) said "this isn't a
+# job posting." This is a DIFFERENT question from relevance/seniority/geo —
+# unlike those, "no job-posting language anywhere on the page" is itself a
+# confident, positive-evidence signal: a real posting, of any role, almost
+# universally uses at least one of these phrases. Deliberately excludes vaguer
+# recruiting phrases ("looking for talented people", "join our team") that a
+# generic careers-landing page also uses — those alone would false-positive.
+_JOB_POSTING_SIGNAL_RE = re.compile(
+    r"\bresponsibilit(?:y|ies)\b|"
+    r"\brequirements?\b|"
+    r"\bqualificat(?:ion|ions)\b|"
+    r"\byou(?:'ll| will)\s+(?:be|do|own|work|build|lead|drive|design|help)\b|"
+    r"\bjob\s+description\b|"
+    r"\babout\s+(?:the|this)\s+role\b|"
+    r"\bwhat\s+you(?:'ll| will)\s+do\b|"
+    r"\bkey\s+responsibilit|"
+    r"\bmust\s+have\b|"
+    r"\bnice\s+to\s+have\b|"
+    r"\byears?\s+of\s+experience\b|"
+    r"\bemployment\s+type\b|"
+    r"\bjob\s+type\b|"
+    r"\bcompensation\b|"
+    r"\bsalary\s+range\b|"
+    r"\bwho\s+you\s+are\b|"
+    r"\bskills?\s+required\b|"
+    r"\brequired\s+skills?\b|"
+    r"\bhow\s+to\s+apply\b|"
+    r"\bapply\s+(?:now|today)\b",
+    re.IGNORECASE,
+)
+
+
+def is_job_posting(text: str) -> bool:
+    """True if `text` contains at least one confident job-posting signal
+    (responsibilities/requirements/qualifications/years-of-experience/apply-
+    now/etc). False means the page is confidently NOT a single job posting —
+    a homepage, blog, docs page, form, or generic careers landing page — and
+    should be rejected before any LLM call, same confident-reject-only design
+    as is_dead_posting/pre_kill_location."""
+    return bool(_JOB_POSTING_SIGNAL_RE.search(text or ""))
+
+
 # v14 — remote-first ordering. india_mnc accepts India-accessible AND
 # worldwide-remote roles (see geo_ok); the user wants the ones they can do from
 # ANYWHERE (or remote-from-India) shown FIRST, above hybrid/onsite India. This

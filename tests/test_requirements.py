@@ -478,7 +478,6 @@ _REAL_JOB_URLS = [
     "https://www.procol.ai/careers/product-management/",
     "https://www.naukri.com/job-listings-ai-engineer-acme-bangalore-1-3-years-231024500123",
     "https://www.linkedin.com/jobs/view/1234567890",
-    "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&location=India&f_TPR=r259200&f_E=2",
     "https://www.aurumanalytica.in/career.php",
 ]
 for u in _REAL_JOB_URLS:
@@ -520,6 +519,98 @@ for u in _V16_JUNK_URLS:
 
 check("is_crawlable_job_url rejects a non-http scheme",
      not co.is_crawlable_job_url("mailto:jobs@company.com"))
+
+
+# ══════════════════════════════════════════════════════════════════
+# v17 — companies.py: junk-filter gaps + board-root ATS shortcut, all found
+# against a real live run's log
+# ══════════════════════════════════════════════════════════════════
+
+_V17_JUNK_URLS = [
+    "https://www.sarvam.ai/blogs/indic-diarbench",       # "blog" regex was singular-only
+    "https://www.sarvam.ai/brand-guidelines",
+    "https://docs.sarvam.ai/api/self-hosted/sagemaker/operations",  # host-only signal
+    "https://status.sarvam.ai/incidents/123",
+    "https://help.sarvam.ai/faq",
+    # v17: LinkedIn /jobs/search/ is a multi-job LISTING page — same defect as
+    # the Naukri tag pages removed in v16 — now rejected, /jobs/view/ only.
+    "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&location=India&f_TPR=r259200&f_E=2",
+]
+for u in _V17_JUNK_URLS:
+    check(f"is_crawlable_job_url REJECTS v17 junk: {u[:55]}", not co.is_crawlable_job_url(u))
+
+check("is_crawlable_job_url: 'docs' NOT the leading host label is unaffected",
+     co.is_crawlable_job_url("https://mydocsapp.com/careers/ai-engineer"))
+
+check("is_crawlable_job_url: plain 'blog' (singular) still rejected",
+     not co.is_crawlable_job_url("https://www.sarvam.ai/blog/some-post"))
+
+check("ats_board_root_from_url: bare Greenhouse board root parses to (ats, token)",
+     co.ats_board_root_from_url("http://job-boards.greenhouse.io/dunnhumby") == ("greenhouse", "dunnhumby"))
+
+check("ats_board_root_from_url: Greenhouse embed-form board root parses to (ats, token)",
+     co.ats_board_root_from_url(
+         "https://boards.greenhouse.io/embed/job_board?for=cohere&b=https://cohere.com/careers")
+     == ("greenhouse", "cohere"))
+
+check("ats_board_root_from_url: Lever board root parses to (ats, token)",
+     co.ats_board_root_from_url("https://jobs.lever.co/scale") == ("lever", "scale"))
+
+check("ats_board_root_from_url: a PER-JOB url is not misread as a board root",
+     co.ats_board_root_from_url("https://job-boards.greenhouse.io/gomotive/jobs/123") is None)
+
+check("ats_board_root_from_url: a non-ATS url returns None",
+     co.ats_board_root_from_url("https://example.com/careers") is None)
+
+
+# ══════════════════════════════════════════════════════════════════
+# v17 — requirements.is_job_posting(): "is this even a job posting at all" —
+# a corporate homepage/blog/docs/brand/feedback/stock-listing/generic-careers-
+# landing page is ambiguous on every OTHER axis (seniority/experience/geo), so
+# it sailed through page_passes_hardfilter and reached a paid LLM call, which
+# then (correctly, but wastefully) said "this isn't a job." Reconstructed from
+# the real junk pages in a live run's log.
+# ══════════════════════════════════════════════════════════════════
+
+_homepage_text = ("dunnhumby helps businesses grow and retain their most valuable "
+                  "customers, starting with data. We build software and analytics "
+                  "products used by the world's biggest retailers. Our mission is to "
+                  "enable businesses to grow through a deep understanding of their "
+                  "customers, powered by data science.") * 3
+_blog_text = ("Sarvam AI Research Blog. Today we introduce Indic-DiarBench, a new "
+             "benchmark for speaker diarization on Indian languages. We evaluate "
+             "several models against a curated dataset and share our findings on "
+             "accuracy and robustness across dialects.") * 3
+_docs_text = ("Sarvam AI API Documentation. Self-hosted SageMaker Operations. This "
+             "page describes how to configure inference endpoints, autoscaling "
+             "policies, and model versioning for self-hosted deployments on AWS "
+             "SageMaker infrastructure.") * 3
+_brand_text = ("Sarvam AI Brand Guidelines. Our logo should always be used with "
+              "adequate clear space. Approved color palette, typography, and voice "
+              "guidelines for all external communications and marketing materials "
+              "are documented on this page.") * 3
+_feedback_text = ("We would love your feedback on Sarvam Epoch. Please share your "
+                  "thoughts, suggestions, and any issues you encountered while using "
+                  "the product so we can improve the experience for everyone in the "
+                  "community.") * 3
+_stock_text = ("Fusion Klassroom Edutech Limited stock price, market cap, PE ratio, "
+              "and financial statements. View quarterly results, shareholding "
+              "pattern, and peer comparison for this NSE-listed education "
+              "technology company.") * 3
+_careers_landing_text = ("Explore career opportunities at dunnhumby. We are always "
+                         "growing and love meeting talented people who share our "
+                         "passion for data. Check back often as we post new openings "
+                         "across engineering, product, and data science teams around "
+                         "the world.") * 3
+
+for _label, _text in [("homepage", _homepage_text), ("blog", _blog_text), ("docs", _docs_text),
+                      ("brand guidelines", _brand_text), ("feedback form", _feedback_text),
+                      ("stock listing page", _stock_text), ("generic careers landing", _careers_landing_text)]:
+    check(f"is_job_posting: {_label} correctly NOT a job posting", not req.is_job_posting(_text))
+
+check("is_job_posting: a real job posting (with 'Requirements:') passes",
+     req.is_job_posting("AI Engineer - Remote India. Requirements: 1-2 years of "
+                        "experience in AI/ML engineering with Python and PyTorch."))
 
 
 # ══════════════════════════════════════════════════════════════════
@@ -595,6 +686,10 @@ _dead_page = ("Job Not Found\n" + "The job you are looking for is no longer avai
 check("hardfilter: dead/expired posting page rejected before any other check",
      co.page_passes_hardfilter(_dead_page, _hf_profile, _hf_home) ==
      (False, "dead/expired posting (job no longer available)"))
+
+check("hardfilter: a corporate homepage (no job-posting language) rejected before AI-relevance",
+     co.page_passes_hardfilter(_homepage_text, _hf_profile, _hf_home) ==
+     (False, "not a job posting (no responsibilities/requirements/apply language found)"))
 
 
 # ══════════════════════════════════════════════════════════════════
