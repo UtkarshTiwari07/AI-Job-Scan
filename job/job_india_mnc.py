@@ -192,17 +192,20 @@ DIRECT_COMPANY_URLS = [
     "https://jobs.smartrecruiters.com/?keyword=generative+AI&location=India",
 ]
 
-# ── LinkedIn India AI Jobs direct search URLs (injected into Phase 1) ──
-# f_TPR=r259200 = last 3 days, f_E=1,2 = Internship+Entry, f_E=2 = Entry level
-LINKEDIN_DIRECT_URLS = [
-    "https://www.linkedin.com/jobs/search/?keywords=LLM%20Engineer&location=India&f_TPR=r259200&f_E=2",
-    "https://www.linkedin.com/jobs/search/?keywords=AI%20Agent%20Engineer&location=India&f_TPR=r259200&f_E=2",
-    "https://www.linkedin.com/jobs/search/?keywords=Generative%20AI%20Engineer&location=India&f_TPR=r259200&f_E=1%2C2",
-    "https://www.linkedin.com/jobs/search/?keywords=RAG%20Engineer&location=India&f_TPR=r259200",
-    "https://www.linkedin.com/jobs/search/?keywords=voice%20AI%20engineer&location=India&f_TPR=r259200",
-    "https://www.linkedin.com/jobs/search/?keywords=LangChain%20FastAPI%20engineer&location=India&f_TPR=r259200&f_E=2",
-    "https://www.linkedin.com/jobs/search/?keywords=AI%20engineer%20startup%20India&f_TPR=r259200&f_E=1%2C2",
-]
+# NOTE: a LINKEDIN_DIRECT_URLS list (7 "/jobs/search/?keywords=..." URLs) was
+# REMOVED in v17 — every one is a multi-job LISTING page (LinkedIn's own
+# search-results UI), the SAME defect as the Naukri tag pages removed in v16:
+# Phase 2 has no LLM extraction to attribute content to a single job, so
+# companies.is_crawlable_job_url() now rejects LinkedIn's /jobs/search/ shape
+# for ANY LinkedIn URL surfaced by search too — only /jobs/view/<id> (a real
+# per-job posting) passes. Individual LinkedIn postings are still found
+# abundantly via Phase 1's per-site "site:linkedin.com ..." searches (Google's
+# own index already resolves those queries to /jobs/view/ URLs).
+# HONEST LIMITATION (not fixed here, documented): a live run showed nearly
+# every linkedin.com/jobs/view/ crawl attempt failing with HTTP 429 (anti-bot
+# blocking of headless-browser requests) — LinkedIn per-job pages are found
+# reliably but often can't be READ. See scrape_and_hardfilter's crawl-failed
+# URL surfacing below.
 
 # ── Wellfound India direct URLs ───────────────────────────────────
 WELLFOUND_DIRECT_URLS = [
@@ -477,8 +480,8 @@ def search_for_jobs() -> List[str]:
                     print(f"     ⚠️ Serper error ({site}): {e}")
 
     # ── Direct URL injection ───────────────────────────────────
-    all_direct = LINKEDIN_DIRECT_URLS + WELLFOUND_DIRECT_URLS + DIRECT_COMPANY_URLS
-    print(f"\n  🔗 Injecting {len(all_direct)} direct URLs (LinkedIn + Wellfound + MNC portals)...")
+    all_direct = WELLFOUND_DIRECT_URLS + DIRECT_COMPANY_URLS
+    print(f"\n  🔗 Injecting {len(all_direct)} direct URLs (Wellfound + MNC portals)...")
     for url in all_direct:
         if url not in seen_urls:
             seen_urls.add(url)
@@ -504,7 +507,8 @@ def search_for_jobs() -> List[str]:
 # they're all "" at this point).
 
 async def scrape_and_hardfilter(url_sources: dict, raw_ndjson_path: str) -> tuple:
-    """`url_sources` is {url: "careers"|"board"}. Returns (jobs, hardfilter_rejected).
+    """`url_sources` is {url: "careers"|"board"}. Returns (jobs, hardfilter_rejected,
+    unverified_urls).
 
     v15 — fail-proof + junk-free:
       1. Every URL passes companies.is_crawlable_job_url() BEFORE a browser
@@ -543,6 +547,18 @@ async def scrape_and_hardfilter(url_sources: dict, raw_ndjson_path: str) -> tupl
     if todo:
         await companies.scrape_markdown(todo, on_result=_persist)
 
+    # v17 — surface PROMISING crawl failures instead of silently losing them.
+    # A real run showed near-100% HTTP 429 (anti-bot blocking) on LinkedIn
+    # /jobs/view/ URLs specifically — Serper reliably FINDS real per-job
+    # postings there, Crawl4AI just can't read them. Every URL in `todo` that
+    # never made it into raw_ndjson was attempted and failed (timeout, 429,
+    # or empty content); of those, individual-posting-shaped URLs (not a
+    # generic landing page) are worth a manual look, so they're recorded in
+    # the run manifest rather than disappearing with no trace.
+    scraped_after = _scraped_urls_on_disk(raw_ndjson_path)
+    unverified_urls = [u for u in todo if u not in scraped_after
+                       and companies.looks_like_job_posting_url(u)]
+
     # Hard-filter reads back EVERY scraped page from raw_ndjson (this run's +
     # any from a resumed prior run) — deterministic and free, so re-running it
     # over the full log on resume costs nothing.
@@ -560,7 +576,10 @@ async def scrape_and_hardfilter(url_sources: dict, raw_ndjson_path: str) -> tupl
 
     print(f"  🔬 hard-filter: {len(jobs)} survived for $0, "
           f"{len(hardfilter_rejected)} killed before any LLM call")
-    return jobs, hardfilter_rejected
+    if unverified_urls:
+        print(f"    ⚠️  {len(unverified_urls)} promising URL(s) found but could not be crawled "
+              f"(likely anti-bot blocking) — see run_manifest.unverified_urls")
+    return jobs, hardfilter_rejected, unverified_urls
 
 
 def _scraped_urls_on_disk(raw_ndjson_path: str) -> set:
@@ -1066,7 +1085,7 @@ async def main(dry_run: bool = False, resume: bool = False):
 
     print(f"\n{'='*60}")
     mode_tag = "[DRY RUN]" if dry_run else ("[RESUME]" if resume else "[LIVE — 3-day window]")
-    print(f"🚀 INDIA MNC JOB SEARCH v15  {mode_tag}")
+    print(f"🚀 INDIA MNC JOB SEARCH v17  {mode_tag}")
     print(f"👤 Profile: {PROFILE['name']} | {PROFILE['years_experience']} YOE (+{PROFILE['yoe_slack']} slack) "
           f"| roles: {', '.join(PROFILE['target_role_families'])}")
     print(f"{'='*60}")
@@ -1109,8 +1128,8 @@ async def main(dry_run: bool = False, resume: bool = False):
         print(f"\n♻️  RESUMING run {ck.get('timestamp')} — NO new Serper spend.")
         print(f"    {len(url_sources)} discovered URLs · {len(structured_jobs)} structured jobs "
               f"· {len(already)} pages already scraped on disk")
-        crawled_jobs, hardfilter_rejected = (
-            await scrape_and_hardfilter(url_sources, raw_ndjson) if url_sources else ([], []))
+        crawled_jobs, hardfilter_rejected, unverified_urls = (
+            await scrape_and_hardfilter(url_sources, raw_ndjson) if url_sources else ([], [], []))
         raw_jobs = crawled_jobs + structured_jobs
     else:
         timestamp    = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M")
@@ -1176,8 +1195,8 @@ async def main(dry_run: bool = False, resume: bool = False):
 
         if not url_sources and not structured_jobs:
             print("No URLs found. Exiting."); return
-        crawled_jobs, hardfilter_rejected = (
-            await scrape_and_hardfilter(url_sources, raw_ndjson) if url_sources else ([], []))
+        crawled_jobs, hardfilter_rejected, unverified_urls = (
+            await scrape_and_hardfilter(url_sources, raw_ndjson) if url_sources else ([], [], []))
         raw_jobs = crawled_jobs + structured_jobs
 
     candidates, rejected = prefilter(raw_jobs, cross_run_seen)
@@ -1243,6 +1262,11 @@ async def main(dry_run: bool = False, resume: bool = False):
                           "prefilter_passed": len(candidates),
                           "reported": len(parsed.get("evaluated_jobs", []))},
                 "source_mix": {"raw_jobs": _source_mix(raw_jobs), "candidates": _source_mix(candidates)},
+                # v17: promising URLs Serper found but Crawl4AI could not read
+                # (mostly LinkedIn /jobs/view/ — near-universal HTTP 429
+                # anti-bot blocking observed live). Not lost silently; worth a
+                # manual look since these were never evaluated at all.
+                "unverified_urls": unverified_urls,
             }
             final_json = json.dumps(parsed, indent=2, default=str)
         except (json.JSONDecodeError, TypeError):

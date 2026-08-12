@@ -256,6 +256,21 @@ _FETCHERS = {"greenhouse": fetch_greenhouse, "lever": fetch_lever,
              "ashby": fetch_ashby, "workable": fetch_workable}
 
 
+def fetch_board_ai_jobs(ats: str, token: str) -> list:
+    """Full-board fetch for a BOARD-ROOT hit (see ats_board_root_from_url),
+    filtered to AI-relevant titles. fetch_lever/fetch_ashby don't pre-filter
+    (they return the whole board) so the filter here is applied unconditionally
+    — a no-op on fetch_greenhouse/fetch_workable, which already filtered."""
+    fetcher = _FETCHERS.get(ats)
+    if not fetcher:
+        return []
+    try:
+        jobs = fetcher(token)
+    except Exception:
+        return []
+    return [j for j in jobs if AI_TITLE_KEYWORDS.search(j.get("title") or "")]
+
+
 # ══════════════════════════════════════════════════════════════════
 # Per-JOB ATS fetchers — the v12 "ATS-URL shortcut" (revived from git 979065b)
 # ══════════════════════════════════════════════════════════════════
@@ -283,6 +298,39 @@ def ats_job_from_url(url: str):
         m = pattern.search(url)
         if m:
             return ats, m.group(1), m.group(2)
+    return None
+
+
+# v17 — a company's careers search can resolve to the ATS's BOARD ROOT (the
+# whole board, e.g. "boards.greenhouse.io/dunnhumby", or Greenhouse's embed
+# form "boards.greenhouse.io/embed/job_board?for=<token>") rather than a
+# specific job. Live evidence: this happened for real, and the board root got
+# crawled as markdown with no LLM extraction — a page listing dozens of jobs
+# with no way to pick "the" job out of it, so it either wasted an LLM call or
+# (correctly but wastefully) got rejected as "not a single posting". The
+# board's own JSON API (fetch_greenhouse/lever/ashby/workable — already built
+# for the registry `ats:` path) returns every job's FULL real JD for the same
+# one HTTP call a markdown crawl would have cost anyway — strictly better.
+_ATS_BOARD_ROOT_PATTERNS = (
+    ("greenhouse", re.compile(r"(?:job-boards|boards)\.greenhouse\.io/embed/job_board\?(?:.*&)?for=([a-z0-9\-_]+)", re.I)),
+    ("greenhouse", re.compile(r"(?:job-boards|boards)\.greenhouse\.io/([a-z0-9\-_]+)/?(?:$|[?#])", re.I)),
+    ("lever", re.compile(r"jobs\.lever\.co/([a-z0-9\-_]+)/?(?:$|[?#])", re.I)),
+    ("ashby", re.compile(r"jobs\.ashbyhq\.com/([a-z0-9\-_]+)/?(?:$|[?#])", re.I)),
+    ("workable", re.compile(r"apply\.workable\.com/([a-z0-9\-_]+)/?(?:$|[?#])", re.I)),
+)
+
+
+def ats_board_root_from_url(url: str):
+    """Extract (ats, token) from a BOARD-ROOT URL — the whole board, not a
+    specific job. Returns None for a per-job URL (ats_job_from_url handles
+    those — checked first so a real per-job link is never misread as a board
+    root) or a non-ATS URL."""
+    if not url or ats_job_from_url(url):
+        return None
+    for ats, pattern in _ATS_BOARD_ROOT_PATTERNS:
+        m = pattern.search(url)
+        if m:
+            return ats, m.group(1)
     return None
 
 
@@ -547,7 +595,7 @@ _JOB_PATH_HINT = re.compile(r"/(jobs?|careers?|positions?|opening|openings|vacan
                             r"roles?|apply|hiring|opportunit|join[\-_]?us)", re.I)
 
 
-def _looks_like_job_posting_url(url: str) -> bool:
+def looks_like_job_posting_url(url: str) -> bool:
     path = urlparse(url or "").path or ""
     depth = len([p for p in path.split("/") if p])
     return bool(_JOB_PATH_HINT.search(path)) and depth >= 2
@@ -569,12 +617,12 @@ _NONJOB_HOST_TOKENS = ("youtube.", "youtu.be", "instagram.", "facebook.", "fb.co
 # landing still passes (it's not matched here); only these clearly-non-job
 # sections are rejected.
 _NONJOB_PATH_RE = re.compile(
-    r"/(blog|news|press|article|articles|resources?|insights?|stories|story|"
+    r"/(blogs?|news|press|article|articles|resources?|insights?|stories|story|"
     r"case-stud|customer-stor|customer-stories|privacy|terms|cookie|policy|policies|"
     r"security|about|about-us|contact|our-clients|clients|team|leadership|"
     r"courses?|academy|tutorials?|products?|solutions?|features?|pricing|plans?|"
     r"use-cases?|status|documentation|docs|switcher|migrations?|reference-site|"
-    r"membership|store|new-page|safety|esg|partners)(/|$|\?|#|\.)", re.I)
+    r"membership|store|new-page|safety|esg|partners|brand-guidelines?)(/|$|\?|#|\.)", re.I)
 
 _DOC_EXT_RE = re.compile(r"\.(pdf|docx?|pptx?|xlsx?|zip|rar|jpe?g|png|gif|mp4|mp3|csv)(\?|#|$)", re.I)
 
@@ -601,10 +649,23 @@ _EXTRA_NONJOB_PATH_RE = re.compile(
 _NAUKRI_TAG_PAGE_RE = re.compile(r"^/[a-z0-9\-]+-jobs(-in-[a-z\-]+)?/?$", re.I)
 
 # LinkedIn is deliberately board-searched (TARGET_SITES), but only
-# /jobs/view/<id> and /jobs/search/ are actual postings — /posts/ (feed posts),
-# /pulse/ (articles), and /company/ (company profile pages) are not jobs and
-# flooded a real run's crawl queue.
-_LINKEDIN_JOB_PATH_RE = re.compile(r"^/jobs/(view|search)(/|$|\?)", re.I)
+# /jobs/view/<id> is an actual SINGLE posting. v17: /jobs/search/ dropped —
+# it's a multi-job LISTING page, the exact same defect as the Naukri tag pages
+# removed in v16 (Phase 2 has no LLM extraction to attribute content to one
+# job out of a search-results page). /posts/ (feed posts), /pulse/ (articles),
+# and /company/ (company profile pages) are not jobs either and flooded a real
+# run's crawl queue.
+_LINKEDIN_JOB_PATH_RE = re.compile(r"^/jobs/view(/|$|\?)", re.I)
+
+# v17 — a "docs."/"status." leading SUBDOMAIN label is never a careers page
+# regardless of its path (confirmed live: docs.sarvam.ai/api/self-hosted/
+# sagemaker/operations slipped through — "docs" only appeared in the HOST, and
+# the path itself ["/api/self-hosted/sagemaker/operations"] matches none of
+# the path-based junk keywords above). A path-only check can never catch this
+# class of URL — checked against the leftmost host label only, so a real
+# company whose brand happens to CONTAIN "docs" (unlikely, but e.g. not
+# rejecting "mydocsapp.com") is unaffected.
+_NONJOB_HOST_LABELS = ("docs", "status", "help", "support", "changelog")
 
 
 def is_crawlable_job_url(url: str) -> bool:
@@ -622,6 +683,8 @@ def is_crawlable_job_url(url: str) -> bool:
     if any(tok in host for tok in _NONJOB_HOST_TOKENS):
         return False
     if any(tok in host for tok in _AGGREGATOR_HOST_TOKENS):
+        return False
+    if host.split(".")[0] in _NONJOB_HOST_LABELS:
         return False
     if _DOC_EXT_RE.search(url):
         return False
@@ -733,6 +796,29 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
                     continue
                 if _is_ats_host(host):
                     found_ats = True
+                    # v17: a board-ROOT hit (whole board, no specific job) —
+                    # fetch it directly via the same JSON API the registry
+                    # `ats:` path uses, instead of a markdown crawl of a
+                    # multi-job index page that Phase 2's no-LLM crawl can't
+                    # usefully attribute to a single posting.
+                    root_ref = ats_board_root_from_url(link)
+                    if root_ref:
+                        board_ats, token = root_ref
+                        board_jobs = fetch_board_ai_jobs(board_ats, token)
+                        if board_jobs:
+                            for job in board_jobs:
+                                job["company"] = name
+                                job["_fingerprint"] = hashlib.md5(
+                                    f"{(job.get('title') or '').lower()}|{name.lower()}".encode()).hexdigest()
+                                job["_scraped_at"] = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z"
+                                job["_source"] = "ats_direct"
+                                job["source"] = "careers"
+                                direct_jobs.append(job)
+                            direct += len(board_jobs)
+                            continue
+                        # empty/failed fetch (wrong token guess, dead board) —
+                        # fall through to the old crawl-URL behavior as a
+                        # safety net rather than silently dropping the hit.
                     urls.append(link)
                     kept += 1
                 elif _host_matches_company(host, name):
@@ -778,7 +864,7 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
                         # posting_url requires a posting-shaped path.
                         if not is_crawlable_job_url(link):
                             continue
-                        if not _looks_like_job_posting_url(link):
+                        if not looks_like_job_posting_url(link):
                             continue
                         postings.append(link)
                     for link in postings[:8]:
@@ -927,9 +1013,20 @@ async def scrape_markdown(urls: list, on_result=None) -> dict:
     try:
         # Streaming config — page_timeout caps any single hang; stream=True
         # yields results as they complete so on_result persists incrementally.
+        # v17: a live run showed near-100% HTTP 429 specifically on
+        # linkedin.com — a modest politeness bump (lower concurrency, longer
+        # randomized delay between dispatches) is an honest, low-risk
+        # mitigation. HONEST LIMIT: this cannot be verified to fully fix
+        # LinkedIn's anti-bot blocking of headless-browser requests from this
+        # environment — it does no harm to any other host and may reduce the
+        # failure rate, but LinkedIn per-job pages may keep failing to crawl
+        # even after this change (see scrape_and_hardfilter's unverified_urls
+        # surfacing in job_india_mnc.py for the fallback: promising URLs that
+        # fail to crawl are still recorded in the report, not silently lost).
         try:
             stream_cfg = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, magic=True,
-                                          page_timeout=CRAWL_PAGE_TIMEOUT_MS, stream=True)
+                                          page_timeout=CRAWL_PAGE_TIMEOUT_MS, stream=True,
+                                          semaphore_count=4, mean_delay=0.6, max_range=0.8)
         except TypeError:
             stream_cfg = CrawlerRunConfig(cache_mode=CacheMode.BYPASS, magic=True)
         async with AsyncWebCrawler(config=browser_cfg) as crawler:
@@ -965,6 +1062,8 @@ def page_passes_hardfilter(markdown: str, profile: dict, home_pattern=None) -> t
         return False, "thin/empty page (<200 chars)"
     if req.is_dead_posting(text):
         return False, "dead/expired posting (job no longer available)"
+    if not req.is_job_posting(text):
+        return False, "not a job posting (no responsibilities/requirements/apply language found)"
     # Best-effort "title" = first non-empty line (Crawl4AI markdown usually opens
     # with the page's H1) — used ONLY for the cheap seniority-in-title check. A
     # miss here never falsely rejects: classify_seniority just returns None and
