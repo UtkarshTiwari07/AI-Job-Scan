@@ -496,6 +496,21 @@ def _host_matches_company(host: str, name: str) -> bool:
     return len(slug) >= 3 and bool(host_clean) and slug in host_clean
 
 
+# v14: a URL that looks like an INDIVIDUAL job posting rather than a bare
+# /careers landing page — a job-ish path token AND at least 2 path segments
+# ("/careers" = landing, "/careers/ai-engineer" or "/jobs/8821" = a posting).
+# Used by the own-domain deep-search step to prefer real per-job URLs (one role
+# per page = precise hard-filter + precise LLM extraction) over listing pages.
+_JOB_PATH_HINT = re.compile(r"/(jobs?|careers?|positions?|opening|openings|vacan|"
+                            r"roles?|apply|hiring|opportunit|join[\-_]?us)", re.I)
+
+
+def _looks_like_job_posting_url(url: str) -> bool:
+    path = urlparse(url or "").path or ""
+    depth = len([p for p in path.split("/") if p])
+    return bool(_JOB_PATH_HINT.search(path)) and depth >= 2
+
+
 def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
     """For no-ATS companies, search for their OWN careers page (never an
     aggregator — see _CAREERS_NEGATIVE_SITES) for AI/ML/DS/FDE roles.
@@ -560,13 +575,16 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
             resp = requests.post(api_url, headers=headers,
                 data=json.dumps({"q": query, "num": 8}), timeout=15)
             resp.raise_for_status()
-            kept = direct = dropped = 0
+            kept = direct = dropped = deep = 0
+            found_ats = False   # did this company turn out to have an ATS board?
+            own_host = None      # first resolved own-domain (non-ATS) careers host
             for r in resp.json().get("organic", []):
                 link = r.get("link", "").strip()
                 if not link:
                     continue
                 ref = ats_job_from_url(link)
                 if ref:
+                    found_ats = True
                     ats_kind, token, job_id = ref
                     job = fetch_job_by_ref(ats_kind, token, job_id)
                     if job and job.get("title") and AI_TITLE_KEYWORDS.search(job["title"]):
@@ -584,13 +602,54 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
                 if _is_negative_host(host):
                     dropped += 1
                     continue
-                if _is_ats_host(host) or _host_matches_company(host, name):
+                if _is_ats_host(host):
+                    found_ats = True
                     urls.append(link)
                     kept += 1
+                elif _host_matches_company(host, name):
+                    urls.append(link)
+                    kept += 1
+                    if own_host is None:
+                        own_host = host
                 else:
                     dropped += 1
-            print(f"    ✓ {name}: {direct} ATS-direct jobs, {kept} URLs to crawl, {dropped} dropped (off-domain)")
-            manifest.append(_manifest_row(name, "serper", domain, kept + direct, direct, "ok"))
+
+            # v14 — own-domain deep job-URL hunt (the A/B-winning "Technique D").
+            # Only when the company has NO ATS board (found_ats is False) but we
+            # DID resolve its own careers host: spend ONE more Serper call to pull
+            # INDIVIDUAL posting URLs off that host (site:<host> job terms). This
+            # is exactly the case the user flagged — most companies don't have a
+            # Greenhouse/Lever/Ashby board, so the broad query only finds their
+            # /careers landing page; this deep step turns that into real per-job
+            # URLs (one role per page → precise hard-filter + LLM extraction).
+            # Bounded: at most one extra call per no-ATS company, capped additions.
+            if not found_ats and own_host:
+                deep_q = (f"site:{own_host} (jobs OR careers OR position OR opening "
+                          f"OR apply OR hiring OR role)")
+                try:
+                    dresp = requests.post(api_url, headers=headers,
+                        data=json.dumps({"q": deep_q, "num": 10}), timeout=15)
+                    dresp.raise_for_status()
+                    seen_here = set(urls)
+                    postings, landings = [], []
+                    for r in dresp.json().get("organic", []):
+                        link = r.get("link", "").strip()
+                        if not link or link in seen_here:
+                            continue
+                        if _is_negative_host(_domain(link)):
+                            continue
+                        (postings if _looks_like_job_posting_url(link) else landings).append(link)
+                    # Prefer individual postings; top up with landing pages to a
+                    # small cap so one company can't flood the crawl list.
+                    for link in (postings + landings)[:8]:
+                        urls.append(link)
+                        deep += 1
+                except Exception:
+                    pass  # deep step is best-effort; the broad-query result stands
+
+            suffix = f", {deep} own-domain job URLs" if deep else ""
+            print(f"    ✓ {name}: {direct} ATS-direct jobs, {kept + deep} URLs to crawl{suffix}, {dropped} dropped")
+            manifest.append(_manifest_row(name, "serper", domain, kept + direct + deep, direct, "ok"))
         except Exception as e:
             print(f"    ⚠️  Serper error ({name}): {e}")
             manifest.append(_manifest_row(name, "serper", domain, 0, 0, f"error: {e}"))
