@@ -117,7 +117,7 @@ def _iso_date(value) -> str:
     if value in (None, ""): return ""
     if isinstance(value, (int, float)):
         secs = value / 1000 if value > 1e12 else value
-        try: return datetime.datetime.utcfromtimestamp(secs).strftime("%Y-%m-%d")
+        try: return datetime.datetime.fromtimestamp(secs, datetime.timezone.utc).strftime("%Y-%m-%d")
         except (OverflowError, OSError, ValueError): return ""
     m = re.match(r"(\d{4}-\d{2}-\d{2})", str(value))
     return m.group(1) if m else ""
@@ -404,7 +404,7 @@ def fetch_ats_jobs(ats_batch: list) -> tuple:
             j["company"] = name
             fp = hashlib.md5(f"{j['title'].lower()}|{name.lower()}".encode()).hexdigest()
             j["_fingerprint"] = fp
-            j["_scraped_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+            j["_scraped_at"] = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z"
             # Tells job_remote.py's prefilter to skip the Serper-week freshness
             # gate — an ATS board lists currently-OPEN roles, not week-old search
             # hits, so "posted 3 weeks ago" doesn't mean stale/unavailable.
@@ -482,6 +482,29 @@ def _core_company_name(name: str) -> str:
     return n if len(n) >= 2 else (name or "").strip()   # never return an empty/degenerate query
 
 
+# Common two-segment ccTLDs/gTLD-suffixes where the REAL brand label is one
+# segment further left than the naive "last dot-pair" (e.g. "sarvam.co.in" ->
+# the brand is "sarvam", not "co").
+_TWO_PART_TLDS = {"co.in", "co.uk", "co.jp", "com.au", "co.nz", "com.br", "co.za"}
+
+
+def _registrable_label(host: str) -> str:
+    """The second-level-domain label of `host` — the segment a company's own
+    brand actually lives in (e.g. "wise" in "wise.com", "sarvam" in
+    "careers.sarvam.ai", "colorado" — not "dpa" — in "dpa.colorado.gov").
+    Handles the common two-part ccTLDs above by stepping one segment further
+    left; falls back to the whole host for a bare single-label host."""
+    h = (host or "").lower().strip(".")
+    parts = [p for p in h.split(".") if p]
+    if not parts:
+        return ""
+    if len(parts) >= 3 and ".".join(parts[-2:]) in _TWO_PART_TLDS:
+        return parts[-3]
+    if len(parts) >= 2:
+        return parts[-2]
+    return parts[0]
+
+
 def _host_matches_company(host: str, name: str) -> bool:
     """Loose check that a URL's host is plausibly the company's OWN domain (as
     opposed to some unrelated site Serper happened to return). Not exact —
@@ -490,10 +513,29 @@ def _host_matches_company(host: str, name: str) -> bool:
     careers-page hit gets dropped, which is why the ATS-host check above and the
     ATS-URL shortcut are tried FIRST. `name` is cleaned via _core_company_name
     first — a decorated legal name's parenthetical/pipe/dash suffix will never
-    appear in a real hostname either, so this is strictly safer, never riskier."""
+    appear in a real hostname either, so this is strictly safer, never riskier.
+
+    v16: bare substring matching (`slug in host_clean`) caused REAL collisions
+    for short registry names, confirmed live — "DPA" (slug "dpa") matched
+    dpa.colorado.gov / dpa.ky.gov / dpamicrophones.com / dpaauctions.com;
+    "DISCO" (slug "disco") matched csdisco.com / disconetwork.com. But a
+    length-based cutoff alone is wrong too — plenty of REAL companies have a
+    short slug that legitimately equals their whole domain label (Wise->
+    wise.com, Deel->deel.com, Canva->canva.com, Toggl->toggl.com, Zyte->
+    zyte.com, Aiven->aiven.io, Wix->wix.com). Fix: for slugs under 6 chars,
+    require an EXACT match against the host's registrable label instead of a
+    substring match anywhere in the host — this rejects the collisions above
+    (their slug is a substring of, but never equal to, the unrelated label)
+    while preserving every real short-slug match. Slugs 6+ chars keep the
+    original substring rule (a longer slug is unlikely to appear as a random
+    host substring by coincidence; sarvamai/careers.sarvam.ai still matches)."""
     slug = _name_slug(_core_company_name(name))
     host_clean = re.sub(r"[^a-z0-9]+", "", (host or "").lower())
-    return len(slug) >= 3 and bool(host_clean) and slug in host_clean
+    if len(slug) < 3 or not host_clean:
+        return False
+    if len(slug) < 6:
+        return slug == _registrable_label(host)
+    return slug in host_clean
 
 
 # v14: a URL that looks like an INDIVIDUAL job posting rather than a bare
@@ -536,26 +578,64 @@ _NONJOB_PATH_RE = re.compile(
 
 _DOC_EXT_RE = re.compile(r"\.(pdf|docx?|pptx?|xlsx?|zip|rar|jpe?g|png|gif|mp4|mp3|csv)(\?|#|$)", re.I)
 
+# v16 — a second real run's crawl log surfaced junk _is_crawlable_job_url v15
+# didn't catch: generic job-aggregator sites the board search never
+# intentionally targets (distinct from TARGET_SITES — naukri/linkedin/wellfound/
+# instahyre/iimjobs/hirist.tech ARE deliberately board-searched and must keep
+# passing), plus non-posting path shapes on the two highest-volume boards that
+# otherwise sail through the generic path filter.
+_AGGREGATOR_HOST_TOKENS = ("builtin", "bebee", "himalayas", "iitjobs", "jobleads",
+                           "mypivot", "6figr", "opentrain.ai", "adzuna")
+
+# More non-job path fragments seen in the same log (team/category/location
+# listing pages, event pages, generic search/profile pages) — kept separate
+# from the v15 _NONJOB_PATH_RE for a clear diff trail, checked the same way.
+_EXTRA_NONJOB_PATH_RE = re.compile(
+    r"/(teams?|team-categor(?:y|ies)|job[\-_]categories|business[\-_]categories|"
+    r"locations?|events?|profile|search)(/|$|\?|#|\.)", re.I)
+
+# Naukri renders both real per-job postings (`/job-listings-<slug>-<id>`) and
+# junk tag/category pages (a bare `/<slug>-jobs` or `/<slug>-jobs-in-<city>`,
+# e.g. naukri.com/python-developer-jobs) on the SAME domain — only the former
+# is an actual posting; the latter is a search-results-style listing page.
+_NAUKRI_TAG_PAGE_RE = re.compile(r"^/[a-z0-9\-]+-jobs(-in-[a-z\-]+)?/?$", re.I)
+
+# LinkedIn is deliberately board-searched (TARGET_SITES), but only
+# /jobs/view/<id> and /jobs/search/ are actual postings — /posts/ (feed posts),
+# /pulse/ (articles), and /company/ (company profile pages) are not jobs and
+# flooded a real run's crawl queue.
+_LINKEDIN_JOB_PATH_RE = re.compile(r"^/jobs/(view|search)(/|$|\?)", re.I)
+
 
 def is_crawlable_job_url(url: str) -> bool:
     """Cheap pre-crawl gate: reject a URL that is obviously NOT a job/careers
     page BEFORE a browser is ever launched on it. Kills social/video/forum
-    hosts, document downloads, and blog/news/about/product/privacy pages — the
-    'crap' that flooded a real run's crawl queue. Deliberately permissive
-    otherwise (a bare company page or a board listing still passes) — this is a
-    junk-remover, not the relevance judge (page_passes_hardfilter, on the real
-    crawled text, still does that). ATS hosts always pass."""
+    hosts, document downloads, aggregator sites, and blog/news/about/product/
+    privacy/team/category/event pages — the 'crap' that flooded a real run's
+    crawl queue. Deliberately permissive otherwise (a bare company page or a
+    board listing still passes) — this is a junk-remover, not the relevance
+    judge (page_passes_hardfilter, on the real crawled text, still does that).
+    ATS hosts always pass (after the site-specific board checks below)."""
     if not url or not url.lower().startswith(("http://", "https://")):
         return False
     host = _domain(url).lower()
     if any(tok in host for tok in _NONJOB_HOST_TOKENS):
         return False
+    if any(tok in host for tok in _AGGREGATOR_HOST_TOKENS):
+        return False
     if _DOC_EXT_RE.search(url):
         return False
+    path = urlparse(url).path or ""
+    # Naukri/LinkedIn get their own early-return decision — bypassing the
+    # generic path checks below matters: LinkedIn's legitimate "/jobs/search/"
+    # path would otherwise collide with the generic "/search" rejection.
+    if "naukri.com" in host:
+        return not _NAUKRI_TAG_PAGE_RE.match(path)
+    if "linkedin.com" in host:
+        return bool(_LINKEDIN_JOB_PATH_RE.match(path))
     if _is_ats_host(host):
         return True
-    path = urlparse(url).path or ""
-    if _NONJOB_PATH_RE.search(path):
+    if _NONJOB_PATH_RE.search(path) or _EXTRA_NONJOB_PATH_RE.search(path):
         return False
     return True
 
@@ -639,7 +719,7 @@ def serper_careers_urls(serper_batch: list, serper_api_key: str) -> tuple:
                     if job and job.get("title") and AI_TITLE_KEYWORDS.search(job["title"]):
                         job["company"] = name
                         job["_fingerprint"] = hashlib.md5(f"{job['title'].lower()}|{name.lower()}".encode()).hexdigest()
-                        job["_scraped_at"] = datetime.datetime.utcnow().isoformat() + "Z"
+                        job["_scraped_at"] = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z"
                         job["_source"] = "ats_direct"   # skip freshness gate, same as batch ATS jobs
                         job["source"] = "careers"        # v12-E manifest/report label
                         direct_jobs.append(job)
@@ -883,6 +963,8 @@ def page_passes_hardfilter(markdown: str, profile: dict, home_pattern=None) -> t
     text = (markdown or "").strip()
     if len(text) < 200:
         return False, "thin/empty page (<200 chars)"
+    if req.is_dead_posting(text):
+        return False, "dead/expired posting (job no longer available)"
     # Best-effort "title" = first non-empty line (Crawl4AI markdown usually opens
     # with the page's H1) — used ONLY for the cheap seniority-in-title check. A
     # miss here never falsely rejects: classify_seniority just returns None and

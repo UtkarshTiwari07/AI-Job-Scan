@@ -133,27 +133,14 @@ DIRECT_COMPANY_PAGES = [
     "site:zepto.team",
 ]
 
-# Group 2: Big MNC career portals (for Serper C2 cluster)
-MNC_CAREER_PAGES = [
-    "site:careers.microsoft.com",
-    "site:adobe.com/careers",
-    "site:atlassian.com/company/careers",
-    "site:salesforce.com/company/careers",
-    "site:oracle.com/careers",
-    "site:sap.com/careers",
-    "site:cisco.com/c/en/us/about/careers",
-    "site:ibm.com/employment",
-    "site:amazon.jobs",
-    "site:nvidia.com/en-us/about-nvidia/careers",
-    "site:databricks.com/company/careers",
-    "site:stripe.com/jobs",
-    "site:hubspot.com/careers",
-    "site:workday.com/en-us/company/careers",
-    "site:mongodb.com/careers",
-    "site:elastic.co/careers",
-    "site:hasura.io/careers",
-    "site:freshworks.com/company/careers",
-]
+# NOTE: the old "Group 2" MNC_CAREER_PAGES / cluster C2 (18 per-site Serper
+# calls) was REMOVED in v16 — a live-run audit showed 12/18 site queries
+# returned zero hits, the other 6 contributed exactly 0 of the run's reported
+# matches (all rejected downstream), and every one of these MNC career portals
+# is already covered for free via DIRECT_COMPANY_URLS below (Microsoft, Google,
+# Databricks, Salesforce, Stripe, Atlassian, Oracle, Freshworks, Adobe, IBM,
+# Nvidia, SAP, Cisco, SmartRecruiters). Deleting it cuts Phase 1's fixed,
+# --companies-independent Serper cost from 53 calls/run to ~35.
 
 # ── DIRECT ATS URL injection ────────────────────────────────────
 # These bypass Serper entirely. Each URL is a pre-filtered search on a company’s
@@ -224,14 +211,16 @@ WELLFOUND_DIRECT_URLS = [
     "https://wellfound.com/jobs?q=generative+AI&l=India",
 ]
 
-# ── Naukri direct URLs ────────────────────────────────────────────
-NAUKRI_DIRECT_URLS = [
-    "https://www.naukri.com/llm-engineer-jobs-in-india",
-    "https://www.naukri.com/ai-engineer-jobs-in-india?experience=0",
-    "https://www.naukri.com/generative-ai-engineer-jobs",
-]
+# NOTE: a NAUKRI_DIRECT_URLS list (3 tag/category pages, e.g.
+# "naukri.com/llm-engineer-jobs-in-india") was REMOVED in v16 — same defect
+# that got cutshort.io removed in v11: these are category-LISTING pages, not
+# single postings, so Crawl4AI would scrape every visible (often unrelated)
+# job on the page. companies.is_crawlable_job_url() now rejects this exact
+# Naukri URL shape (bare "/<role>-jobs" / "/<role>-jobs-in-<city>") for ANY
+# Naukri URL surfaced by search too — real per-job Naukri postings
+# ("/job-listings-<slug>-<id>") are unaffected and still pass.
 
-# ── 8 Serper query clusters ───────────────────────────────────────
+# ── 7 Serper query clusters (v16: was 8, C2 deleted — see note above) ──
 QUERY_CLUSTERS = [
     # ── GROUP A: Site-restricted (board-targeted) ────────────────
     {
@@ -305,26 +294,19 @@ QUERY_CLUSTERS = [
         "broad": True,
     },
     # ── GROUP C: Direct company pages (India AI startups) ─────────────
+    # v16: broadened from a compound "(role terms) AND (junior terms) AND
+    # India" query to the v13-proven "(careers OR jobs OR hiring)" pattern —
+    # the same live A/B testing that fixed serper_careers_urls() in
+    # companies.py showed a compound query suppresses recall so hard it misses
+    # the company's real careers page entirely. These are 12 companies not
+    # covered by any other cluster or direct-URL injection, so it's worth
+    # actually finding their board; page_passes_hardfilter() re-checks
+    # AI-relevance/experience/geo for real once the page is crawled.
     {
         "name": "C1 — India AI Startup Career Pages",
-        "terms": (
-            '"AI engineer" OR "software engineer" OR "backend engineer" OR "founding engineer" '
-            'India ("junior" OR "0-2 years" OR "entry" OR "fresher" OR "new grad")'
-        ),
+        "terms": '(careers OR jobs OR hiring)',
         "num": 10,
         "sites": DIRECT_COMPANY_PAGES,
-        "broad": False,
-        "sites_preformatted": True,
-    },
-    # ── GROUP C2: MNC career portals ────────────────────────────────
-    {
-        "name": "C2 — Big MNC Career Portals India",
-        "terms": (
-            '("AI engineer" OR "ML engineer" OR "machine learning" OR "LLM" OR '
-            '"generative AI" OR "AI software engineer") India'
-        ),
-        "num": 10,
-        "sites": MNC_CAREER_PAGES,
         "broad": False,
         "sites_preformatted": True,
     },
@@ -410,7 +392,7 @@ def load_seen_fingerprints() -> dict:
     try:
         with open(SEEN_FP_FILE) as f:
             data = json.load(f)
-        cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=7)).isoformat()
+        cutoff = (datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - datetime.timedelta(days=7)).isoformat()
         return {fp: ts for fp, ts in data.items() if ts >= cutoff}
     except Exception:
         return {}
@@ -495,8 +477,8 @@ def search_for_jobs() -> List[str]:
                     print(f"     ⚠️ Serper error ({site}): {e}")
 
     # ── Direct URL injection ───────────────────────────────────
-    all_direct = LINKEDIN_DIRECT_URLS + WELLFOUND_DIRECT_URLS + NAUKRI_DIRECT_URLS + DIRECT_COMPANY_URLS
-    print(f"\n  🔗 Injecting {len(all_direct)} direct URLs (LinkedIn + Wellfound + Naukri + MNC portals)...")
+    all_direct = LINKEDIN_DIRECT_URLS + WELLFOUND_DIRECT_URLS + DIRECT_COMPANY_URLS
+    print(f"\n  🔗 Injecting {len(all_direct)} direct URLs (LinkedIn + Wellfound + MNC portals)...")
     for url in all_direct:
         if url not in seen_urls:
             seen_urls.add(url)
@@ -552,7 +534,7 @@ async def scrape_and_hardfilter(url_sources: dict, raw_ndjson_path: str) -> tupl
             "posted_date": "", "location_text": "", "is_remote": None, "job_type": "",
             "pay_text": "", "experience_text": "", "description": md,
             "_fingerprint": hashlib.md5(url.encode()).hexdigest(),
-            "_scraped_at": datetime.datetime.utcnow().isoformat() + "Z",
+            "_scraped_at": datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z",
             "source": url_sources.get(url, "board"), "_kind": "scraped",
         }
         with open(raw_ndjson_path, "a") as f:
@@ -654,7 +636,7 @@ def parse_age_days(posted_date: str) -> Optional[int]:
     for slen, fmt in iso_formats:
         try:
             dt = datetime.datetime.strptime(posted_date[:slen].replace("Z",""), fmt.replace("Z",""))
-            return max((datetime.datetime.utcnow() - dt).days, 0)
+            return max((datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None) - dt).days, 0)
         except ValueError:
             continue
     if any(w in txt for w in ["just", "today", "now", "moment"]):
@@ -667,7 +649,7 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
     candidates: List[dict] = []
     rejected:   List[dict] = []
     session_seen: Set[str] = set()
-    now_iso = datetime.datetime.utcnow().isoformat() + "Z"
+    now_iso = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z"
 
     for job in jobs:
         title        = (job.get("title") or "").strip()
@@ -1107,7 +1089,7 @@ async def main(dry_run: bool = False, resume: bool = False):
         for j in raw_jobs:
             if "_fingerprint" not in j:
                 j["_fingerprint"] = hashlib.md5(f"{j['title'].lower()}|{j['company'].lower()}".encode()).hexdigest()
-                j["_scraped_at"]  = datetime.datetime.utcnow().isoformat() + "Z"
+                j["_scraped_at"]  = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None).isoformat() + "Z"
     elif resume:
         ck = _load_checkpoint()
         if not ck:

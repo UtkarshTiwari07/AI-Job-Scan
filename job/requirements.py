@@ -218,6 +218,42 @@ def geo_ok(location_text: str, description: str, profile: dict = None, home_patt
     return None  # ambiguous — no confident signal either way; let the LLM read the full JD
 
 
+# v16 — dead/expired-posting detector. Live-run evidence: a druthire.com
+# careers URL resolved to a plain "Job Not Found" page for THREE different
+# postings in one run (9, 11, 13) — each one still got crawled, passed the
+# thin-page/AI-relevance/YOE/geo gates (the boilerplate "Job Not Found" page
+# text is short but not <200 chars, and mentions nothing that trips the other
+# gates), and was sent to the LLM to evaluate a job that no longer exists.
+# Checked BEFORE any other gate in page_passes_hardfilter — a dead page has
+# nothing worth extracting regardless of what else it might contain.
+_DEAD_POSTING_RE = re.compile(
+    r"\bjob\s+(?:posting\s+)?not\s+found\b|"
+    r"\b(?:job|position|posting|listing)\s+(?:has\s+)?expired\b|"
+    r"\bposting\s+has\s+expired\b|"
+    r"\bthis\s+(?:job|position|posting|listing|vacancy)\s+(?:is\s+)?no\s+longer\s+"
+    r"(?:available|active|open|accepting\s+applications)\b|"
+    r"\bno\s+longer\s+accepting\s+applications\b|"
+    r"\bposition\s+has\s+(?:already\s+)?been\s+filled\b|"
+    r"\bvacancy\s+has\s+been\s+filled\b|"
+    r"\bthis\s+position\s+is\s+(?:closed|no\s+longer\s+open)\b|"
+    r"\bapplications?\s+(?:are|is)\s+(?:now\s+)?closed\b|"
+    r"\bjob\s+has\s+been\s+closed\b|"
+    r"\b404\s*[\-–:]?\s*(?:error|page\s+not\s+found)\b|"
+    r"\berror\s+404\b|"
+    r"\bpage\s+not\s+found\b",
+    re.IGNORECASE,
+)
+
+
+def is_dead_posting(text: str) -> bool:
+    """True if `text` (a crawled page or job description) IS a dead/expired-
+    posting notice rather than a real listing — 'Job Not Found', 'no longer
+    accepting applications', 'position has been filled', a bare 404, etc.
+    Deliberately phrase-anchored (not a bare '404') to avoid false-positiving
+    on unrelated numeric content."""
+    return bool(_DEAD_POSTING_RE.search(text or ""))
+
+
 # v14 — remote-first ordering. india_mnc accepts India-accessible AND
 # worldwide-remote roles (see geo_ok); the user wants the ones they can do from
 # ANYWHERE (or remote-from-India) shown FIRST, above hybrid/onsite India. This
