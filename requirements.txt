@@ -14,3 +14,11 @@ PyYAML>=6.0            # job/companies_remote.yaml (200-company ATS/Serper regis
 # Crawl4AI for every URL. Only helps server-rendered pages — not a Crawl4AI
 # replacement, a first-pass supplement.
 scrapling[fetchers]>=0.4
+
+# v18 — the PRIMARY keyword-role source for job_india_mnc.py. python-jobspy
+# hits Indeed / LinkedIn / Google Jobs (and more) through structured endpoints
+# and returns FULL job descriptions with NO browser crawl, fixing the crawl
+# bottleneck (LinkedIn 429s, Wellfound/Naukri/Sarvam JS shells) that lost ~90%
+# of real matches. Import is guarded (job/jobspy_source.py); without it Phase 1
+# prints a loud warning and the run falls back to ATS-only.
+python-jobspy>=1.1.80
