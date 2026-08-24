@@ -1,36 +1,37 @@
 """
-Autonomous India MNC Job Search Agent — v12
+Autonomous India MNC Job Search Agent — v18
 ============================================
-Phase 0: Company source — ATS-direct fetch (full JD) + Serper-careers, from the
-         593-company India registry (93 ats: + 500 serper:, job/companies.py,
-         mode="india"). Serper-careers now searches each company's OWN careers
-         page (with -site: negatives for linkedin/naukri/glassdoor/ambitionbox/
-         indeed/wellfound — those are covered by Phase 1's board search
-         instead) and takes an ATS-URL shortcut when a hit is itself a
-         Greenhouse/Lever/Ashby/Workable per-job link (full JD, no crawl).
-Phase 1: Serper.dev multi-cluster search — per-site AND broad free-text
-         + direct LinkedIn Jobs URL injection
-         (qdr:w = last week in Serper, Phase 3 enforces 3-day freshness)
-Phase 2: Crawl4AI markdown-only scrape (v12 — NO LLMExtractionStrategy; v10/v11
-         fired >=1 DeepSeek call per URL BEFORE any relevance check, wasting
-         >90% of LLM spend on pages that were off-stack/senior/foreign-onsite
-         anyway). Every crawled page is hard-filtered against
-         job/requirements.py's deterministic gates on its raw markdown, for $0,
-         BEFORE it ever becomes a candidate — only survivors proceed.
-Phase 3: Deterministic pre-filter (job/requirements.py's shared gates — years of
-         experience read from the FULL description, not just experience_text;
-         profile-driven education ceiling; expanded seniority regex; geo_ok's
-         India-or-worldwide-remote policy, which also catches ATS/career jobs
-         that are onsite in a country that isn't India)
-Phase 4: DeepSeek V3 evaluation + cover letter drafting — the ONLY LLM call in
-         the whole pipeline now; also does the structured extraction (title/
-         company) for markdown-sourced candidates that arrive with those fields
-         blank, in the same pass.
+Two API-based sources, both returning FULL job descriptions with NO browser
+crawl (the crawl was the bottleneck: LinkedIn 429s, Wellfound/Naukri/Sarvam are
+JS shells, so ~90% of real matches used to vanish into unverified_urls):
+
+Phase 0: ATS companies — the 93 live-verified AI companies in companies_india.yaml
+         (Greenhouse/Lever/Ashby/Workable), fetched directly via their JSON APIs
+         (full JD, 0 Serper credits). Mostly global remote-first firms; their
+         worldwide-remote roles are in scope for India. (The 506 non-AI "NCR"
+         serper: companies were PURGED in v18 — see companies_india.yaml.)
+Phase 1: JobSpy keyword-role search (THE PRIMARY SOURCE) — python-jobspy hits
+         Indeed / LinkedIn / Google Jobs through structured endpoints for each
+         role term ("AI Engineer", "ML Engineer", "LLM Engineer", "Generative AI
+         Engineer", "Data Scientist", "Forward Deployed Engineer") in India,
+         returning full descriptions with no crawl. This is the "search the role
+         by keyword and actually get results" path. hours_old bounds recency.
+Phase 2: Crawl4AI markdown scrape — now a NARROW fallback only, for the rare
+         serper: career-page URL (normally none, since serper: is empty). Both
+         sources above skip it entirely. Hard-filtered on raw markdown for $0.
+Phase 3: Deterministic pre-filter (job/requirements.py's shared gates — YOE from
+         the FULL description, seniority, geo_ok's India-or-worldwide-remote
+         policy, dead-posting + is-this-a-real-posting gates). JobSpy + ATS jobs
+         skip the site-allowlist and freshness reject (recency handled upstream).
+Phase 4: DeepSeek V3 evaluation + cover-letter drafting — the ONLY LLM call.
 
 Run:
   python job/job_india_mnc.py           # full run — prompts for company count
   python job/job_india_mnc.py --companies 20
   python job/job_india_mnc.py --dry-run # test filters, no API calls
+
+Requires python-jobspy for Phase 1 (pip install -r requirements.txt). If it's
+missing, Phase 1 prints a loud warning and the run falls back to ATS-only.
 """
 
 import asyncio
@@ -58,6 +59,13 @@ except ImportError as e:
     companies = None
     print(f"  ⚠️  job/companies.py unavailable ({e}) — the India ATS company "
           f"source is skipped this run. `pip install -r requirements.txt` to enable it.")
+
+try:
+    import jobspy_source
+except ImportError as e:
+    jobspy_source = None
+    print(f"  ⚠️  job/jobspy_source.py unavailable ({e}) — the PRIMARY keyword-search "
+          f"source is skipped this run.")
 
 import candidate_profile as prof
 import requirements as req
@@ -384,6 +392,56 @@ TITLE_REJECT_PATTERNS = re.compile(
 # file's years-list had "3+ years", etc). MAX_POSTING_AGE_DAYS unchanged.
 MAX_POSTING_AGE_DAYS = 3   # 3-day window (qdr:w in Serper + Phase 3 enforcement)
 
+# ── JobSpy keyword-role searches (v18 — the PRIMARY source) ──────────
+# The user's core ask: search the ROLE ("AI Engineer", "ML Engineer", …) by
+# keyword and actually get readable results. python-jobspy hits Indeed /
+# LinkedIn / Google Jobs / Naukri through structured endpoints and returns the
+# FULL job description with NO browser crawl — so these jobs are evaluable
+# where the crawl-based ones weren't (LinkedIn 429, Wellfound/Naukri/Sarvam JS
+# shells). Each entry maps to one jobspy.scrape_jobs() call. Kept deliberately
+# small (recall x cost): ~6 role terms x a couple of geos x the 3 boards that
+# work best. hours_old bounds recency at fetch (prefilter skips the 3-day gate
+# for jobspy jobs since this already handles it). Tune freely — this is the
+# lever for "search different roles / boards / locations".
+JOBSPY_ROLE_TERMS = [
+    "AI Engineer", "Machine Learning Engineer", "LLM Engineer",
+    "Generative AI Engineer", "Data Scientist", "Forward Deployed Engineer",
+]
+JOBSPY_HOURS_OLD = 168   # 7 days — India board volume is thin; too tight starves recall
+JOBSPY_RESULTS_WANTED = 25
+
+def _build_jobspy_searches() -> list:
+    """One search per (role term). Indeed+LinkedIn share a call (same schema);
+    Google Jobs takes a natural-language google_search_term. India-located AND
+    remote are both in scope (india_mnc accepts India OR worldwide-remote), so
+    each role is searched once for India and Google is asked for India jobs —
+    remote-worldwide roles surface naturally in the India/LinkedIn results and
+    are kept by the geo gate downstream."""
+    searches = []
+    for term in JOBSPY_ROLE_TERMS:
+        searches.append({
+            "sites": ["indeed", "linkedin"],
+            "search_term": term,
+            "location": "India",
+            "country_indeed": "India",
+            "results_wanted": JOBSPY_RESULTS_WANTED,
+            "hours_old": JOBSPY_HOURS_OLD,
+            # LinkedIn returns cards with EMPTY descriptions unless this is set
+            # (verified live: jd_len=0 without it → every LinkedIn job would be
+            # dropped by the thin-JD gate). It costs one extra detail request per
+            # LinkedIn job, but it's JobSpy's structured fetch, not our headless
+            # crawl — the crawl is exactly what used to 429 on every LinkedIn URL.
+            "linkedin_fetch_description": True,
+        })
+        searches.append({
+            "sites": ["google"],
+            "search_term": term,
+            "google_search_term": f"{term} jobs in India since last week",
+            "results_wanted": JOBSPY_RESULTS_WANTED,
+            "hours_old": JOBSPY_HOURS_OLD,
+        })
+    return searches
+
 
 # ══════════════════════════════════════════════════════════════════
 # CROSS-RUN DEDUP
@@ -701,7 +759,13 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         #    "evilnaukri.com" or "fake-linkedin.com" pass — endswith("naukri.com")
         #    is true for either. Must require a dot (or exact match) before the
         #    allowed suffix, matching job_freelance.py's already-correct pattern.
-        if (site and job.get("_source") != "ats_direct" and job.get("source") != "careers"
+        #    v18: ALSO skipped for _source="jobspy" — JobSpy jobs come from
+        #    Indeed/Google (never on this hardcoded allowlist) but are trusted:
+        #    they arrive with a full, board-fetched description, and their
+        #    reported url is the company's own apply page when JobSpy resolved
+        #    it. Gating them on the fixed allowlist would reject the entire
+        #    primary source.
+        if (site and job.get("_source") not in ("ats_direct", "jobspy") and job.get("source") != "careers"
                 and not any(site == allowed or site.endswith("." + allowed) for allowed in SITE_ALLOWLIST)):
             reject(f"Not-allowlisted site: {site}"); continue
 
@@ -719,7 +783,11 @@ def prefilter(jobs: List[dict], cross_run_seen: dict) -> tuple[List[dict], List[
         # a Greenhouse/Lever/Ashby board lists every CURRENTLY OPEN role regardless
         # of its original post date — a live posting from 3 weeks ago is still a
         # real, applicable job, not a stale one (same fix as job_remote.py).
-        if job.get("_source") != "ats_direct":
+        # v18: ALSO skipped for _source="jobspy" — recency is bounded at fetch
+        # time by JobSpy's hours_old param (JOBSPY_HOURS_OLD), and JobSpy's
+        # date_posted is inconsistent across boards; re-parsing it here would
+        # drop good, recent jobs on a date-format quirk.
+        if job.get("_source") not in ("ats_direct", "jobspy"):
             age = parse_age_days(job.get("posted_date", ""))
             if age is None:
                 job["freshness_unknown"] = True
@@ -1169,9 +1237,33 @@ async def main(dry_run: bool = False, resume: bool = False):
         else:
             print("\n🏢 PHASE 0 — job/companies.py unavailable; skipping the company source.")
 
-        # PHASE 1 board search + career-page URLs → the crawl queue.
-        url_sources = {u: "board" for u in search_for_jobs()}
-        url_sources.update({u: "careers" for u in career_crawl_urls})
+        # PHASE 1 — JobSpy keyword-role search (v18: the PRIMARY source).
+        # Full job descriptions via structured board endpoints, NO browser
+        # crawl — so these are evaluated directly, unlike the old Serper board
+        # search whose LinkedIn/Wellfound/Naukri results all failed to crawl
+        # (429 / JS shell) and vanished into unverified_urls. This IS the
+        # "search the AI-engineer role by keyword and get results" the user
+        # asked for. Cost: ~0 Serper credits (JobSpy is a separate scraper).
+        if jobspy_source:
+            print("\n🔍 PHASE 1 — JobSpy keyword-role search "
+                  "(Indeed/LinkedIn/Google · full JD · no crawl)")
+            jobspy_jobs, jobspy_err = jobspy_source.fetch_jobspy(_build_jobspy_searches())
+            if jobspy_err:
+                print(f"  ⚠️  {jobspy_err}")
+            else:
+                print(f"  ✓ JobSpy returned {len(jobspy_jobs)} jobs with full "
+                      f"descriptions — evaluated directly, no crawl needed")
+            structured_jobs.extend(jobspy_jobs)
+        else:
+            print("\n🔍 PHASE 1 — jobspy_source unavailable; keyword search skipped this run.")
+
+        # The Serper board QUERY_CLUSTERS + direct-URL injection (search_for_jobs)
+        # is INTENTIONALLY no longer called in v18: JobSpy replaces that keyword
+        # search with full JDs and zero crawl-failures at ~0 Serper cost, and the
+        # old path's LinkedIn/Wellfound/Naukri results were unreadable anyway.
+        # Only career-page crawl URLs remain (from serper: registry companies —
+        # purged to [] in v18, so normally empty; kept wired for future use).
+        url_sources = {u: "careers" for u in career_crawl_urls}
 
         # Persist structured jobs to raw_ndjson NOW (tagged _kind='structured'),
         # BEFORE crawling — so they survive an interrupted crawl and --resume

@@ -693,6 +693,68 @@ check("hardfilter: a corporate homepage (no job-posting language) rejected befor
 
 
 # ══════════════════════════════════════════════════════════════════
+# v18 — jobspy_source._row_to_job(): the PRIMARY keyword-search normalizer.
+# JobSpy returns a uniform DataFrame; a dict supports .get() the same way a
+# pandas row does, so these rows exercise the real normalizer without pandas.
+# ══════════════════════════════════════════════════════════════════
+
+import jobspy_source as js
+
+_row_direct = {   # Indeed-style row WITH a company direct URL + full JD
+    "title": "AI Engineer", "company": "Acme AI", "location": "Bengaluru, India",
+    "description": "Build LLM/RAG pipelines. Requirements: 1-2 years experience.",
+    "site": "indeed", "job_url": "https://indeed.com/viewjob?jk=1",
+    "job_url_direct": "https://acme.ai/careers/ai-engineer",
+    "date_posted": "2026-08-20", "is_remote": False,
+    "min_amount": 1500000, "max_amount": 2500000, "currency": "INR", "job_type": "fulltime",
+}
+_row_linkedin = {  # LinkedIn-style row, NO direct URL (NaN) -> board url kept
+    "title": "LLM Engineer", "company": "Beta Labs", "location": "Remote, India",
+    "description": "RAG, LangChain, FastAPI. Apply now.", "site": "linkedin",
+    "job_url": "https://linkedin.com/jobs/view/999", "job_url_direct": float("nan"),
+    "date_posted": None, "is_remote": True,
+    "min_amount": None, "max_amount": None, "currency": None,
+}
+_j_direct = js._row_to_job(_row_direct, co)
+_j_li = js._row_to_job(_row_linkedin, co)
+
+check("jobspy: prefers job_url_direct (company's own apply page) over the board URL",
+     _j_direct["url"] == "https://acme.ai/careers/ai-engineer")
+check("jobspy: keeps the full description verbatim (no crawl, nothing fabricated)",
+     _j_direct["description"].startswith("Build LLM/RAG pipelines"))
+check("jobspy: tags source=jobspy_<site> for the per-board source_mix",
+     _j_direct["source"] == "jobspy_indeed")
+check("jobspy: tags _source='jobspy' so prefilter skips site-allowlist + freshness",
+     _j_direct["_source"] == "jobspy")
+check("jobspy: maps salary into pay_text",
+     "INR" in _j_direct["pay_text"])
+check("jobspy: falls back to the board URL when no direct URL (NaN-safe)",
+     _j_li["url"] == "https://linkedin.com/jobs/view/999")
+check("jobspy: carries is_remote through",
+     _j_li["is_remote"] is True)
+check("jobspy: a row with no title is dropped (None)",
+     js._row_to_job({"title": "", "job_url": "https://x.com/j/1"}, co) is None)
+check("jobspy: a row with no usable URL is dropped (None)",
+     js._row_to_job({"title": "AI Engineer", "job_url": "", "job_url_direct": None}, co) is None)
+# fetch_jobspy with an EMPTY search list touches no network. It returns an
+# empty job list either way; error is None when python-jobspy is installed, or
+# the loud 'not installed' message when it isn't — assert robustly across both
+# so the test isn't environment-dependent. (Live board coverage — real Indeed/
+# LinkedIn jobs with full JDs — was confirmed by this session's sandbox smoke
+# test and is re-verified on the user's machine.)
+_fj_jobs, _fj_err = js.fetch_jobspy([])
+check("jobspy: fetch_jobspy([]) returns no jobs and no network call",
+     _fj_jobs == [] and (_fj_err is None or "not installed" in _fj_err))
+
+# A jobspy job must survive the prefilter's site-allowlist (its site 'indeed'
+# is NOT on the hardcoded allowlist — it's admitted only via the _source tag).
+import job_india_mnc as _jm
+_cands, _rej = _jm.prefilter([dict(_j_direct, _fingerprint="jf1")], {})
+check("jobspy: an Indeed job is NOT rejected by the site-allowlist (admitted via _source tag)",
+     any(c.get("_fingerprint") == "jf1" for c in _cands))
+
+
+# ══════════════════════════════════════════════════════════════════
 
 print(f"\n{'='*60}")
 print(f"TOTAL: {len(PASS)} passed, {len(FAIL)} failed")
